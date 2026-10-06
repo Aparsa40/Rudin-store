@@ -78,7 +78,7 @@ export const Account: React.FC = () => {
   useEffect(() => {
     if (user) {
       ordersService.getOrders(user.id).then(setOrders);
-      authService.getAddresses().then(setAddresses);
+      authService.getAddresses(user.id).then(setAddresses);
     }
   }, [user]);
 
