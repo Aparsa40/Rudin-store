@@ -21,7 +21,7 @@ const getStoredAddresses = (userId?: string): Address[] => {
     // Ignore malformed local storage and fall back to demo data.
   }
 
-  return userId ? addresses.filter((address) => address.userId === userId) : addresses;
+  return userId !== undefined ? addresses.filter((address) => address.userId === userId) : addresses;
 };
 
 export const authService = {
