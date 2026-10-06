@@ -11,14 +11,17 @@ const getStoredUser = (): User => {
   return mockCurrentUser;
 };
 
-const getStoredAddresses = (): Address[] => {
+const getStoredAddresses = (userId?: string): Address[] => {
+  let addresses: Address[] = mockAddresses;
+
   try {
     const data = localStorage.getItem('rudin_addresses');
-    if (data) return JSON.parse(data);
+    if (data) addresses = JSON.parse(data) as Address[];
   } catch (e) {
-    // Ignore
+    // Ignore malformed local storage and fall back to demo data.
   }
-  return mockAddresses;
+
+  return userId ? addresses.filter((address) => address.userId === userId) : addresses;
 };
 
 export const authService = {
@@ -78,14 +81,14 @@ export const authService = {
     return updated;
   },
 
-  getAddresses: async (): Promise<Address[]> => {
+  getAddresses: async (userId?: string): Promise<Address[]> => {
     await new Promise((resolve) => setTimeout(resolve, 100));
-    return getStoredAddresses();
+    return getStoredAddresses(userId);
   },
 
   saveAddress: async (address: Omit<Address, 'id'> & { id?: string }): Promise<Address> => {
     await new Promise((resolve) => setTimeout(resolve, 150));
-    const current = getStoredAddresses();
+    const current = getStoredAddresses(getStoredUser().id);
     let saved: Address;
 
     if (address.id) {
@@ -111,7 +114,13 @@ export const authService = {
 
   deleteAddress: async (addressId: string): Promise<void> => {
     await new Promise((resolve) => setTimeout(resolve, 100));
-    const current = getStoredAddresses().filter((a) => a.id !== addressId);
-    localStorage.setItem('rudin_addresses', JSON.stringify(current));
+    const currentUser = getStoredUser();
+    const allAddresses = getStoredAddresses();
+    const target = allAddresses.find((address) => address.id === addressId);
+
+    if (!target || target.userId !== currentUser.id) return;
+
+    const updated = allAddresses.filter((address) => address.id !== addressId);
+    localStorage.setItem('rudin_addresses', JSON.stringify(updated));
   },
 };
