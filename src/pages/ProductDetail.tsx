@@ -265,12 +265,12 @@ export const ProductDetail: React.FC = () => {
         <div className="lg:col-span-7 flex flex-col-reverse md:flex-row gap-4">
           {/* Thumbnails */}
           {product.images.length > 1 && (
-            <div className="flex md:flex-col gap-3 overflow-x-auto md:w-20 flex-shrink-0 no-scrollbar">
+            <div className="flex md:flex-col gap-3 overflow-x-auto md:w-20 shrink-0 no-scrollbar">
               {product.images.map((img, idx) => (
                 <button
                   key={img.id}
                   onClick={() => setSelectedImageIdx(idx)}
-                  className={`w-18 h-18 rounded-2xl overflow-hidden border-2 flex-shrink-0 transition-all ${
+                  className={`w-18 h-18 rounded-2xl overflow-hidden border-2 shrink-0 transition-all ${
                     selectedImageIdx === idx
                       ? 'border-slate-900 shadow-md scale-95'
                       : 'border-transparent opacity-70 hover:opacity-100'
@@ -513,7 +513,7 @@ export const ProductDetail: React.FC = () => {
                   className="w-16 h-16 rounded-xl object-cover border border-slate-200"
                 />
                 <div>
-                  <p className="text-xs font-bold text-slate-900 line-clamp-1 max-w-[180px]">
+                  <p className="text-xs font-bold text-slate-900 line-clamp-1 max-w-45">
                     {product.title}
                   </p>
                   <p className="text-xs font-extrabold text-slate-900">${price.toFixed(2)}</p>
@@ -539,7 +539,7 @@ export const ProductDetail: React.FC = () => {
                       className="w-12 h-12 rounded-lg object-cover"
                     />
                     <div>
-                      <p className="text-xs font-bold text-slate-900 line-clamp-1 max-w-[160px]">
+                      <p className="text-xs font-bold text-slate-900 line-clamp-1 max-w-40">
                         {item.title}
                       </p>
                       <p className="text-xs text-slate-600 font-semibold">
@@ -646,7 +646,7 @@ export const ProductDetail: React.FC = () => {
                 <ul className="space-y-2">
                   {product.features.map((feature, idx) => (
                     <li key={idx} className="flex items-start gap-2.5 text-xs text-slate-700">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                       <span>{feature}</span>
                     </li>
                   ))}

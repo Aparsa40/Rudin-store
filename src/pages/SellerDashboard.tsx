@@ -107,7 +107,7 @@ export const SellerDashboard: React.FC = () => {
   return (
     <div className="flex flex-col lg:flex-row min-h-[calc(100vh-80px)] bg-slate-50">
       {/* Seller Portal Sidebar */}
-      <aside className="w-full lg:w-64 bg-slate-900 text-slate-300 p-6 flex flex-col justify-between flex-shrink-0">
+      <aside className="w-full lg:w-64 bg-slate-900 text-slate-300 p-6 flex flex-col justify-between shrink-0">
         <div className="space-y-6">
           <div className="flex items-center gap-3 pb-6 border-b border-slate-800">
             <img
@@ -370,7 +370,7 @@ export const SellerDashboard: React.FC = () => {
                           <img
                             src={p.images[0]?.url}
                             alt=""
-                            className="w-12 h-12 rounded-xl object-cover bg-slate-100 flex-shrink-0"
+                            className="w-12 h-12 rounded-xl object-cover bg-slate-100 shrink-0"
                           />
                           <div>
                             <p className="font-bold text-slate-900 text-sm leading-snug">

@@ -501,7 +501,7 @@ export const Shop: React.FC = () => {
       {/* Main Layout: Filters Sidebar + Products Grid */}
       <div className="flex gap-8">
         {/* Desktop Filter Sidebar */}
-        <aside className="w-64 flex-shrink-0 hidden lg:block">
+        <aside className="w-64 shrink-0 hidden lg:block">
           <div className="bg-white border border-slate-200 rounded-2xl p-5 sticky top-24 shadow-sm">
             {FilterControls}
           </div>

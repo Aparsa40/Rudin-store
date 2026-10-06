@@ -72,7 +72,7 @@ export const QuickViewModal: React.FC = () => {
                 <button
                   key={img.id}
                   onClick={() => setSelectedImageIdx(idx)}
-                  className={`w-16 h-16 rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all ${
+                  className={`w-16 h-16 rounded-xl overflow-hidden border-2 shrink-0 transition-all ${
                     selectedImageIdx === idx
                       ? 'border-slate-900 shadow-md scale-95'
                       : 'border-transparent opacity-70 hover:opacity-100'
