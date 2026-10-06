@@ -67,7 +67,7 @@ export const Checkout: React.FC = () => {
 
   useEffect(() => {
     let active = true;
-    Promise.all([cartService.resolveCartItems(items), authService.getAddresses(user?.id)]).then(
+    Promise.all([cartService.resolveCartItems(items), authService.getAddresses(user?.id ?? '')]).then(
       ([resItems, addresses]) => {
         if (active) {
           setResolvedItems(resItems);
@@ -152,7 +152,12 @@ export const Checkout: React.FC = () => {
       clearCart();
       setIsProcessing(false);
       setStep(4);
-      addToast('Order successfully confirmed!', 'success');
+      addToast(
+        paymentMethod === 'CASH_ON_DELIVERY'
+          ? 'Order confirmed. Payment is due on delivery.'
+          : 'Order successfully confirmed!',
+        'success',
+      );
     } catch (err) {
       console.error(err);
       setIsProcessing(false);
@@ -183,8 +188,14 @@ export const Checkout: React.FC = () => {
             <CheckCircle2 className="w-8 h-8" />
           </div>
 
-          <Badge variant="success" size="md" className="mb-3">
-            Payment Verified & Escrow Established
+          <Badge
+            variant={completedOrder.paymentStatus === 'PAID' ? 'success' : 'warning'}
+            size="md"
+            className="mb-3"
+          >
+            {completedOrder.paymentStatus === 'PAID'
+              ? 'Payment Verified & Escrow Established'
+              : 'Cash on Delivery — Payment Due on Delivery'}
           </Badge>
 
           <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">
