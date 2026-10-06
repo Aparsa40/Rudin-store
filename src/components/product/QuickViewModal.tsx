@@ -20,6 +20,13 @@ export const QuickViewModal: React.FC = () => {
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [quantity, setQuantity] = useState(1);
 
+  useEffect(() => {
+    if (!quickViewProduct) return;
+    setSelectedImageIdx(0);
+    setSelectedVariant(null);
+    setQuantity(1);
+  }, [quickViewProduct?.id]);
+
   if (!quickViewProduct) return null;
 
   const product = quickViewProduct;
