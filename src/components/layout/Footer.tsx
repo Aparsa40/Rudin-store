@@ -1,80 +1,151 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Facebook, Twitter, Instagram, Youtube, Mail } from 'lucide-react';
+import { ShieldCheck, Truck, RotateCcw, Heart } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   return (
-    <footer className="bg-white border-t border-slate-200 pt-16 pb-8">
+    <footer className="bg-slate-950 text-slate-400 border-t border-slate-900 pt-16 pb-12 text-xs">
       <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-12">
-          {/* Brand Col */}
-          <div className="lg:col-span-2">
-            <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-slate-900 text-white flex items-center justify-center rounded-lg font-bold text-xl">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 mb-12">
+          {/* Brand Column */}
+          <div className="lg:col-span-2 space-y-4">
+            <Link to="/" className="flex items-center gap-2.5">
+              <div className="w-8 h-8 bg-white text-slate-950 rounded-xl flex items-center justify-center font-black text-lg">
                 R
               </div>
-              <span className="text-xl font-bold tracking-tight text-slate-900">
-                Rudin Store
-              </span>
+              <span className="text-lg font-black tracking-tight text-white">RUDIN STORE</span>
             </Link>
-            <p className="text-slate-500 mb-6 max-w-sm">
-              The premium multi-vendor marketplace for high-quality products. Shop from verified independent sellers worldwide.
+
+            <p className="text-slate-400 max-w-sm text-xs leading-relaxed">
+              The premier international multi-vendor marketplace dedicated to independent audio
+              laboratories, textile ateliers, and ceramic master makers.
             </p>
-            <div className="flex gap-4">
-              <a href="#" className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors">
-                <Facebook className="w-5 h-5" />
-              </a>
-              <a href="#" className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors">
-                <Twitter className="w-5 h-5" />
-              </a>
-              <a href="#" className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors">
-                <Instagram className="w-5 h-5" />
-              </a>
-              <a href="#" className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors">
-                <Youtube className="w-5 h-5" />
-              </a>
+
+            <div className="pt-2 text-[11px] text-slate-500 space-y-1">
+              <p>Escrow-protected multi-vendor transactions.</p>
+              <p>Carbon-neutral express worldwide shipping.</p>
             </div>
           </div>
 
-          {/* Links Cols */}
-          <div>
-            <h3 className="font-bold text-slate-900 mb-4">Shop</h3>
-            <ul className="space-y-3">
-              <li><Link to="/shop" className="text-slate-500 hover:text-slate-900">All Products</Link></li>
-              <li><Link to="/categories/electronics" className="text-slate-500 hover:text-slate-900">Electronics</Link></li>
-              <li><Link to="/categories/clothing" className="text-slate-500 hover:text-slate-900">Clothing</Link></li>
-              <li><Link to="/categories/home-garden" className="text-slate-500 hover:text-slate-900">Home & Garden</Link></li>
-              <li><Link to="/promotions" className="text-slate-500 hover:text-slate-900">Promotions</Link></li>
-            </ul>
-          </div>
-          
-          <div>
-            <h3 className="font-bold text-slate-900 mb-4">Support</h3>
-            <ul className="space-y-3">
-              <li><Link to="/help" className="text-slate-500 hover:text-slate-900">Help Center</Link></li>
-              <li><Link to="/track-order" className="text-slate-500 hover:text-slate-900">Track Order</Link></li>
-              <li><Link to="/returns" className="text-slate-500 hover:text-slate-900">Returns & Refunds</Link></li>
-              <li><Link to="/contact" className="text-slate-500 hover:text-slate-900">Contact Us</Link></li>
+          {/* Departments */}
+          <div className="space-y-3">
+            <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">
+              Marketplace Catalog
+            </h4>
+            <ul className="space-y-2">
+              <li>
+                <Link to="/shop" className="hover:text-white transition-colors">
+                  All Products
+                </Link>
+              </li>
+              <li>
+                <Link to="/categories/electronics" className="hover:text-white transition-colors">
+                  Audio & Electronics
+                </Link>
+              </li>
+              <li>
+                <Link to="/categories/clothing" className="hover:text-white transition-colors">
+                  Apparel & Footwear
+                </Link>
+              </li>
+              <li>
+                <Link to="/categories/home-living" className="hover:text-white transition-colors">
+                  Home & Living
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/categories/kitchen-coffee"
+                  className="hover:text-white transition-colors"
+                >
+                  Specialty Coffee
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/categories/bags-accessories"
+                  className="hover:text-white transition-colors"
+                >
+                  EDC & Leather Goods
+                </Link>
+              </li>
             </ul>
           </div>
 
-          <div>
-            <h3 className="font-bold text-slate-900 mb-4">Sell on Rudin</h3>
-            <ul className="space-y-3 mb-6">
-              <li><Link to="/seller/join" className="text-slate-500 hover:text-slate-900">Join as a Seller</Link></li>
-              <li><Link to="/seller/dashboard" className="text-slate-500 hover:text-slate-900">Seller Dashboard</Link></li>
-              <li><Link to="/seller/policies" className="text-slate-500 hover:text-slate-900">Seller Policies</Link></li>
+          {/* Independent Stores */}
+          <div className="space-y-3">
+            <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">
+              Makers & Portals
+            </h4>
+            <ul className="space-y-2">
+              <li>
+                <Link to="/vendors" className="hover:text-white transition-colors">
+                  Verified Makers Directory
+                </Link>
+              </li>
+              <li>
+                <Link to="/seller/join" className="hover:text-white transition-colors">
+                  Apply as an Artisan Maker
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/seller/dashboard"
+                  className="text-amber-400 hover:text-amber-300 font-semibold transition-colors"
+                >
+                  Seller Dashboard
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/admin"
+                  className="text-blue-400 hover:text-blue-300 font-semibold transition-colors"
+                >
+                  Platform Admin Portal
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Customer Support */}
+          <div className="space-y-3">
+            <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">
+              Account & Care
+            </h4>
+            <ul className="space-y-2">
+              <li>
+                <Link to="/account/orders" className="hover:text-white transition-colors">
+                  Track Orders & Shipments
+                </Link>
+              </li>
+              <li>
+                <Link to="/account/wishlist" className="hover:text-white transition-colors">
+                  Saved Wishlist
+                </Link>
+              </li>
+              <li>
+                <Link to="/account" className="hover:text-white transition-colors">
+                  Profile & Address Book
+                </Link>
+              </li>
+              <li>
+                <Link to="/cart" className="hover:text-white transition-colors">
+                  Shopping Cart
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
 
-        <div className="border-t border-slate-200 pt-8 mt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-slate-500 text-sm text-center md:text-left">
-            &copy; {new Date().getFullYear()} Rudin Store. All rights reserved.
-          </p>
-          <div className="flex gap-4 text-sm">
-            <Link to="/privacy" className="text-slate-500 hover:text-slate-900">Privacy Policy</Link>
-            <Link to="/terms" className="text-slate-500 hover:text-slate-900">Terms of Service</Link>
+        {/* Bottom Strip */}
+        <div className="border-t border-slate-900 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-500">
+          <p>© {new Date().getFullYear()} Rudin Store Marketplace Inc. All rights reserved.</p>
+          <div className="flex items-center gap-4">
+            <span className="hover:text-slate-400 cursor-pointer">Privacy Policy</span>
+            <span>•</span>
+            <span className="hover:text-slate-400 cursor-pointer">Terms of Service</span>
+            <span>•</span>
+            <span className="hover:text-slate-400 cursor-pointer">Maker Code of Conduct</span>
           </div>
         </div>
       </div>

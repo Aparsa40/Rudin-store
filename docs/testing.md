@@ -1,71 +1,175 @@
-# Testing Strategy
+# Testing and Validation
 
-## Current Status
+**Version:** 2.0.0
 
-The original Rudin Store `v1.0.0` snapshot does not contain an automated testing framework.
+## Current State
 
-There are currently no:
+Rudin Store 2.0.0 currently uses TypeScript validation and production build validation as its primary automated checks.
 
-- Automated test runner
-- `npm test` script
-- Unit test suite
-- Integration test suite
-- End-to-end test suite
+There is no dedicated unit/integration test suite in the current repository baseline.
 
-## Current Validation
+The existence of this document does not imply that automated application tests exist.
 
-Until automated testing is introduced, baseline validation consists of:
+---
+
+## TypeScript Validation
+
+Run:
 
 ```bash
 npm run lint
+```
+
+The current script executes:
+
+```bash
+tsc --noEmit
+```
+
+This validates TypeScript types without generating output.
+
+Current migration result:
+
+```text
+PASS
+```
+
+---
+
+## Production Build
+
+Run:
+
+```bash
 npm run build
 ```
 
-along with manual smoke testing of critical user flows.
+The production build validates:
 
-## Planned Testing Layers
+- module resolution
+- TypeScript compilation through the build pipeline
+- Vite transformation
+- asset generation
+- production bundling
 
-### Unit Tests
+Current migration result:
 
-Core business logic should have unit tests covering:
+```text
+PASS
+```
 
-- Cart calculations
-- Product operations
-- Authentication state transitions
-- Coupon validation
-- Order creation
-- Inventory/stock rules
-- Vendor operations
+The build currently reports a bundle-size warning for a JavaScript chunk above the default 500 kB warning threshold.
 
-### Component Tests
+This warning does not currently fail the build.
 
-Important UI components should be tested for:
+---
 
-- Rendering
-- User interaction
-- Validation states
-- Loading states
-- Error states
+## Formatting Validation
 
-### Integration Tests
+Run:
 
-Important application flows should eventually cover:
+```bash
+npm run format:check
+```
 
-- Authentication
-- Product discovery
-- Cart
-- Checkout
-- Order creation
-- Vendor workflows
+To automatically format files:
 
-### End-to-End Tests
+```bash
+npm run format
+```
 
-Critical user journeys should eventually be validated through browser-based E2E tests.
+---
 
-## Testing Principle
+## Dependency Installation
 
-Tests should verify actual application behavior.
+For a clean dependency installation:
 
-Mock implementations must not be presented as evidence that production integrations work.
+```bash
+npm ci
+```
 
-When a feature depends on a real backend, payment provider, shipping provider, or external service, integration testing should be performed against an appropriate test/sandbox environment.
+This uses the committed `package-lock.json`.
+
+---
+
+## Manual Validation
+
+Until a dedicated test suite exists, important user flows should be manually checked:
+
+### Catalog
+
+- Product listing
+- Search
+- Category filtering
+- Product detail
+- Vendor navigation
+
+### Cart
+
+- Add product
+- Change quantity
+- Remove product
+- Vendor grouping
+- Wishlist/save-for-later behavior
+- Coupon behavior
+
+### Checkout
+
+- Address selection
+- Delivery selection
+- Payment simulation
+- Order confirmation
+
+### Authentication
+
+- Login
+- Registration
+- Logout
+- Protected route behavior
+- Demo authentication behavior
+
+### Seller
+
+- Seller dashboard
+- Product management
+- Seller state changes
+
+### Admin
+
+- Admin dashboard
+- Vendor management
+- Product management
+- Coupon management
+
+---
+
+## Future Automated Tests
+
+When a test framework is introduced, priority should be given to pure business logic:
+
+1. Order ID consistency.
+2. Coupon expiration.
+3. Coupon minimum purchase.
+4. Coupon maximum discount.
+5. Stock validation.
+6. Published product filtering.
+7. Review verification behavior.
+8. Role/route guard behavior.
+9. Cart totals.
+10. Multi-vendor shipping calculations.
+
+The project should prefer focused tests over a large test suite with low-value UI coverage.
+
+---
+
+## Test Status
+
+```text
+TypeScript validation: PASS
+Production build:      PASS
+Formatting:            PASS
+Automated unit tests:  NOT IMPLEMENTED
+E2E tests:             NOT IMPLEMENTED
+```
+
+Do not claim that the application is fully tested until automated tests exist and have been executed.

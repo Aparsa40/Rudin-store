@@ -1,71 +1,109 @@
-# Versioning Policy
+# Versioning
 
-## Overview
+**Current version:** 2.0.0
 
-Rudin Store follows [Semantic Versioning](https://semver.org/) for application and repository releases.
+Rudin Store uses Semantic Versioning:
 
-The version format is:
+```text
+MAJOR.MINOR.PATCH
+```
 
-`MAJOR.MINOR.PATCH`
+## MAJOR
 
-For example:
+Breaking architectural, API, service, or domain-contract changes.
 
-`1.0.0`
+Example:
 
-## Version Rules
+```text
+2.0.0 → 3.0.0
+```
 
-- **MAJOR** — incompatible or breaking changes.
-- **MINOR** — backward-compatible features or functionality.
-- **PATCH** — backward-compatible bug fixes, security fixes, and maintenance changes.
+## MINOR
 
-## Pre-release Versions
+Backward-compatible feature additions.
 
-Pre-release versions may use identifiers such as:
+Example:
 
-- `1.1.0-alpha.1`
-- `1.1.0-beta.1`
-- `1.1.0-rc.1`
+```text
+2.0.0 → 2.1.0
+```
 
-Pre-release versions are not considered stable releases.
+## PATCH
 
-## Source of Truth
+Backward-compatible fixes and maintenance.
 
-The application version is maintained in the project's package metadata and release documentation.
+Example:
 
-The `package-lock.json` file is generated and maintained by npm and must remain synchronized with `package.json`.
+```text
+2.0.0 → 2.0.1
+```
 
-## Dependency Updates
+---
 
-Dependency updates must preserve a valid dependency graph and must not be resolved by bypassing npm's peer-dependency validation with `--force` or `--legacy-peer-deps` unless there is a documented and reviewed reason.
+## Version Authority
 
-After dependency changes, the following checks should pass:
+The application version is defined in:
+
+```text
+package.json
+```
+
+The lockfile is regenerated through npm.
+
+Do not manually edit the lockfile version metadata.
+
+Use:
 
 ```bash
-npm ci
+npm install
+```
+
+after changing package metadata.
+
+---
+
+## Release Documentation
+
+Every release should update:
+
+```text
+package.json
+package-lock.json
+CHANGELOG.md
+README.md
+```
+
+and any technical documentation affected by the release.
+
+---
+
+## Branches
+
+Recommended release branch:
+
+```text
+release/v2.0.0
+```
+
+Other branches:
+
+```text
+feature/<name>
+fix/<name>
+refactor/<name>
+docs/<name>
+```
+
+---
+
+## Release Validation
+
+Before a release:
+
+```bash
+npm run format:check
 npm run lint
 npm run build
 ```
 
-## Release Process
-
-A release should:
-
-1. Update the application version.
-2. Update `CHANGELOG.md`.
-3. Verify dependencies with `npm ci`.
-4. Run lint/type checking.
-5. Run a production build.
-6. Review the Git diff.
-7. Create a Git tag matching the release version.
-
-Example:
-
-```bash
-git tag -a v1.0.0 -m "Release v1.0.0"
-```
-
-## Current Release
-
-The repository is currently being prepared for its initial GitHub repository release.
-
-The exact release version should be finalized together with the first production-ready repository commit.
+The release should not be considered validated until these checks complete successfully.

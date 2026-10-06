@@ -22,29 +22,31 @@ When the API is ready, the service implementations should be updated to make act
 2. **Setup API Client**: Create a base API client (e.g., using `axios` or native `fetch`) that handles authentication headers and base URLs.
 3. **Rewrite Services**:
    Open `src/services/products.service.ts` and replace the mock logic with real HTTP calls.
-   
-   *Example before (Mock):*
+
+   _Example before (Mock):_
+
    ```typescript
    export const productsService = {
      getProducts: async (): Promise<Product[]> => {
-       await new Promise(resolve => setTimeout(resolve, 500));
+       await new Promise((resolve) => setTimeout(resolve, 500));
        return mockProducts;
-     }
-   }
+     },
+   };
    ```
-   
-   *Example after (Real API):*
+
+   _Example after (Real API):_
+
    ```typescript
    export const productsService = {
      getProducts: async (): Promise<Product[]> => {
        const response = await fetch('/api/products');
        if (!response.ok) throw new Error('Failed to fetch products');
        return response.json();
-     }
-   }
+     },
+   };
    ```
 
-4. **Update Authentication**: 
+4. **Update Authentication**:
    The `useAuthStore` in `src/store/authStore.ts` currently handles mock authentication. You will need to wire this up to your real JWT/Session logic. Replace the `setTimeout` mock login with an actual API call to `/api/auth/login`.
 
 5. **Multi-Vendor Consideration**:

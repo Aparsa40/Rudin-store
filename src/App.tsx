@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { Home } from './pages/Home';
 import { Shop } from './pages/Shop';
@@ -13,8 +13,29 @@ import { VendorsList } from './pages/VendorsList';
 import { VendorDetail } from './pages/VendorDetail';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { SellerDashboard } from './pages/SellerDashboard';
+import { Button } from './components/ui/Button';
 
-const NotFound = () => <div className="p-8 text-center text-xl mt-20 font-bold text-red-500">404 - Page Not Found</div>;
+const NotFound: React.FC = () => (
+  <div className="container mx-auto px-4 py-24 text-center max-w-md">
+    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-black text-slate-400">
+      404
+    </div>
+    <h1 className="text-2xl font-black text-slate-900 mb-2">Page Not Found</h1>
+    <p className="text-xs text-slate-500 mb-6">
+      The page or artisan collection you were looking for could not be found or has moved.
+    </p>
+    <div className="flex gap-3 justify-center">
+      <Link to="/">
+        <Button variant="outline" size="sm">
+          Return Home
+        </Button>
+      </Link>
+      <Link to="/shop">
+        <Button size="sm">Browse Catalog</Button>
+      </Link>
+    </div>
+  </div>
+);
 
 export const App: React.FC = () => {
   return (
@@ -32,8 +53,9 @@ export const App: React.FC = () => {
           <Route path="account/*" element={<Account />} />
           <Route path="vendors" element={<VendorsList />} />
           <Route path="vendors/:slug" element={<VendorDetail />} />
-          <Route path="admin" element={<AdminDashboard />} />
           <Route path="seller/dashboard" element={<SellerDashboard />} />
+          <Route path="seller/join" element={<Register />} />
+          <Route path="admin" element={<AdminDashboard />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
