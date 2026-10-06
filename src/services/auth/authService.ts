@@ -88,27 +88,34 @@ export const authService = {
 
   saveAddress: async (address: Omit<Address, 'id'> & { id?: string }): Promise<Address> => {
     await new Promise((resolve) => setTimeout(resolve, 150));
-    const current = getStoredAddresses(getStoredUser().id);
+    const currentUser = getStoredUser();
+    const allAddresses = getStoredAddresses();
+    const userAddresses = allAddresses.filter((a) => a.userId === currentUser.id);
     let saved: Address;
 
     if (address.id) {
-      saved = address as Address;
-      const idx = current.findIndex((a) => a.id === address.id);
-      if (idx !== -1) current[idx] = saved;
+      const existing = userAddresses.find((a) => a.id === address.id);
+      if (!existing) throw new Error('Address not found');
+
+      saved = { ...existing, ...address, userId: currentUser.id } as Address;
+      const index = allAddresses.findIndex((a) => a.id === address.id);
+      allAddresses[index] = saved;
     } else {
       saved = {
         ...address,
+        userId: currentUser.id,
         id: `addr_${Date.now()}`,
       };
+
       if (saved.isDefault) {
-        current.forEach((a) => {
-          a.isDefault = false;
+        allAddresses.forEach((a) => {
+          if (a.userId === currentUser.id) a.isDefault = false;
         });
       }
-      current.push(saved);
+      allAddresses.push(saved);
     }
 
-    localStorage.setItem('rudin_addresses', JSON.stringify(current));
+    localStorage.setItem('rudin_addresses', JSON.stringify(allAddresses));
     return saved;
   },
 
