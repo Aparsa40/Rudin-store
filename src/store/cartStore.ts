@@ -1,6 +1,15 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { CartItem, Coupon } from '../types';
+import { mockProducts } from '../data/mockData';
+
+const getAvailableStock = (productId: string, variantId?: string): number | null => {
+  const product = mockProducts.find((item) => item.id === productId);
+  if (!product) return null;
+  return variantId
+    ? (product.variants.find((variant) => variant.id === variantId)?.stockQuantity ?? 0)
+    : product.stock;
+};
 
 interface CartState {
   items: CartItem[];
@@ -40,17 +49,30 @@ export const useCartStore = create<CartState>()(
             (i) => i.productId === item.productId && i.variantId === item.variantId,
           );
 
+          const availableStock = getAvailableStock(item.productId, item.variantId);
+          if (availableStock !== null && availableStock <= 0) {
+            return state;
+          }
+
           if (existingIndex >= 0) {
             const newItems = [...state.items];
-            newItems[existingIndex].quantity += item.quantity;
+            const requestedQuantity = newItems[existingIndex].quantity + item.quantity;
+            newItems[existingIndex].quantity =
+              availableStock === null
+                ? requestedQuantity
+                : Math.min(availableStock, requestedQuantity);
             return { items: newItems, isDrawerOpen: true };
           }
+
+          const initialQuantity =
+            availableStock === null ? item.quantity : Math.min(availableStock, item.quantity);
 
           return {
             items: [
               ...state.items,
               {
                 ...item,
+                quantity: Math.max(1, initialQuantity),
                 id: `ci_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
                 addedAt: new Date().toISOString(),
               },
@@ -68,9 +90,16 @@ export const useCartStore = create<CartState>()(
 
       updateQuantity: (id, quantity) => {
         set((state) => ({
-          items: state.items.map((i) =>
-            i.id === id ? { ...i, quantity: Math.max(1, quantity) } : i,
-          ),
+          items: state.items.map((i) => {
+            if (i.id !== id) return i;
+            const availableStock = getAvailableStock(i.productId, i.variantId);
+            const nextQuantity = Math.max(1, quantity);
+            return {
+              ...i,
+              quantity:
+                availableStock === null ? nextQuantity : Math.min(availableStock, nextQuantity),
+            };
+          }),
         }));
       },
 
