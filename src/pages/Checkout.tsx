@@ -67,7 +67,7 @@ export const Checkout: React.FC = () => {
 
   useEffect(() => {
     let active = true;
-    Promise.all([cartService.resolveCartItems(items), authService.getAddresses()]).then(
+    Promise.all([cartService.resolveCartItems(items), authService.getAddresses(user?.id)]).then(
       ([resItems, addresses]) => {
         if (active) {
           setResolvedItems(resItems);
