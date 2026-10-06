@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Star, Heart, ShoppingBag, ArrowRight, ShieldCheck, Truck, Check } from 'lucide-react';
 import { Modal } from '../ui/Modal';
@@ -19,6 +19,13 @@ export const QuickViewModal: React.FC = () => {
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [quantity, setQuantity] = useState(1);
+
+  useEffect(() => {
+    if (!quickViewProduct) return;
+    setSelectedImageIdx(0);
+    setSelectedVariant(null);
+    setQuantity(1);
+  }, [quickViewProduct?.id]);
 
   if (!quickViewProduct) return null;
 

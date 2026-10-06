@@ -50,7 +50,8 @@ export const Shop: React.FC = () => {
 
   // Update selectedCategory if URL param slug changes
   useEffect(() => {
-    if (slug) setSelectedCategory(slug);
+    setSelectedCategory(slug || '');
+    setCurrentPage(1);
   }, [slug]);
 
   // Load master data (categories & vendors)

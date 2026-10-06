@@ -221,7 +221,10 @@ export const ProductDetail: React.FC = () => {
       comment: reviewComment,
       isVerifiedPurchase: true,
     });
-    setReviews([newRev, ...reviews]);
+    const updatedReviews = [newRev, ...reviews];
+    setReviews(updatedReviews);
+    const updatedBreakdown = await reviewsService.getRatingBreakdown(product.id);
+    setBreakdown(updatedBreakdown);
     setIsSubmittingReview(false);
     setIsReviewModalOpen(false);
     setReviewTitle('');

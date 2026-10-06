@@ -10,7 +10,7 @@ export const couponsService = {
     const normalized = code.trim().toUpperCase();
     const coupon = mockCoupons.find((c) => c.code === normalized);
 
-    if (!coupon || !coupon.isActive) {
+    if (!coupon || !coupon.isActive || new Date(coupon.validUntil).getTime() < Date.now()) {
       return { valid: false, error: 'Invalid or expired promotional code.' };
     }
 
