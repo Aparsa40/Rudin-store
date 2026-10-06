@@ -41,7 +41,9 @@ export const SellerDashboard: React.FC = () => {
   const [newDesc, setNewDesc] = useState('');
 
   // Seller Orders
-  const [sellerOrders, setSellerOrders] = useState<Order[]>(mockOrders);
+  const [sellerOrders, setSellerOrders] = useState<Order[]>(
+    mockOrders.filter((order) => order.items.some((item) => item.vendorId === currentVendor.id)),
+  );
 
   const { addToast } = useUIStore();
 
@@ -67,7 +69,7 @@ export const SellerDashboard: React.FC = () => {
       tags: ['audio', 'artisan'],
       features: ['Hand-tested in studio'],
       specifications: { Warranty: '2 Years' },
-      stock: parseInt(newStock) || 10,
+      stock: Math.max(0, parseInt(newStock, 10) || 0),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
