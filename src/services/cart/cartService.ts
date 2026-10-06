@@ -73,7 +73,11 @@ export const cartService = {
 
     // Calculate coupon discount
     let discount = 0;
-    if (appliedCoupon && appliedCoupon.isActive) {
+    if (
+      appliedCoupon &&
+      appliedCoupon.isActive &&
+      new Date(appliedCoupon.validUntil).getTime() >= Date.now()
+    ) {
       if (!appliedCoupon.minPurchaseAmount || subtotal >= appliedCoupon.minPurchaseAmount) {
         if (appliedCoupon.type === 'PERCENTAGE') {
           discount = (subtotal * appliedCoupon.value) / 100;
