@@ -1,95 +1,144 @@
 # Versioning Policy
 
-Rudin Store follows [Semantic Versioning](https://semver.org/) in the form:
+## Overview
+
+Rudin Store follows Semantic Versioning:
 
 ```text
 MAJOR.MINOR.PATCH
-```
 
-## MAJOR
+For example:
 
-Increment the major version when introducing breaking changes to the public application architecture, APIs, contracts, or other compatibility-sensitive interfaces.
+2.0.0
+
+MAJOR
+
+Increase the MAJOR version when incompatible changes are introduced.
+
+Examples:
+
+Breaking public service contracts
+
+Breaking domain type contracts
+
+Major architectural migration
+
+Removal of supported application behavior
+
+Breaking changes to documented integration contracts
 
 Example:
 
-```text
-1.0.0 → 2.0.0
-```
+2.0.0 → 3.0.0
 
-## MINOR
+MINOR
 
-Increment the minor version when adding backward-compatible functionality or substantial new features.
+Increase the MINOR version when backward-compatible functionality is added.
+
+Examples:
+
+New marketplace functionality
+
+New service domain
+
+New reusable components
+
+New seller/admin capabilities
+
+New documented API-ready interfaces
 
 Example:
 
-```text
 2.0.0 → 2.1.0
-```
 
-## PATCH
+PATCH
 
-Increment the patch version for backward-compatible bug fixes, documentation corrections, dependency fixes, or small maintenance changes.
+Increase the PATCH version for backward-compatible fixes.
+
+Examples:
+
+Bug fixes
+
+Security fixes
+
+Documentation corrections
+
+Formatting/configuration corrections
+
+Small internal improvements
 
 Example:
 
-```text
-2.1.0 → 2.1.1
+2.0.0 → 2.0.1
+
+Current Release
+
+Version: 2.0.0
+Release type: MAJOR
+Status: Frontend Prototype / API-Ready Architecture
+
+Version 2 represents the transition from the previous 1.x frontend implementation to the expanded domain-service and state-management architecture.
+
+Version Sources
+
+The application version should be kept synchronized across project metadata.
+
+The authoritative application version is:
+
+package.json
+
+The lockfile must be regenerated through npm rather than manually edited:
+
+npm install
+
+Documentation should reference the same release version where a specific version is required.
+
+Git Branch Naming
+
+Recommended branch patterns:
+
+feature/<name>
+fix/<name>
+refactor/<name>
+docs/<name>
+release/<version>
+
+The version 2 migration branch is:
+
+release/v2.0.0
+
+Release Checklist
+
+Before releasing a version:
+
+Update package.json.
+
+Regenerate package-lock.json with npm.
+
+Update CHANGELOG.md.
+
+Update relevant documentation.
+
+Run formatting.
+
+Run TypeScript validation.
+
+Run production build.
+
+Review Git status.
+
+Commit the release.
+
+Push the release branch.
+
+Create the release PR.
+
+Tag the release after approval/merge according to repository policy.
+
+Important Rule
+
+Do not manually change the version in package-lock.json.
+
+Use npm to keep package metadata and the lockfile synchronized.
+
 ```
-
-## Historical Snapshots
-
-Historical versions are preserved using Git tags:
-
-```text
-v1.0.0
-v2.0.0
-v2.1.0
-```
-
-A tagged version represents a specific repository state and should not be rewritten after publication.
-
-## Release Process
-
-A release should generally follow:
-
-```text
-Development branch
-      ↓
-Implementation
-      ↓
-Type checking
-      ↓
-Build
-      ↓
-Automated tests
-      ↓
-Manual smoke testing
-      ↓
-Pull Request review
-      ↓
-Merge to main
-      ↓
-Git tag
-      ↓
-CHANGELOG update
-```
-
-## Historical Baseline Rule
-
-Historical snapshots must not be silently modified to make them appear healthier than they originally were.
-
-For example, the `v1.0.0` dependency conflict is documented rather than retroactively modifying the historical dependency manifest.
-
-A subsequent release should contain the actual fix.
-
-## Pre-release Versions
-
-Pre-release versions may use identifiers such as:
-
-```text
-2.2.0-alpha.1
-2.2.0-beta.1
-2.2.0-rc.1
-```
-
-Pre-release versions should not be treated as production releases unless explicitly documented otherwise.

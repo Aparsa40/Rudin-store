@@ -1,268 +1,332 @@
-# Rudin Store Frontend
+# Rudin Store
 
-Rudin Store is a premium multi-vendor e-commerce marketplace frontend built with React and TypeScript.
+## Enterprise Multi-Vendor E-Commerce Frontend
 
-The project is designed as a **backend-ready frontend prototype**: the UI is organized around domain models, service abstractions, and state management so that mock implementations can eventually be replaced by real backend APIs and persistent infrastructure.
+**Version:** 2.0.0  
+**Status:** Frontend Prototype / API-Ready Architecture
 
-> **Current status:** Prototype / Frontend Development  
-> **Current baseline:** `v1.0.0`  
-> **Backend:** Not implemented  
-> **Payments:** Not implemented; no real payment gateway is connected  
-> **Shipping:** Not implemented; no real shipping provider is connected  
-> **Authentication:** Frontend/mock implementation only
+Rudin Store is a multi-vendor e-commerce marketplace frontend built with React, TypeScript, Vite, Tailwind CSS, and Zustand.
+
+The application is intentionally structured around domain services and state stores so that the current mock/demo implementation can later be replaced by real backend services without requiring a major UI rewrite.
+
+> **Important:** Rudin Store 2.0.0 is a frontend prototype. Authentication, payments, shipping, payouts, and backend persistence are not production services in this release.
 
 ---
 
 ## Technology Stack
 
-- **Framework:** React 19
-- **Build Tool:** Vite
-- **Language:** TypeScript
-- **Routing:** React Router
-- **Styling:** Tailwind CSS v4
-- **Icons:** Lucide React
-- **State Management:** Zustand
-- **Architecture:** Component-based frontend with service abstractions
-- **Data:** Mock/local frontend data in the current prototype
+- React 19
+- TypeScript
+- Vite
+- Tailwind CSS
+- Zustand
+- React Router
+- Lucide React
+- Motion
+- Prettier
 
----
+The project uses TypeScript validation through the `lint` script:
 
-## Project Structure
+```bash
+npm run lint
 
-```text
+Production builds are generated with:
+
+npm run build
+
+Code formatting is handled by Prettier:
+
+npm run format
+npm run format:check
+
+Features
+
+Marketplace
+
+Multi-vendor product catalog
+
+Vendor storefronts
+
+Product search
+
+Category and product filtering
+
+Rating and review presentation
+
+Product detail pages
+
+Wishlist functionality
+
+Quick product view
+
+Cart and Checkout
+
+Vendor-grouped cart
+
+Quantity management
+
+Save-for-later behavior
+
+Coupon simulation
+
+Multi-step checkout
+
+Delivery option simulation
+
+Payment method simulation
+
+Order confirmation UI
+
+User Areas
+
+Customer account area
+
+Seller dashboard
+
+Admin dashboard
+
+Authentication state management
+
+Frontend route protection
+
+Demo/mock workflows
+
+UI System
+
+Reusable UI primitives include:
+
+Button
+
+Badge
+
+Modal
+
+Drawer
+
+RatingStars
+
+ToastContainer
+
+Domain-specific components include:
+
+ProductCard
+
+QuickViewModal
+
+SearchBar
+
+CartDrawer
+
+Architecture
+
+The application follows a layered frontend architecture:
+
+Pages / Components
+        |
+        v
+Zustand Stores
+        |
+        v
+Domain Services
+        |
+        v
+Mock Data / Local Persistence
+
+The service layer is intentionally separated from the UI so that future API implementations can replace mock implementations without coupling backend concerns directly to React components.
+
+Main directories:
+
 src/
-├── components/       # Reusable UI and feature components
-├── data/             # Mock/static application data
-├── pages/            # Application pages and route-level views
-├── services/         # Domain/service abstractions
-├── store/            # Zustand application state
-└── types/            # TypeScript domain models
+├── components/
+├── data/
+├── pages/
+├── services/
+├── store/
+└── types/
 
-docs/                 # Project and architecture documentation
-public/               # Static public assets
-```
+Services
 
-The exact structure evolves between project versions. See the Git history and version tags for the architectural evolution of the application.
+The service layer is organized around domains such as:
 
----
+auth
+cart
+categories
+coupons
+orders
+products
+reviews
+vendors
+wishlist
 
-## Local Development
+Stores
 
-### Prerequisites
+Application state is divided into focused Zustand stores:
 
-- Node.js with a compatible npm version
-- Git
+authStore
+cartStore
+uiStore
+wishlistStore
 
-### Installation
+Mock / Demo Architecture
 
-The repository contains a `package-lock.json` intended to provide reproducible dependency resolution.
+Version 2.0.0 intentionally retains mock data.
 
-For the original `v1.0.0` baseline, the standard installation command is:
+Mock functionality is used for:
 
-```bash
-npm ci
-```
+UI development
 
-### ⚠️ v1.0.0 Dependency Baseline Issue
+local demonstrations
 
-The original `v1.0.0` dependency manifest currently contains an unresolved compatibility conflict between Vite and esbuild.
+frontend workflows
 
-The baseline declares:
+development without a backend
 
-```text
-vite    ^8.3.0
-esbuild ^0.25.0
-```
+future API contract validation
 
-The resolved Vite version requires an esbuild version in the following range:
+Mock functionality must not be interpreted as real:
 
-```text
-^0.27.0 || ^0.28.0
-```
+authentication
 
-As a result, running:
+authorization
 
-```bash
-npm ci
-```
+payment processing
 
-against the unmodified `v1.0.0` baseline currently fails with npm `ERESOLVE`.
+shipping provider integration
 
-This is intentionally documented rather than silently fixed because `v1.0.0` is being preserved as a historical baseline.
+payout processing
 
-**Do not use `--force` or `--legacy-peer-deps` as a substitute for resolving the dependency compatibility issue in a future maintenance release.**
+escrow
 
-The dependency issue will be addressed in a separate version/commit rather than modifying the historical `v1.0.0` snapshot.
+email delivery
 
----
+database persistence
 
-## Running the Development Server
+Running Locally
 
-After dependencies have been successfully installed:
+Requirements:
 
-```bash
+Node.js
+
+npm
+
+Install dependencies:
+
+npm install
+
+Run development server:
+
 npm run dev
+
+Run TypeScript validation:
+
+npm run lint
+
+Format the project:
+
+npm run format
+
+Verify formatting:
+
+npm run format:check
+
+Build production assets:
+
+npm run build
+
+Preview the production build:
+
+npm run preview
+
+Validation Status for 2.0.0
+
+The current v2 migration was validated with:
+
+npm install       PASS
+npm ci            PASS
+npm run format    PASS
+npm run lint      PASS
+npm run build     PASS
+
+The production build currently reports a chunk-size warning for a JavaScript bundle exceeding the default 500 kB warning threshold. This is a performance warning, not a build failure.
+
+Security Model
+
+Frontend route guards are UX-level protection only.
+
+They do not replace backend authorization.
+
+A production deployment must implement server-side:
+
+authentication
+
+authorization
+
+session management
+
+input validation
+
+payment authorization
+
+order authorization
+
+seller permissions
+
+administrator permissions
+
+See:
+
+SECURITY.md
+
+docs/security.md
+
+Backend Integration
+
+The current frontend is designed to transition toward a real backend through service abstractions.
+
+See:
+
+docs/backend-integration.md
+docs/frontend-architecture.md
+
+The backend is not included in version 2.0.0.
+
+Documentation
+
+Project documentation is organized as follows:
+
+README.md
+CHANGELOG.md
+CONTRIBUTING.md
+SECURITY.md
+VERSIONING.md
+
+docs/
+├── README.md
+├── architecture.md
+├── backend-integration.md
+├── component-system.md
+├── development.md
+├── frontend-architecture.md
+├── security.md
+├── testing.md
+└── versioning.md
+
+License
+
+See LICENSE.
+
+Project Status
+
+Frontend:                 Implemented
+Mock/Demo Architecture:   Implemented
+Backend API:              Not implemented
+Database:                 Not implemented
+Production Auth:          Not implemented
+Payment Gateway:          Not implemented
+Shipping Provider:        Not implemented
+Payout Provider:          Not implemented
+Escrow:                   Not implemented
+
+Rudin Store 2.0.0 should therefore be treated as an API-ready frontend prototype rather than a complete production marketplace backend.
+
 ```
-
-The development server will start using the Vite development environment.
-
----
-
-## Available Scripts
-
-The original `v1.0.0` package defines the following scripts:
-
-```text
-npm run dev       Start the Vite development server
-npm run build     Build the production bundle
-npm run preview   Preview the production build
-npm run clean     Remove generated build artifacts
-npm run lint      Run TypeScript type checking
-```
-
-> Note: In `v1.0.0`, the `lint` script runs `tsc --noEmit`. It is therefore a TypeScript type-check rather than a conventional ESLint run.
-
----
-
-## Testing Status
-
-The original `v1.0.0` snapshot does **not** contain an automated test suite or test runner.
-
-There are currently no:
-
-- `test` npm scripts
-- `tests/` directory
-- `__tests__/` directory
-- `*.test.*` files
-- `*.spec.*` files
-
-Automated testing infrastructure is planned as a subsequent development step.
-
-Until then, validation consists primarily of TypeScript checking, production builds, and manual smoke testing.
-
-See [`docs/testing.md`](docs/testing.md) for the testing strategy.
-
----
-
-## Architecture
-
-Rudin Store uses a service-oriented frontend structure.
-
-UI components and pages are intended to communicate with domain services instead of coupling themselves directly to raw mock data wherever the architecture supports it.
-
-The intended evolution is:
-
-```text
-Current Prototype
-
-React UI
-   │
-   ▼
-Frontend Services
-   │
-   ▼
-Mock / Local Data
-
-
-Future Production Architecture
-
-React UI
-   │
-   ▼
-Frontend Services
-   │
-   ▼
-HTTP/API Layer
-   │
-   ▼
-Backend
-   │
-   ├── Database
-   ├── Authentication
-   ├── Payments
-   ├── Orders
-   └── Shipping
-```
-
-The service layer is an architectural abstraction, not a claim that a production backend already exists.
-
----
-
-## Backend Readiness
-
-The current application is **backend-ready by architectural intent**, but it is not a production backend-integrated application.
-
-The following capabilities remain frontend/mock implementations in the current baseline:
-
-- Authentication
-- Authorization
-- User persistence
-- Product persistence
-- Vendor management
-- Order processing
-- Payment processing
-- Shipping integration
-- Payouts
-- Notifications
-- Messaging
-- Database persistence
-
-These integrations must be implemented and secured on the server side before the application can be considered production-ready.
-
-See [`docs/backend-integration.md`](docs/backend-integration.md).
-
----
-
-## Security
-
-This repository is a frontend prototype.
-
-Client-side authentication, role checks, mock data, local storage, and UI restrictions must **not** be treated as security boundaries.
-
-Production authentication, authorization, payment verification, order integrity, inventory validation, and other security-sensitive operations must be enforced by a trusted backend.
-
-See [`SECURITY.md`](SECURITY.md).
-
----
-
-## Versioning
-
-Rudin Store uses semantic versioning for released project snapshots:
-
-```text
-MAJOR.MINOR.PATCH
-```
-
-Version history and changes are documented in [`CHANGELOG.md`](CHANGELOG.md).
-
-See [`VERSIONING.md`](VERSIONING.md) for the project's versioning and release policy.
-
----
-
-## Project Status
-
-Rudin Store is currently under active development.
-
-The repository intentionally preserves historical versions so that architectural and functional changes can be reviewed through Git history and version tags.
-
-Current historical milestones:
-
-```text
-v1.0.0
-  │
-  └── Initial frontend prototype
-
-v2.0.0
-  │
-  └── Major frontend architecture and feature evolution
-
-v2.1.0
-  │
-  └── Production hardening and mock-consistency improvements
-```
-
----
-
-## License
-
-This project is licensed under the terms specified in [`LICENSE`](LICENSE).

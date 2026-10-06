@@ -2,94 +2,104 @@
 
 All notable changes to Rudin Store are documented in this file.
 
-The project follows [Semantic Versioning](VERSIONING.md).
+The project follows Semantic Versioning as described in `VERSIONING.md`.
 
 ---
 
-## [Unreleased]
-
-### Planned
-
-- Resolve the Vite/esbuild dependency compatibility issue.
-- Introduce an automated testing framework.
-- Add unit tests for core domain services and state management.
-- Improve CI validation.
-- Continue separating prototype/mock behavior from production integrations.
-- Document backend integration contracts.
-
----
-
-## [2.1.0]
-
-### Changed
-
-- Applied production-hardening improvements to authentication and authorization flows.
-- Added protected route handling.
-- Improved role-aware frontend access control.
-- Replaced the fixed demo OTP with generated simulated OTP behavior.
-- Improved stock validation during cart and checkout flows.
-- Improved coupon validation and validity-period handling.
-- Improved product publication filtering.
-- Added category slug handling.
-- Improved search suggestions.
-- Improved review purchase-verification behavior.
-- Improved mock payment and shipping messaging to make simulated behavior explicit.
-- Added persistence improvements to product and vendor services.
+## [2.0.0] — 2026-10-06
 
 ### Added
 
-- Protected route component.
+- Multi-vendor marketplace frontend architecture.
+- Domain-oriented service layer.
+- Authentication service/store separation.
+- Cart service and cart state management.
+- Wishlist service and wishlist state management.
+- Coupon service.
+- Order service.
+- Review service.
+- Vendor service.
+- Category service.
+- Global UI state management.
+- Reusable Badge component.
+- Reusable Drawer component.
+- Reusable Modal component.
+- Reusable RatingStars component.
+- Reusable ToastContainer component.
+- CartDrawer component.
+- QuickViewModal component.
+- SearchBar component.
+- Frontend architecture documentation.
+- Component system documentation.
+- Backend integration documentation.
+- Prettier formatting configuration.
 
-### Known Limitations
+### Improved
 
-- Backend authentication and authorization are not implemented.
-- Payment gateways are not integrated.
-- Shipping providers are not integrated.
-- Seller and admin dashboards still contain prototype/mock behavior.
-- Some frontend state and mock-data paths require further consolidation.
+- Product browsing and filtering.
+- Product detail experience.
+- Multi-vendor cart presentation.
+- Checkout workflow.
+- Customer account workflow.
+- Seller dashboard workflow.
+- Admin dashboard workflow.
+- Authentication state handling.
+- Shared UI component consistency.
+- Service-layer separation.
+- TypeScript domain contracts.
+- Project documentation.
 
----
+### Validation
 
-## [2.0.0]
+The release was validated using:
 
-### Added
+```text
+npm install       PASS
+npm ci            PASS
+npm run format    PASS
+npm run lint      PASS
+npm run build     PASS
 
-- Expanded frontend service layer.
-- Expanded Zustand state management.
-- Additional reusable UI components.
-- Additional product, vendor, cart, order, coupon, review, wishlist, and authentication abstractions.
-- Frontend architecture and component-system documentation.
+The production build completes successfully.
 
-### Changed
+A bundle-size warning remains for a JavaScript chunk exceeding Vite's default 500 kB warning threshold.
 
-- Major evolution of the original v1 frontend architecture.
-- Increased separation between UI components and domain/service logic.
+Security / Architecture Notes
 
----
+Version 2.0.0 remains a frontend prototype.
 
-## [1.0.0]
+The following are simulated or mock implementations:
 
-### Added
+Authentication
 
-- Initial Rudin Store frontend prototype.
-- React and TypeScript application foundation.
-- Vite-based development and production build setup.
-- Product and marketplace UI.
-- Mock data architecture.
-- Initial service abstraction layer.
-- Initial Zustand state management.
-- Initial routing and page structure.
+Authorization
 
-### Baseline Notes
+Payments
 
-The original `v1.0.0` dependency manifest contains an incompatibility between the declared Vite and esbuild versions.
+Shipping
 
-Running:
+Payouts
 
-```bash
-npm ci
+Escrow
+
+Backend persistence
+
+External provider integrations
+
+Frontend route guards must not be considered a replacement for backend authorization.
+
+[1.0.0]
+
+Initial documented frontend baseline.
+
+The 1.x line represents the previous frontend implementation before the version 2 architecture and service-layer expansion.
+
+Unreleased
+
+Changes that are not yet part of a released version belong here.
+
+Versioning
+
+See VERSIONING.md for the project's release and versioning policy.
+
 ```
-
-against the unmodified baseline currently fails with npm `ERESOLVE`.
-
-This issue is intentionally preserved in the historical `v1.0.0` snapshot and will be resolved in a subsequent maintenance release.

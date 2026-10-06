@@ -1,54 +1,87 @@
 # Rudin Store Documentation
 
-This directory contains technical documentation for the Rudin Store frontend.
+**Documentation version:** 2.0.0
 
-## Documents
+This directory contains technical and operational documentation for Rudin Store.
+
+## Documentation Map
 
 ### Architecture
 
-[`architecture.md`](architecture.md)
+- `architecture.md`
+- `frontend-architecture.md`
+- `component-system.md`
 
-Describes the frontend architecture, major layers, state management, services, and domain boundaries.
+These documents describe application layers, state management, service boundaries, and UI architecture.
 
 ### Development
 
-[`development.md`](development.md)
+- `development.md`
 
-Contains local development, validation, branching, and maintenance guidance.
+Development environment, commands, formatting, validation, and contribution workflow.
 
-### Backend Integration
+### Backend
 
-[`backend-integration.md`](backend-integration.md)
+- `backend-integration.md`
 
-Describes how the frontend service abstractions are intended to evolve toward a real backend/API.
+Describes the contract between the current frontend service layer and a future backend implementation.
 
 ### Testing
 
-[`testing.md`](testing.md)
+- `testing.md`
 
-Defines the current testing status and the planned automated testing strategy.
+Describes the current validation strategy and the limitations of the prototype test setup.
 
 ### Security
 
-[`security.md`](security.md)
+- `security.md`
 
-Documents prototype security limitations and production security requirements.
+Documents frontend security boundaries, mock authentication, authorization limitations, secrets handling, and future backend requirements.
 
 ### Versioning
 
-[`versioning.md`](versioning.md)
+- `versioning.md`
 
-Documents project versioning, release conventions, and historical snapshot policy.
+Describes release numbering, branch conventions, and version synchronization.
 
 ---
 
-## Documentation Principle
+## Version 2.0.0 Status
 
-Documentation should distinguish clearly between:
+Rudin Store 2.0.0 is an API-ready frontend prototype.
 
-1. Implemented functionality
-2. Simulated/mock functionality
-3. Planned functionality
-4. Production requirements
+The following remain outside the current frontend implementation:
 
-The project should never describe a mock frontend implementation as a real external integration.
+- production backend
+- production authentication
+- server-side authorization
+- database
+- payment gateway
+- shipping provider integration
+- payout provider
+- escrow
+- production email delivery
+
+---
+
+## Validation
+
+Current validation commands:
+
+```bash
+npm run format:check
+npm run lint
+npm run build
+```
+
+The current v2 migration passed TypeScript validation and production build validation.
+
+---
+
+## Documentation Rule
+
+Documentation must describe the implementation that actually exists.
+
+Do not document simulated functionality as a real external integration.
+
+When functionality changes, update the relevant technical document and the root `CHANGELOG.md`.
