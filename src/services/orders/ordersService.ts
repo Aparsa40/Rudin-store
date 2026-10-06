@@ -51,6 +51,15 @@ export const ordersService = {
   }): Promise<Order> => {
     await new Promise((resolve) => setTimeout(resolve, 350));
 
+    for (const item of params.items) {
+      const availableStock = item.variant?.stockQuantity ?? item.product.stock;
+      if (item.quantity < 1 || item.quantity > availableStock) {
+        throw new Error(
+          `Insufficient stock for ${item.product.title}. Available: ${availableStock}.`,
+        );
+      }
+    }
+
     const orderNumber = `RD-${Math.floor(10000 + Math.random() * 90000)}`;
     const now = new Date().toISOString();
 
@@ -59,7 +68,7 @@ export const ordersService = {
       orderNumber,
       userId: params.userId,
       status: 'PROCESSING',
-      paymentStatus: 'PAID',
+      paymentStatus: params.paymentMethod === 'CASH_ON_DELIVERY' ? 'PENDING' : 'PAID',
       paymentMethod: params.paymentMethod,
       shippingAddress: params.shippingAddress,
       billingAddress: params.billingAddress,
@@ -88,7 +97,10 @@ export const ordersService = {
       timeline: [
         {
           title: 'Order Placed',
-          description: 'Your order was successfully placed and verified',
+          description:
+            params.paymentMethod === 'CASH_ON_DELIVERY'
+              ? 'Your order was successfully placed; payment is due on delivery'
+              : 'Your order was successfully placed and payment was verified',
           date: 'Just now',
           completed: true,
           current: true,
