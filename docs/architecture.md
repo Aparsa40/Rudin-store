@@ -1,128 +1,101 @@
 # Architecture Overview
 
-## Overview
+## Current Architecture
 
-Rudin Store is a web application organized as a client-side frontend with supporting application configuration and integration points.
+Rudin Store v2.1.0 is a client-side React application with a service-oriented frontend architecture.
 
-The repository is structured to keep application source code, configuration, documentation, and operational metadata separated.
+    Pages / Components
+            ↓
+       Zustand Stores
+            ↓
+       Domain Services
+            ↓
+    Mock Data + Browser Persistence
 
-## Main Components
+The service boundary is the planned replacement point for a real HTTP backend.
 
-### Frontend
+## Routing
 
-The frontend is implemented using:
+ProtectedRoute provides client-side UX protection for:
 
-- React
-- TypeScript
-- Vite
-- Tailwind CSS
-- Motion
+- /account/*
+- /seller/dashboard
+- /admin
 
-The frontend is responsible for:
+This is not server authorization.
 
-- Rendering the user interface.
-- Managing client-side application state.
-- Presenting product and store-related functionality.
-- Communicating with configured application services and APIs.
+## State
 
-### Build System
+Focused Zustand stores include:
 
-Vite is used as the application build system.
+- authStore
+- cartStore
+- wishlistStore
+- uiStore
 
-The production build generates the deployable frontend assets under:
+Authentication, cart, and wishlist state use browser persistence for the demo architecture.
 
-```text
-dist/
-```
+## Services
 
-`dist/` is a generated directory and must not be committed to source control.
+Current service domains include:
 
-### Type Safety
-
-TypeScript is used for static type checking.
-
-The repository currently uses:
-
-```bash
-npm run lint
-```
-
-for TypeScript validation.
-
-The command performs a no-emit TypeScript check and does not generate build artifacts.
-
-### Styling
-
-Tailwind CSS is used for utility-based styling and is integrated with the Vite build pipeline.
+- auth
+- cart
+- categories
+- coupons
+- orders
+- products
+- reviews
+- vendors
+- wishlist
 
 ## Repository Structure
 
-```text
-Rudin-Store/
-├── .github/
-│   ├── ISSUE_TEMPLATE/
-│   └── PULL_REQUEST_TEMPLATE.md
-├── docs/
-├── public/
-├── src/
-├── .gitignore
-├── CHANGELOG.md
-├── CONTRIBUTING.md
-├── LICENSE
-├── README.md
-├── SECURITY.md
-├── VERSIONING.md
-├── index.html
-├── package.json
-├── package-lock.json
-├── tsconfig.json
-└── vite.config.ts
-```
+    src/
+    ├── components/
+    │   ├── auth/
+    │   ├── cart/
+    │   ├── layout/
+    │   ├── product/
+    │   ├── search/
+    │   └── ui/
+    ├── data/
+    ├── pages/
+    ├── services/
+    ├── store/
+    └── types/
 
-## Environment Configuration
+## Persistence Boundary
 
-Environment-specific configuration must not contain committed secrets.
+Current browser persistence is demo/application state only.
 
-Local environment files such as `.env` are excluded from Git. A sanitized `.env.example` may be committed to document required configuration.
+Production persistence should move behind:
 
-## Dependency Management
+    Browser
+       ↓ HTTPS
+    Backend API
+       ↓
+    PostgreSQL
 
-npm is used for dependency management.
-
-`package.json` defines dependency requirements while `package-lock.json` records the resolved dependency tree.
-
-Clean installations should use:
-
-```bash
-npm ci
-```
-
-Dependency changes should be followed by validation of the lockfile, type checking, and production build.
+The browser must never receive database credentials.
 
 ## Build Flow
 
-The expected production flow is:
+    Source
+      ↓
+    npm run lint
+      ↓
+    npm run build
+      ↓
+    dist/
+      ↓
+    Deployment
 
-```text
-Source Code
-    ↓
-TypeScript Validation
-    ↓
-Vite Build
-    ↓
-dist/
-    ↓
-Deployment
-```
+## Principles
 
-## Architectural Principles
-
-The project should prioritize:
-
-- Clear separation of concerns.
-- Type safety.
-- Reproducible dependency installation.
-- Minimal runtime configuration.
-- No secrets in source control.
-- Explicit and reviewable infrastructure changes.
-- Production builds that can be reproduced from the repository.
+- Keep UI independent from backend details.
+- Keep state in the appropriate Zustand store.
+- Keep domain I/O in services.
+- Keep mock behavior explicit.
+- Never put secrets in frontend code.
+- Treat client validation as UX, not security.
