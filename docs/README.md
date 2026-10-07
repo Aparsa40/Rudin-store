@@ -32,6 +32,10 @@ This directory contains technical and operational documentation for the v2.1.0 r
 
 - versioning.md
 
+### Branding
+
+- branding.md
+
 ## v2.1.0 Status
 
 Implemented:
