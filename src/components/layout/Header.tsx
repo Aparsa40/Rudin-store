@@ -349,7 +349,7 @@ export const Header: React.FC = () => {
                   <Link
                     to="/vendors"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="flex items-center gap-2 block px-3 py-2 text-sm font-semibold text-slate-900 rounded-lg hover:bg-slate-100"
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-slate-900 rounded-lg hover:bg-slate-100"
                   >
                     <Store className="w-4 h-4 text-slate-400" /> All Independent Stores
                   </Link>
