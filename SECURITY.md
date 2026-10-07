@@ -2,169 +2,105 @@
 
 ## Scope
 
-This policy describes the security posture of Rudin Store and the process for reporting security issues.
+This policy describes the v2.1.0 security posture and the requirements for moving Rudin Store from a frontend prototype to a production marketplace.
 
 ## Current Security Model
 
-Rudin Store 2.0.0 is a frontend prototype.
+Rudin Store v2.1.0 is a hardened frontend prototype. It includes client-side route guards, client-side validation, demo authentication, and browser persistence.
 
-The application contains mock/demo implementations and therefore must not be treated as a production authentication, payment, authorization, or financial system.
+These features improve UX and demo consistency but are not trusted security boundaries.
 
-In particular, frontend controls cannot provide authoritative security.
-
----
+| Capability | v2.1.0 | Production |
+|---|---|---|
+| Login | Mock/demo | Backend credential verification |
+| Authorization | Client guard | Server-side authorization |
+| Sessions | Browser state | Secure server-managed session |
+| Password reset | Demo/UI | Trusted recovery service |
+| Cart stock | Client validation | Server transaction |
+| Coupons | Client validation | Server-side rules |
+| Payments | Simulation | Provider + backend |
+| Database | None | PostgreSQL or equivalent |
+| Contact | No production backend | API + controlled notification |
 
 ## Authentication
 
-Authentication in the current frontend is simulated.
+The current login/register flow creates demo users in frontend state.
 
-A future production implementation must move authentication to a trusted backend.
+A production authentication service should:
 
-The backend must be responsible for:
+1. Accept credentials only over HTTPS.
+2. Hash passwords with a modern password-hashing algorithm such as Argon2id or bcrypt.
+3. Never return password hashes to the browser.
+4. Issue secure sessions or short-lived tokens with refresh/revocation.
+5. Prefer secure, HttpOnly, SameSite cookies for cookie-based sessions.
+6. Rate-limit login and password-reset attempts.
+7. Support account recovery and session revocation.
+8. Audit security-sensitive events without logging passwords or tokens.
 
-- credential verification
-- session/token issuance
-- session expiration
-- password handling
-- password reset
-- account recovery
-- authentication revocation
-
-Passwords must never be treated as trusted client-side state.
-
----
+The frontend auth store should eventually represent trusted backend session state.
 
 ## Authorization
 
-Frontend route guards provide navigation and UX protection only.
+ProtectedRoute is a UX/navigation guard.
 
-They do not establish authorization.
+Production authorization must be enforced server-side for account resources, seller/vendor resources, admin operations, orders, products, coupons, reviews, and payouts.
 
-Production authorization must be enforced server-side for:
+The server must derive authorization from the authenticated session and database state, not from role values supplied by the browser.
 
-- customer resources
-- seller resources
-- vendor resources
-- administrator resources
-- orders
-- products
-- coupons
-- reviews
-- payouts
+## Cart, Inventory, and Checkout
 
-A client must never be trusted to determine whether an operation is authorized.
+The v2.1 client-side stock/coupon checks are defensive UX.
 
----
+The backend must re-check product availability, variants, quantities, prices, coupons, shipping, ownership, and payment state. Order creation and inventory reservation should be transactional to prevent overselling.
 
 ## Payments
 
-Version 2.0.0 does not provide a real payment gateway.
+No real payment gateway is implemented. Payment success must never be inferred from a browser-only flag.
 
-Payment UI and checkout behavior must be considered simulated.
+## Contact
 
-The application must not claim that a real financial transaction has occurred unless a trusted payment provider and backend transaction flow are implemented.
+A production Contact Us endpoint should validate input, rate-limit abuse, persist the inquiry, and optionally notify a controlled support mailbox or ticket system. Provider secrets must remain server-side.
 
----
+## Database
 
-## Shipping
+The browser must never connect directly to PostgreSQL.
 
-Shipping provider behavior is simulated.
+Recommended logical domains:
 
-The frontend must not claim that a shipment was created with an external carrier unless a real backend integration confirms it.
-
----
-
-## Payouts and Financial Operations
-
-Seller payout behavior is not a production financial integration.
-
-The application must not expose or fabricate:
-
-- real transaction confirmations
-- real bank transfers
-- real payout confirmations
-- real escrow confirmations
-
----
+- users
+- sessions
+- roles/permissions
+- vendors
+- products and variants
+- inventory
+- addresses
+- carts
+- coupons
+- orders and order items
+- payments
+- reviews
+- contact inquiries
+- audit events
 
 ## Secrets
 
-Never commit:
+Never commit API keys, private tokens, passwords, database credentials, payment secrets, or production environment files.
 
-- API keys
-- private tokens
-- passwords
-- database credentials
-- production secrets
-- authentication secrets
+Use .env.example for safe configuration examples.
 
-Environment files containing secrets must remain outside version control.
+## Local Storage
 
-Use `.env.example` for non-secret configuration examples.
-
----
-
-## Client-Side Security
-
-Client-side validation is useful for user experience but is not a security boundary.
-
-Production systems must validate all security-sensitive values on the backend.
-
-This includes:
-
-- prices
-- quantities
-- discounts
-- permissions
-- user roles
-- order ownership
-- payment status
-- seller ownership
-- coupon validity
-
----
+Browser storage is not a secure secret store. Do not store passwords, production credentials, payment secrets, or authoritative authorization state in localStorage.
 
 ## Dependency Security
 
-Dependencies should be installed using the committed lockfile.
+    npm ci
+    npm audit
 
-Recommended validation:
+The v2.1.0 candidate's latest npm ci reported 0 vulnerabilities.
 
-```bash
-npm ci
-npm audit
+## Reporting a Vulnerability
 
-Dependency updates should be reviewed before being introduced into a release.
+Do not publicly disclose an unpatched security vulnerability. Use the repository's private security reporting mechanism when available.
 
-Reporting a Vulnerability
-
-Do not disclose security vulnerabilities publicly before they have been reviewed.
-
-Report suspected security issues privately through the repository's configured security reporting mechanism.
-
-When reporting an issue, include:
-
-affected version
-
-affected file or component
-
-reproduction steps
-
-security impact
-
-suggested mitigation, if known
-
-Do not include real credentials, private tokens, or personal data in reports.
-
-Security Status of 2.0.0
-
-Frontend Security Hardening:   Improved
-Frontend Route Guards:         Present where implemented
-Backend Authorization:         Not implemented
-Production Authentication:     Not implemented
-Production Payments:           Not implemented
-Production Database:           Not implemented
-
-Rudin Store 2.0.0 must not be represented as a production-secure marketplace backend.
-
-```
+Include the affected version/component, reproduction steps, impact, and suggested mitigation. Never include real credentials, private tokens, or personal data.
