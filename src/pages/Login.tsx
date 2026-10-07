@@ -177,7 +177,7 @@ export const Login: React.FC = () => {
 
       {/* Forgot Password / OTP Modal */}
       {isForgotModalOpen && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-150 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full space-y-4 shadow-xl border border-slate-100">
             <h3 className="text-lg font-black text-slate-900">Reset Account Password</h3>
 

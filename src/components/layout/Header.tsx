@@ -112,7 +112,7 @@ export const Header: React.FC = () => {
         </button>
 
         {/* Brand Logo */}
-        <Link to="/" className="flex items-center gap-2.5 flex-shrink-0 group">
+        <Link to="/" className="flex items-center gap-2.5 shrink-0 group">
           <div className="w-9 h-9 bg-slate-900 text-white rounded-xl flex items-center justify-center font-black text-xl tracking-tight shadow-md group-hover:scale-105 transition-transform">
             R
           </div>
@@ -291,7 +291,7 @@ export const Header: React.FC = () => {
 
       {/* Mobile Menu Drawer */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-[150] lg:hidden">
+        <div className="fixed inset-0 z-150 lg:hidden">
           <div
             className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm"
             onClick={() => setIsMobileMenuOpen(false)}
@@ -349,7 +349,7 @@ export const Header: React.FC = () => {
                   <Link
                     to="/vendors"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="block px-3 py-2 text-sm font-semibold text-slate-900 rounded-lg hover:bg-slate-100 flex items-center gap-2"
+                    className="block px-3 py-2 text-sm font-semibold text-slate-900 rounded-lg hover:bg-slate-100 items-center gap-2"
                   >
                     <Store className="w-4 h-4 text-slate-400" /> All Independent Stores
                   </Link>
