@@ -1,109 +1,55 @@
 # Versioning
 
-**Current version:** 2.0.0
+**Current candidate:** 2.1.0  
+**Branch:** release/v2.1.0
 
-Rudin Store uses Semantic Versioning:
-
-```text
-MAJOR.MINOR.PATCH
-```
+Rudin Store uses Semantic Versioning: MAJOR.MINOR.PATCH.
 
 ## MAJOR
 
 Breaking architectural, API, service, or domain-contract changes.
 
-Example:
-
-```text
-2.0.0 → 3.0.0
-```
+Example: 2.1.0 → 3.0.0
 
 ## MINOR
 
 Backward-compatible feature additions.
 
-Example:
+Example: 2.0.0 → 2.1.0
 
-```text
-2.0.0 → 2.1.0
-```
+The v2.1.0 candidate adds frontend hardening without a production backend.
 
 ## PATCH
 
 Backward-compatible fixes and maintenance.
 
-Example:
-
-```text
-2.0.0 → 2.0.1
-```
-
----
+Example: 2.1.0 → 2.1.1
 
 ## Version Authority
 
-The application version is defined in:
+The application version is defined in package.json.
 
-```text
-package.json
-```
+Keep package-lock.json synchronized through npm.
 
-The lockfile is regenerated through npm.
+## Release Branch
 
-Do not manually edit the lockfile version metadata.
+    release/v2.1.0
 
-Use:
+Recommended branches:
 
-```bash
-npm install
-```
-
-after changing package metadata.
-
----
-
-## Release Documentation
-
-Every release should update:
-
-```text
-package.json
-package-lock.json
-CHANGELOG.md
-README.md
-```
-
-and any technical documentation affected by the release.
-
----
-
-## Branches
-
-Recommended release branch:
-
-```text
-release/v2.0.0
-```
-
-Other branches:
-
-```text
-feature/<name>
-fix/<name>
-refactor/<name>
-docs/<name>
-```
-
----
+    feature/<name>
+    fix/<name>
+    refactor/<name>
+    test/<name>
+    docs/<name>
 
 ## Release Validation
 
-Before a release:
+    npm ci
+    npm run format:check
+    npm run lint
+    npm run build
 
-```bash
-npm run format:check
-npm run lint
-npm run build
-```
+Run automated tests when they exist.
 
-The release should not be considered validated until these checks complete successfully.
+Tag only after PR approval and merge.

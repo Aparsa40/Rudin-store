@@ -1,74 +1,107 @@
 # Frontend Architecture — Rudin Multi-Vendor Store
 
-This document describes the architectural principles, domain modeling, state partitioning, and service abstraction layer implemented in the Rudin Store frontend application.
+## Architectural Philosophy
 
-## 1. Architectural Philosophy
+Rudin Store v2.1.0 is an API-ready frontend architecture.
 
-Rudin Store is built as an **API-Ready Frontend Architecture**. Rather than embedding mock data directly into UI components or tying state to a specific backend framework, all business logic and external I/O are mediated by strict domain service abstractions.
+    UI
+     ↓
+    Zustand Store
+     ↓
+    Domain Service
+     ↓
+    Mock / Local Persistence
+     ↓
+    Future API Client
 
-```
-┌────────────────────────────────────────────────────────┐
-│                      UI Layer                          │
-│   (Pages, Modals, Drawers, Cards, Filters, Checkout)   │
-└───────────────────────────┬────────────────────────────┘
-                            │
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│                   State Management                     │
-│    (Zustand Stores: Cart, Wishlist, Auth, UI Modals)   │
-└───────────────────────────┬────────────────────────────┘
-                            │
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│                  Service Abstraction                   │
-│   (/services/products, /services/cart, /services/auth) │
-└───────────────────────────┬────────────────────────────┘
-                            │
-            ┌───────────────┴───────────────┐
-            ▼                               ▼
-    [Current Implementation]        [Future Implementation]
-      Mock Data & Resolvers           HTTP Client (Axios/Fetch)
-      LocalStorage Persistence        PostgreSQL / REST / GraphQL
-```
+The goal is to replace service implementations rather than rewrite the UI when the backend becomes available.
 
-## 2. Directory Structure
+## Directory Structure
 
-```
-src/
-├── components/
-│   ├── cart/         # CartDrawer with multi-vendor separation & coupon engine
-│   ├── layout/       # Global Layout, Header with Search, Footer
-│   ├── product/      # ProductCard (grid/list), QuickViewModal
-│   ├── search/       # Live SearchBar with autocomplete & history
-│   └── ui/           # Badges, Modal dialogs, Drawers, Rating stars, Toasts
-├── data/             # Comprehensive mock datasets (products, vendors, orders)
-├── pages/            # 10 complete route views (Home, Shop, Details, Dashboards)
-├── services/         # Modular service boundaries (auth, products, cart, etc.)
-├── store/            # Lightweight Zustand stores with LocalStorage hydration
-└── types/            # Strict TypeScript domain interfaces
-```
+    src/
+    ├── components/
+    │   ├── auth/
+    │   ├── cart/
+    │   ├── layout/
+    │   ├── product/
+    │   ├── search/
+    │   └── ui/
+    ├── data/
+    ├── pages/
+    ├── services/
+    ├── store/
+    └── types/
 
-## 3. State Partitioning Strategy
+## Authentication State
 
-1. **Cart Store (`useCartStore`)**:
-   - Manages shopping items, save-for-later items, and applied promotional coupons.
-   - Synchronizes cart drawer opening/closing state on item additions.
-   - Computes multi-vendor subtotal, per-vendor delivery thresholds, and promotional deductions.
+The auth store now starts with:
 
-2. **Wishlist Store (`useWishlistStore`)**:
-   - Manages saved product favorites across browser sessions.
+    user = null
+    isAuthenticated = false
 
-3. **Auth Store (`useAuthStore`)**:
-   - Handles customer, vendor, and admin session states.
-   - Includes a 1-click Demo Role Switcher (`CUSTOMER`, `VENDOR`, `ADMIN`) enabling instant exploration of all three user perspectives.
+Demo login is explicit through loginAsDemo(role) and setDemoRole(role).
 
-4. **UI Store (`useUIStore`)**:
-   - Coordinates global modal overlays such as Quick View and animated toast notifications.
+This removes the previous default fake authenticated session.
 
-## 4. Multi-Vendor Cart & Checkout Engine
+Production integration should replace demo login with trusted backend session state.
 
-Unlike traditional single-seller stores, Rudin partitions cart items by `vendorId`.
+## Route Protection
 
-- Each vendor group displays its own store identity, verified badge, dispatch location, and independent fulfillment fee.
-- If a customer's basket exceeds $75 within a vendor group, free shipping is unlocked for that vendor.
-- Checkout produces a centralized multi-vendor order while storing the individual vendor lineage for each item in the order line-items table.
+ProtectedRoute checks client-side authentication and optional role requirements.
+
+Current protected routes:
+
+    /account/*
+    /seller/dashboard
+    /admin
+
+This is navigation UX only. Backend APIs must enforce real authorization.
+
+## Cart State
+
+useCartStore owns cart items, save-for-later items, applied coupon, and drawer state.
+
+Before quantity mutations, the store asks cartService for available stock.
+
+This is a client-side consistency check. Production stock must be validated transactionally by the backend.
+
+## Persistence
+
+Zustand persistence and selected localStorage services remain part of the demo architecture.
+
+The v2.1 goal is consistency, not a wholesale persistence rewrite.
+
+Production persistence should move to backend APIs and PostgreSQL.
+
+## Coupon State
+
+Coupon validation considers active status, validity dates, minimum purchase, discount type, and maximum discount.
+
+The backend must repeat these rules authoritatively.
+
+## Multi-Vendor Checkout
+
+Cart items retain vendor identity so the UI can group fulfillment information by seller.
+
+The production backend must calculate authoritative prices, discounts, inventory, shipping, taxes where applicable, and order totals.
+
+## Future Backend Boundary
+
+    React
+      ↓
+    Zustand
+      ↓
+    Domain Service
+      ↓
+    API Client
+      ↓ HTTPS
+    Backend
+      ├── Auth/session
+      ├── Products/vendors
+      ├── Cart/inventory
+      ├── Orders/payments
+      ├── Reviews/coupons
+      ├── Contact
+      └── PostgreSQL
+
+This boundary keeps backend technology replaceable without coupling it to React components.

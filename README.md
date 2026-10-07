@@ -1,332 +1,131 @@
 # Rudin Store
 
-## Enterprise Multi-Vendor E-Commerce Frontend
+## Multi-Vendor E-Commerce Frontend
 
-**Version:** 2.0.0  
-**Status:** Frontend Prototype / API-Ready Architecture
+**Version:** 2.1.0  
+**Status:** Release candidate / API-ready frontend prototype
 
-Rudin Store is a multi-vendor e-commerce marketplace frontend built with React, TypeScript, Vite, Tailwind CSS, and Zustand.
+Rudin Store is a multi-vendor marketplace frontend built with React 19, TypeScript, Vite 8, Tailwind CSS 4, React Router 7, and Zustand 5.
 
-The application is intentionally structured around domain services and state stores so that the current mock/demo implementation can later be replaced by real backend services without requiring a major UI rewrite.
+Version 2.1.0 is a hardening upgrade over v2.0.0. It improves client-side authentication state, protected routes, cart stock validation, coupon validation, and local mock-data persistence while preserving the existing UI and service-oriented architecture.
 
-> **Important:** Rudin Store 2.0.0 is a frontend prototype. Authentication, payments, shipping, payouts, and backend persistence are not production services in this release.
+> **Important:** v2.1.0 is still a frontend prototype. It does not provide production authentication, server-side authorization, a production database, real payment processing, shipping-provider integration, seller payouts, or transactional inventory.
 
----
+## v2.1.0 Highlights
 
-## Technology Stack
+- Application version synchronized to 2.1.0.
+- Unauthenticated default auth state instead of a fake logged-in customer.
+- Explicit demo authentication and CUSTOMER/VENDOR/ADMIN role workflows.
+- ProtectedRoute guards for account, seller, and admin UX.
+- Cart stock validation for add/update/save-for-later flows.
+- Coupon validation for status, validity dates, minimum purchase, percentage limits, and maximum discount.
+- Local persistence improvements for demo authentication, vendors, coupons, and products.
+- Products service barrel added.
+- TypeScript strict and cross-platform filename-casing checks enabled.
+- Tailwind flex/block conflict in the mobile vendor link removed.
 
-- React 19
-- TypeScript
-- Vite
-- Tailwind CSS
-- Zustand
-- React Router
-- Lucide React
-- Motion
-- Prettier
+## Architecture
 
-The project uses TypeScript validation through the `lint` script:
+    React Pages / Components
+              |
+              v
+        Zustand Stores
+              |
+              v
+        Domain Services
+              |
+              v
+    Mock Data / Local Persistence
+              |
+              +---- future HTTPS API ----> Backend
+                                           |
+                                           +--> PostgreSQL
+                                           +--> Auth / Sessions
+                                           +--> Orders / Inventory
+                                           +--> Payments
+                                           +--> Contact / Email
 
-```bash
-npm run lint
+The service layer is the intended integration boundary. UI components should not connect directly to databases or provider APIs.
 
-Production builds are generated with:
+## Running Locally
 
-npm run build
+Requirements: Node.js and npm.
 
-Code formatting is handled by Prettier:
+    npm ci
+    npm run dev
+    npm run lint
+    npm run format
+    npm run format:check
+    npm run build
+    npm run preview
 
-npm run format
-npm run format:check
+## Validation Status
 
-Features
+The v2.1.0 candidate was validated locally with:
 
-Marketplace
+    npm ci       PASS — 0 vulnerabilities reported
+    npm run lint PASS
+    npm run build PASS
 
-Multi-vendor product catalog
+The production build emits a non-blocking warning because the main JavaScript chunk exceeds Vite's default 500 kB warning threshold.
 
-Vendor storefronts
+There is currently no dedicated unit or E2E test suite. See docs/testing.md.
 
-Product search
+## Production Integration Roadmap
 
-Category and product filtering
+### Authentication
 
-Rating and review presentation
+Connect login, registration, logout, password reset, session refresh/revocation, and current-user loading to a trusted backend. The backend must verify credentials and enforce authorization.
 
-Product detail pages
+### Cart and Checkout
 
-Wishlist functionality
+Connect server-side stock and price validation, coupon validation, cart persistence, address management, shipping calculation, order creation, payment authorization, and transaction status.
 
-Quick product view
+### Contact Us
 
-Cart and Checkout
+The repository does not currently contain a production contact backend. A future Contact Us flow should submit to a backend endpoint, persist the inquiry, apply rate/spam controls, and use a controlled email or ticket integration.
 
-Vendor-grouped cart
+### Database
 
-Quantity management
+PostgreSQL is the recommended production relational database. The backend should own users, sessions, vendors, products, variants, inventory, carts, addresses, coupons, orders, payments, reviews, contact inquiries, and audit events.
 
-Save-for-later behavior
+No production database is connected in v2.1.0.
 
-Coupon simulation
+## Branding and Browser Icon
 
-Multi-step checkout
+The small icon shown in browser tabs/bookmarks is the **favicon**. After the final hosted logo URL is supplied, it can be added to index.html with a link rel="icon" element. A web app manifest can additionally define application icons for installable/PWA contexts.
 
-Delivery option simulation
+The final logo URL and icon assets are intentionally pending the user's final branding asset.
 
-Payment method simulation
+## Security Boundary
 
-Order confirmation UI
+Frontend validation and ProtectedRoute are UX protections, not backend security. The browser is untrusted.
 
-User Areas
+See SECURITY.md, docs/security.md, and docs/backend-integration.md.
 
-Customer account area
+## Project Status
 
-Seller dashboard
+| Area | v2.1.0 |
+|---|---|
+| Frontend UI | Implemented |
+| Mock/demo architecture | Implemented |
+| Client route guards | Implemented |
+| Cart stock validation | Implemented |
+| Coupon validation | Implemented |
+| Production authentication | Not implemented |
+| Backend authorization | Not implemented |
+| Production database | Not connected |
+| Payment gateway | Not implemented |
+| Shipping provider | Not implemented |
+| Seller payouts | Not implemented |
+| Contact backend/email | Not implemented |
 
-Admin dashboard
+Rudin Store v2.1.0 is a hardened, API-ready frontend prototype, not a complete production marketplace backend.
 
-Authentication state management
+## Documentation
 
-Frontend route protection
+See CHANGELOG.md, CONTRIBUTING.md, SECURITY.md, VERSIONING.md, and the docs/ directory.
 
-Demo/mock workflows
-
-UI System
-
-Reusable UI primitives include:
-
-Button
-
-Badge
-
-Modal
-
-Drawer
-
-RatingStars
-
-ToastContainer
-
-Domain-specific components include:
-
-ProductCard
-
-QuickViewModal
-
-SearchBar
-
-CartDrawer
-
-Architecture
-
-The application follows a layered frontend architecture:
-
-Pages / Components
-        |
-        v
-Zustand Stores
-        |
-        v
-Domain Services
-        |
-        v
-Mock Data / Local Persistence
-
-The service layer is intentionally separated from the UI so that future API implementations can replace mock implementations without coupling backend concerns directly to React components.
-
-Main directories:
-
-src/
-├── components/
-├── data/
-├── pages/
-├── services/
-├── store/
-└── types/
-
-Services
-
-The service layer is organized around domains such as:
-
-auth
-cart
-categories
-coupons
-orders
-products
-reviews
-vendors
-wishlist
-
-Stores
-
-Application state is divided into focused Zustand stores:
-
-authStore
-cartStore
-uiStore
-wishlistStore
-
-Mock / Demo Architecture
-
-Version 2.0.0 intentionally retains mock data.
-
-Mock functionality is used for:
-
-UI development
-
-local demonstrations
-
-frontend workflows
-
-development without a backend
-
-future API contract validation
-
-Mock functionality must not be interpreted as real:
-
-authentication
-
-authorization
-
-payment processing
-
-shipping provider integration
-
-payout processing
-
-escrow
-
-email delivery
-
-database persistence
-
-Running Locally
-
-Requirements:
-
-Node.js
-
-npm
-
-Install dependencies:
-
-npm install
-
-Run development server:
-
-npm run dev
-
-Run TypeScript validation:
-
-npm run lint
-
-Format the project:
-
-npm run format
-
-Verify formatting:
-
-npm run format:check
-
-Build production assets:
-
-npm run build
-
-Preview the production build:
-
-npm run preview
-
-Validation Status for 2.0.0
-
-The current v2 migration was validated with:
-
-npm install       PASS
-npm ci            PASS
-npm run format    PASS
-npm run lint      PASS
-npm run build     PASS
-
-The production build currently reports a chunk-size warning for a JavaScript bundle exceeding the default 500 kB warning threshold. This is a performance warning, not a build failure.
-
-Security Model
-
-Frontend route guards are UX-level protection only.
-
-They do not replace backend authorization.
-
-A production deployment must implement server-side:
-
-authentication
-
-authorization
-
-session management
-
-input validation
-
-payment authorization
-
-order authorization
-
-seller permissions
-
-administrator permissions
-
-See:
-
-SECURITY.md
-
-docs/security.md
-
-Backend Integration
-
-The current frontend is designed to transition toward a real backend through service abstractions.
-
-See:
-
-docs/backend-integration.md
-docs/frontend-architecture.md
-
-The backend is not included in version 2.0.0.
-
-Documentation
-
-Project documentation is organized as follows:
-
-README.md
-CHANGELOG.md
-CONTRIBUTING.md
-SECURITY.md
-VERSIONING.md
-
-docs/
-├── README.md
-├── architecture.md
-├── backend-integration.md
-├── component-system.md
-├── development.md
-├── frontend-architecture.md
-├── security.md
-├── testing.md
-└── versioning.md
-
-License
+## License
 
 See LICENSE.
-
-Project Status
-
-Frontend:                 Implemented
-Mock/Demo Architecture:   Implemented
-Backend API:              Not implemented
-Database:                 Not implemented
-Production Auth:          Not implemented
-Payment Gateway:          Not implemented
-Shipping Provider:        Not implemented
-Payout Provider:          Not implemented
-Escrow:                   Not implemented
-
-Rudin Store 2.0.0 should therefore be treated as an API-ready frontend prototype rather than a complete production marketplace backend.
-
-```
