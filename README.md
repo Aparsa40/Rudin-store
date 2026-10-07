@@ -91,11 +91,20 @@ PostgreSQL is the recommended production relational database. The backend should
 
 No production database is connected in v2.1.0.
 
-## Branding and Browser Icon
+## Branding and Browser Assets
 
-The small icon shown in browser tabs/bookmarks is the **favicon**. After the final hosted logo URL is supplied, it can be added to index.html with a link rel="icon" element. A web app manifest can additionally define application icons for installable/PWA contexts.
+Branding assets are now part of the v2.1.0 release branch.
 
-The final logo URL and icon assets are intentionally pending the user's final branding asset.
+- Header logo: `public/branding/header-logo.svg`
+- Footer logo: `public/branding/footer-logo.svg`
+- Social preview artwork: `public/branding/og-image.svg`
+- Browser favicon: `public/favicon.ico`
+- PNG favicons: `public/favicon-16x16.png`, `public/favicon-32x32.png`
+- Apple touch icon: `public/apple-touch-icon.png`
+- PWA icons: `public/icons/android-chrome-192x192.png`, `public/icons/android-chrome-512x512.png`
+- Web manifest: `public/site.webmanifest`
+
+`index.html` references the favicon, Apple touch icon, manifest, Open Graph image, and Twitter image. The header and footer use their dedicated logo variants.
 
 ## Security Boundary
 
