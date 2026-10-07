@@ -33,7 +33,7 @@ export const Header: React.FC = () => {
   const location = useLocation();
 
   const handleRoleChange = (role: Role) => {
-    updateUserRole(role);
+    setDemoRole(role);
     setIsAccountDropdownOpen(false);
     if (role === 'VENDOR') navigate('/seller/dashboard');
     else if (role === 'ADMIN') navigate('/admin');
