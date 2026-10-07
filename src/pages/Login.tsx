@@ -8,7 +8,7 @@ import { ShieldCheck, User, Store, ShieldAlert, ArrowRight } from 'lucide-react'
 import { Role } from '../types';
 
 export const Login: React.FC = () => {
-  const { login, updateUserRole, isLoading, setLoading } = useAuthStore();
+  const { login, isLoading, setLoading } = useAuthStore();
   const { addToast } = useUIStore();
   const navigate = useNavigate();
 
