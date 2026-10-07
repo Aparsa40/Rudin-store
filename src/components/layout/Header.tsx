@@ -27,7 +27,7 @@ export const Header: React.FC = () => {
   const cartCount = useCartStore((state) => state.getItemCount());
   const openCartDrawer = useCartStore((state) => state.openDrawer);
   const wishlistCount = useWishlistStore((state) => state.getCount());
-  const { user, isAuthenticated, logout, updateUserRole } = useAuthStore();
+  const { user, logout, setDemoRole } = useAuthStore();
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -232,7 +232,7 @@ export const Header: React.FC = () => {
                     <Link
                       to="/seller/dashboard"
                       onClick={() => {
-                        updateUserRole('VENDOR');
+                        setDemoRole('VENDOR');
                         setIsAccountDropdownOpen(false);
                       }}
                       className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50"
@@ -242,7 +242,7 @@ export const Header: React.FC = () => {
                     <Link
                       to="/admin"
                       onClick={() => {
-                        updateUserRole('ADMIN');
+                        setDemoRole('ADMIN');
                         setIsAccountDropdownOpen(false);
                       }}
                       className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50"
@@ -349,7 +349,7 @@ export const Header: React.FC = () => {
                   <Link
                     to="/vendors"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="block px-3 py-2 text-sm font-semibold text-slate-900 rounded-lg hover:bg-slate-100 items-center gap-2"
+                    className="flex items-center gap-2 block px-3 py-2 text-sm font-semibold text-slate-900 rounded-lg hover:bg-slate-100"
                   >
                     <Store className="w-4 h-4 text-slate-400" /> All Independent Stores
                   </Link>
@@ -364,7 +364,7 @@ export const Header: React.FC = () => {
                   <Link
                     to="/seller/dashboard"
                     onClick={() => {
-                      updateUserRole('VENDOR');
+                      setDemoRole('VENDOR');
                       setIsMobileMenuOpen(false);
                     }}
                     className="block px-3 py-2 text-sm font-semibold text-amber-700 rounded-lg hover:bg-amber-50"
@@ -374,7 +374,7 @@ export const Header: React.FC = () => {
                   <Link
                     to="/admin"
                     onClick={() => {
-                      updateUserRole('ADMIN');
+                      setDemoRole('ADMIN');
                       setIsMobileMenuOpen(false);
                     }}
                     className="block px-3 py-2 text-sm font-semibold text-blue-700 rounded-lg hover:bg-blue-50"
