@@ -1,53 +1,184 @@
 # Backend Integration Contract
 
-This document explains how to transition the Rudin Store frontend from the current mock implementation to a production backend (e.g., Node.js + Express + PostgreSQL, or similar).
+This document defines the migration from mock/demo services to a production backend.
 
-## Current Architecture
+## Principle
 
-Currently, the UI components request data through service abstractions in `src/services/`.
+Keep the UI contract stable and replace service implementations behind the existing service boundary.
 
-**Flow:**
-`UI Component` → calls `productsService.getProductById(id)` → Returns `Promise<Product>` (resolved from `mockData.ts`).
+    React UI
+       ↓
+    Zustand
+       ↓
+    Domain Service
+       ↓
+    API Client
+       ↓
+    Backend
+       ↓
+    PostgreSQL
 
-## Future Architecture
+The browser must never connect directly to PostgreSQL.
 
-When the API is ready, the service implementations should be updated to make actual HTTP requests.
+## Authentication
 
-**Flow:**
-`UI Component` → calls `productsService.getProductById(id)` → Makes HTTP `GET /api/products/:id` → Returns `Promise<Product>` from the database.
+Current: authService and authStore provide demo/local authentication.
 
-## Steps to Integrate
+Production endpoints:
 
-1. **Keep the UI Components Unchanged**: Do not modify the React components in `src/pages` or `src/components`. They are already expecting Promises that resolve to the correct domain types.
-2. **Setup API Client**: Create a base API client (e.g., using `axios` or native `fetch`) that handles authentication headers and base URLs.
-3. **Rewrite Services**:
-   Open `src/services/products.service.ts` and replace the mock logic with real HTTP calls.
+    POST /api/auth/register
+    POST /api/auth/login
+    POST /api/auth/logout
+    POST /api/auth/refresh
+    POST /api/auth/forgot-password
+    POST /api/auth/reset-password
+    GET  /api/auth/me
 
-   _Example before (Mock):_
+The backend must hash passwords, manage sessions, rate-limit authentication, validate credentials, and enforce roles/permissions.
 
-   ```typescript
-   export const productsService = {
-     getProducts: async (): Promise<Product[]> => {
-       await new Promise((resolve) => setTimeout(resolve, 500));
-       return mockProducts;
-     },
-   };
-   ```
+## Protected Routes
 
-   _Example after (Real API):_
+ProtectedRoute remains useful for UX, but every protected API endpoint must verify authenticated session, required permission, and resource ownership.
 
-   ```typescript
-   export const productsService = {
-     getProducts: async (): Promise<Product[]> => {
-       const response = await fetch('/api/products');
-       if (!response.ok) throw new Error('Failed to fetch products');
-       return response.json();
-     },
-   };
-   ```
+## Cart and Inventory
 
-4. **Update Authentication**:
-   The `useAuthStore` in `src/store/authStore.ts` currently handles mock authentication. You will need to wire this up to your real JWT/Session logic. Replace the `setTimeout` mock login with an actual API call to `/api/auth/login`.
+Current cartService/cartStore perform client-side stock checks.
 
-5. **Multi-Vendor Consideration**:
-   The frontend is already designed to display a multi-vendor cart and vendor-specific storefronts. Ensure your backend returns the nested relations correctly (e.g., `product.vendorId` and resolving the `Vendor` object).
+Production endpoints:
+
+    GET  /api/cart
+    POST /api/cart/items
+    PATCH /api/cart/items/:id
+    DELETE /api/cart/items/:id
+    POST /api/cart/coupons
+    DELETE /api/cart/coupons/:code
+
+The server must re-check stock and current price on every sensitive operation.
+
+## Checkout and Orders
+
+Recommended endpoints:
+
+    POST /api/checkout/validate
+    POST /api/orders
+    GET  /api/orders
+    GET  /api/orders/:id
+    POST /api/orders/:id/cancel
+
+Order creation and inventory reservation should use a database transaction.
+
+## Payments
+
+Use a trusted backend boundary:
+
+    Frontend
+       ↓
+    Backend payment endpoint
+       ↓
+    Payment provider
+       ↓
+    Verified webhook
+       ↓
+    Backend order/payment state
+
+Never trust a browser-only payment-success flag.
+
+## Addresses
+
+    GET    /api/account/addresses
+    POST   /api/account/addresses
+    PATCH  /api/account/addresses/:id
+    DELETE /api/account/addresses/:id
+
+Ownership must be checked server-side.
+
+## Vendors and Products
+
+    GET  /api/products
+    GET  /api/products/:id
+    GET  /api/vendors
+    GET  /api/vendors/:slug
+    POST /api/vendor/products
+    PATCH /api/vendor/products/:id
+    DELETE /api/vendor/products/:id
+
+Seller operations require server-side vendor ownership checks.
+
+## Coupons
+
+Production validation must check active state, validity window, minimum purchase, discount type, maximum discount, customer eligibility, and usage limits.
+
+## Reviews
+
+    GET  /api/products/:id/reviews
+    POST /api/products/:id/reviews
+    PATCH /api/reviews/:id
+    DELETE /api/reviews/:id
+
+The backend should derive verified-purchase status from order history.
+
+## Contact Us
+
+Recommended endpoint:
+
+    POST /api/contact
+
+Backend responsibilities:
+
+1. validate and normalize the message
+2. rate-limit and apply spam controls
+3. persist the inquiry
+4. optionally notify a controlled support mailbox/ticket system
+5. return a non-sensitive confirmation ID
+
+Current status: no production contact backend exists in v2.1.0.
+
+## Database
+
+PostgreSQL is the recommended relational database.
+
+Initial logical domains:
+
+    users
+    sessions
+    roles / permissions
+    vendors
+    products
+    product_variants
+    inventory
+    addresses
+    carts
+    cart_items
+    coupons
+    coupon_redemptions
+    orders
+    order_items
+    payments
+    reviews
+    contact_inquiries
+    audit_events
+
+The backend owns migrations, constraints, indexes, transactions, and access control.
+
+## API Client
+
+Introduce one shared API client for base URL, credentials/cookies, JSON handling, error normalization, abort/timeout, and authentication refresh behavior.
+
+Avoid scattering raw fetch calls across React components.
+
+## Recommended Integration Order
+
+1. Backend project + PostgreSQL
+2. Database schema/migrations
+3. Authentication/session API
+4. API client + authStore integration
+5. Products/vendors APIs
+6. Cart + inventory APIs
+7. Checkout + orders
+8. Payment provider + webhooks
+9. Addresses/account APIs
+10. Reviews/coupons
+11. Contact API + email/ticket integration
+12. Seller/admin authorization and audit logging
+
+Do not mark an integration complete until the backend is authoritative for that domain.
