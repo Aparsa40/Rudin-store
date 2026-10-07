@@ -2,83 +2,72 @@
 
 ## Environment
 
-Rudin Store is a React + TypeScript frontend application built with Vite.
-
-Use a compatible Node.js and npm environment for the current project version.
+Rudin Store v2.1.0 is a React + TypeScript frontend built with Vite.
 
 ## Installation
 
-For the historical `v1.0.0` baseline:
+    npm ci
 
-```bash
-npm ci
-```
+## Development Server
 
-The original baseline currently fails dependency resolution because of a Vite/esbuild compatibility conflict.
-
-This is documented in the root `README.md` and `CHANGELOG.md`.
-
-Do not modify the historical dependency manifest solely to make `v1.0.0` install successfully.
-
-## Development
-
-```bash
-npm run dev
-```
+    npm run dev
 
 ## Type Checking
 
-The original `v1.0.0` project exposes:
+    npm run lint
 
-```bash
-npm run lint
-```
+This runs tsc --noEmit. It is a TypeScript check, not ESLint. Strict TypeScript checking is enabled.
 
-This command currently performs TypeScript checking using:
+## Formatting
 
-```text
-tsc --noEmit
-```
-
-It is not an ESLint invocation.
+    npm run format
+    npm run format:check
 
 ## Production Build
 
-```bash
-npm run build
-```
+    npm run build
 
 ## Preview
 
-```bash
-npm run preview
-```
+    npm run preview
 
-## Clean Build Artifacts
+## Clean Generated Artifacts
 
-```bash
-npm run clean
-```
+    npm run clean
 
 ## Git Workflow
 
-Development should occur on focused branches.
+Use focused branches:
 
-Recommended flow:
+    main
+     ├── feature/*
+     ├── fix/*
+     ├── refactor/*
+     ├── test/*
+     ├── docs/*
+     └── release/*
 
-```text
-main
-  │
-  ├── feature/*
-  ├── fix/*
-  ├── test/*
-  └── docs/*
-```
+Current release candidate:
 
-Changes should be reviewed before merging into `main`.
+    release/v2.1.0
 
-## Historical Versions
+Review changes before merging into main.
 
-Historical snapshots are preserved using Git tags.
+## Production Integration
 
-Do not rewrite published version tags.
+Do not connect the browser directly to PostgreSQL or payment providers.
+
+Planned boundary:
+
+    React service
+       ↓
+    HTTPS API
+       ↓
+    Backend
+       ├── Authentication / sessions
+       ├── Orders / inventory
+       ├── Payments
+       ├── Contact
+       └── PostgreSQL
+
+See docs/backend-integration.md.
