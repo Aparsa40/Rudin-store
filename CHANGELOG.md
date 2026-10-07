@@ -1,8 +1,53 @@
 # Changelog
 
-All notable changes to Rudin Store are documented in this file.
+All notable changes to Rudin Store are documented here.
 
-The project follows Semantic Versioning as described in `VERSIONING.md`.
+The project follows Semantic Versioning as described in VERSIONING.md.
+
+---
+
+## [2.1.0] — Release Candidate
+
+Version 2.1.0 is the hardening upgrade currently under review in release/v2.1.0.
+
+### Added
+
+- ProtectedRoute for account, seller, and admin route UX protection.
+- Explicit demo-role support for CUSTOMER, VENDOR, and ADMIN.
+- products.service.ts service barrel.
+- Coupon validity-window support through validFrom and validUntil.
+
+### Improved
+
+- Authentication starts unauthenticated instead of with a fake pre-authenticated customer.
+- Auth store, login flow, and header use the same v2.1 API.
+- Cart operations validate available stock before increasing quantities.
+- Save-for-later restoration respects stock.
+- Coupon validation checks active state, validity dates, minimum purchase, percentage limits, and maximum discount.
+- Vendor, coupon, and product demo persistence is more consistent.
+- TypeScript strict and filename-casing checks are enabled.
+- The conflicting Tailwind flex + block utility combination in Header was removed.
+
+### Documentation
+
+- Updated all repository documentation from the v2.0.0 baseline to the v2.1.0 candidate.
+- Documented the boundary between demo/local behavior and trusted backend behavior.
+- Documented planned authentication, cart/checkout, Contact Us, and PostgreSQL integration.
+- Documented favicon/logo integration as a pending branding step.
+
+### Validation
+
+    npm ci       PASS — 0 vulnerabilities reported
+    npm run lint PASS
+    npm run build PASS
+
+The production build has a non-blocking JavaScript chunk-size warning above Vite's default 500 kB threshold.
+
+No dedicated unit/E2E suite is currently implemented.
+
+### Security / Architecture Notes
+
+v2.1.0 still uses mock/demo authentication, browser persistence, and frontend route guards. Production work remains required for server authentication/authorization, secure sessions, PostgreSQL, transactional inventory, real payments, shipping, payouts, and contact/email backend services.
 
 ---
 
@@ -12,94 +57,25 @@ The project follows Semantic Versioning as described in `VERSIONING.md`.
 
 - Multi-vendor marketplace frontend architecture.
 - Domain-oriented service layer.
-- Authentication service/store separation.
-- Cart service and cart state management.
-- Wishlist service and wishlist state management.
-- Coupon service.
-- Order service.
-- Review service.
-- Vendor service.
-- Category service.
+- Authentication, cart, wishlist, coupon, order, review, vendor, and category services.
 - Global UI state management.
-- Reusable Badge component.
-- Reusable Drawer component.
-- Reusable Modal component.
-- Reusable RatingStars component.
-- Reusable ToastContainer component.
-- CartDrawer component.
-- QuickViewModal component.
-- SearchBar component.
-- Frontend architecture documentation.
-- Component system documentation.
-- Backend integration documentation.
-- Prettier formatting configuration.
+- Reusable UI primitives and technical documentation.
 
 ### Improved
 
 - Product browsing and filtering.
 - Product detail experience.
-- Multi-vendor cart presentation.
-- Checkout workflow.
-- Customer account workflow.
-- Seller dashboard workflow.
-- Admin dashboard workflow.
+- Multi-vendor cart and checkout workflows.
+- Customer, seller, and admin workflows.
 - Authentication state handling.
-- Shared UI component consistency.
-- Service-layer separation.
-- TypeScript domain contracts.
-- Project documentation.
+- Service-layer separation and TypeScript contracts.
 
-### Validation
+---
 
-The release was validated using:
-
-```text
-npm install       PASS
-npm ci            PASS
-npm run format    PASS
-npm run lint      PASS
-npm run build     PASS
-
-The production build completes successfully.
-
-A bundle-size warning remains for a JavaScript chunk exceeding Vite's default 500 kB warning threshold.
-
-Security / Architecture Notes
-
-Version 2.0.0 remains a frontend prototype.
-
-The following are simulated or mock implementations:
-
-Authentication
-
-Authorization
-
-Payments
-
-Shipping
-
-Payouts
-
-Escrow
-
-Backend persistence
-
-External provider integrations
-
-Frontend route guards must not be considered a replacement for backend authorization.
-
-[1.0.0]
+## [1.0.0]
 
 Initial documented frontend baseline.
 
-The 1.x line represents the previous frontend implementation before the version 2 architecture and service-layer expansion.
+## Unreleased
 
-Unreleased
-
-Changes that are not yet part of a released version belong here.
-
-Versioning
-
-See VERSIONING.md for the project's release and versioning policy.
-
-```
+Changes not yet assigned to a release version belong here.
