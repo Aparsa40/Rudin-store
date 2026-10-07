@@ -112,18 +112,12 @@ export const Header: React.FC = () => {
         </button>
 
         {/* Brand Logo */}
-        <Link to="/" className="flex items-center gap-2.5 shrink-0 group">
-          <div className="w-9 h-9 bg-slate-900 text-white rounded-xl flex items-center justify-center font-black text-xl tracking-tight shadow-md group-hover:scale-105 transition-transform">
-            R
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xl font-black tracking-tight text-slate-900 leading-none">
-              RUDIN
-            </span>
-            <span className="text-[10px] tracking-widest text-slate-400 uppercase font-semibold">
-              Marketplace
-            </span>
-          </div>
+        <Link to="/" className="flex items-center shrink-0 group" aria-label="Rudin Store home">
+          <img
+            src="/branding/header-logo.svg"
+            alt="Rudin Store"
+            className="h-11 w-auto max-w-[170px] object-contain transition-transform group-hover:scale-[1.02]"
+          />
         </Link>
 
         {/* Search Bar (Desktop) */}
@@ -298,11 +292,12 @@ export const Header: React.FC = () => {
           />
           <div className="fixed top-0 bottom-0 left-0 w-80 bg-white shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 bg-slate-900 text-white rounded-lg flex items-center justify-center font-bold text-sm">
-                  R
-                </div>
-                <span className="font-bold text-slate-900 text-base">Rudin Store</span>
+              <div className="flex items-center">
+                <img
+                  src="/branding/header-logo.svg"
+                  alt="Rudin Store"
+                  className="h-9 w-auto max-w-[150px] object-contain"
+                />
               </div>
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
