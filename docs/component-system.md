@@ -1,60 +1,79 @@
 # Component System & Design Language — Rudin Store
 
-This document outlines the UI component hierarchy, design tokens, and interaction guidelines for Rudin Store.
+## Visual Identity
 
-## 1. Visual Identity & Design Principles
+- Clean Slate-based neutral palette.
+- Strong typographic hierarchy.
+- Compact marketplace metadata.
+- Product imagery with hover/quick-view interactions.
+- Drawer and modal interactions for high-frequency actions.
+- Responsive desktop/mobile navigation.
 
-- **Typographic Discipline**: Clean, high-contrast hierarchy using Slate neutrals with bold headline weights.
-- **Micro-Interactions**: Hover zoom lenses on product photos, slide-in drawers, and real-time live search suggestions.
-- **Conversion-Oriented Density**: Informative metadata (reviews count, maker badges, dispatch times) without visual clutter.
+## Core UI Components
 
-## 2. Core UI Components (`src/components/ui/`)
+Located under src/components/ui/:
 
-### `Button`
+### Button
 
-- **Variants**: `primary` (Slate 900), `secondary` (Slate 100), `outline`, `ghost`, `danger`.
-- **Sizes**: `sm`, `md`, `lg`, `icon`.
-- **States**: `isLoading` with animated SVG spinner, disabled opacity.
+Reusable variants, sizes, loading state, and disabled state.
 
-### `Badge`
+### Badge
 
-- **Variants**: `primary`, `secondary`, `success` (Emerald), `warning` (Amber), `danger` (Rose), `purple`.
-- **Uses**: Order statuses, stock level warnings, verified artisan seals, discount percentage tags.
+Used for order states, stock indicators, verified sellers, and promotional labels.
 
-### `RatingStars`
+### RatingStars
 
-- Supports full, half, and empty star calculations, numerical score formatting, and review count links.
+Full/half/empty star presentation and review counts.
 
-### `Modal`
+### Modal
 
-- Accessible dialog supporting ESC key listener, focus trap, body scroll locking, and customizable max widths.
+Reusable dialog surface for focused workflows.
 
-### `Drawer`
+### Drawer
 
-- Off-canvas slide-over panel used for the `CartDrawer` and mobile filter drawers.
+Off-canvas surface used by cart and responsive interactions.
 
-### `ToastContainer`
+### ToastContainer
 
-- Global toast alert queue with auto-dismissal timeouts and color-coded icons (Success, Info, Error, Warning).
+Global feedback queue.
 
-## 3. Specialized Domain Components
+## Domain Components
 
-### `ProductCard` (`src/components/product/ProductCard.tsx`)
+### ProductCard
 
-- Supports both **Grid View** and **List View** rendering modes.
-- Hover image transition revealing secondary angle.
-- Instant wishlist toggle with toast feedback.
-- Quick View modal trigger without leaving catalog view.
+Grid/list presentation, wishlist interaction, hover imagery, and quick view.
 
-### `SearchBar` (`src/components/search/SearchBar.tsx`)
+### SearchBar
 
-- Live debounced autocomplete.
-- LocalStorage-backed recent search history with single-click repeat and clear.
-- Trending popular searches chips.
-- Direct product preview list with pricing and thumbnail.
+Product search/autocomplete behavior and recent-search persistence.
 
-### `CartDrawer` (`src/components/cart/CartDrawer.tsx`)
+### CartDrawer
 
-- Auto-opens upon item addition.
-- Vendor grouping headers with free shipping progress bar.
-- Interactive coupon code verification (`RUDIN15`, `SAVE25`, `FREESHIP`).
+Cart management, vendor grouping, stock-aware quantity operations, save-for-later, and coupon interaction.
+
+## Authentication UI
+
+The header and login flows use the v2.1 auth-store contract.
+
+Demo perspectives:
+
+- CUSTOMER
+- VENDOR
+- ADMIN
+
+ProtectedRoute controls navigation UX for protected sections.
+
+These are demo/frontend controls, not backend authorization.
+
+## Implementation Rules
+
+- Prefer reusable primitives over duplicated markup.
+- Keep visual components independent from backend implementations.
+- Keep data access in stores and services.
+- Do not expose secrets through component props or client-side configuration.
+- Preserve responsive behavior.
+- Avoid contradictory Tailwind utilities such as flex + block on the same element.
+
+## Future Production
+
+Backend integration should not require replacing the component system. Services should move from mock/local implementations to API-backed implementations while components continue consuming stable domain contracts.
