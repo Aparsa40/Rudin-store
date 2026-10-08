@@ -13,6 +13,7 @@ import { VendorsList } from './pages/VendorsList';
 import { VendorDetail } from './pages/VendorDetail';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { SellerDashboard } from './pages/SellerDashboard';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { Button } from './components/ui/Button';
 
 const NotFound: React.FC = () => (
@@ -25,14 +26,8 @@ const NotFound: React.FC = () => (
       The page or artisan collection you were looking for could not be found or has moved.
     </p>
     <div className="flex gap-3 justify-center">
-      <Link to="/">
-        <Button variant="outline" size="sm">
-          Return Home
-        </Button>
-      </Link>
-      <Link to="/shop">
-        <Button size="sm">Browse Catalog</Button>
-      </Link>
+      <Link to="/"><Button variant="outline" size="sm">Return Home</Button></Link>
+      <Link to="/shop"><Button size="sm">Browse Catalog</Button></Link>
     </div>
   </div>
 );
@@ -50,12 +45,12 @@ export const App: React.FC = () => {
           <Route path="checkout" element={<Checkout />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
-          <Route path="account/*" element={<Account />} />
+          <Route path="account/*" element={<ProtectedRoute><Account /></ProtectedRoute>} />
           <Route path="vendors" element={<VendorsList />} />
           <Route path="vendors/:slug" element={<VendorDetail />} />
-          <Route path="seller/dashboard" element={<SellerDashboard />} />
+          <Route path="seller/dashboard" element={<ProtectedRoute allowedRoles={['VENDOR', 'ADMIN']}><SellerDashboard /></ProtectedRoute>} />
           <Route path="seller/join" element={<Register />} />
-          <Route path="admin" element={<AdminDashboard />} />
+          <Route path="admin" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminDashboard /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

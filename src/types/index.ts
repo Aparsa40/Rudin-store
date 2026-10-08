@@ -149,14 +149,7 @@ export interface WishlistItem {
   addedAt: string;
 }
 
-export type OrderStatus =
-  | 'PENDING'
-  | 'PROCESSING'
-  | 'SHIPPED'
-  | 'OUT_FOR_DELIVERY'
-  | 'DELIVERED'
-  | 'CANCELLED'
-  | 'REFUNDED';
+export type OrderStatus = 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED' | 'REFUNDED';
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
 export type PaymentMethod = 'CREDIT_CARD' | 'PAYPAL' | 'APPLE_PAY' | 'CASH_ON_DELIVERY';
 
@@ -236,6 +229,7 @@ export interface Coupon {
   minPurchaseAmount?: number;
   maxDiscount?: number;
   description: string;
+  validFrom?: string;
   validUntil: string;
   isActive: boolean;
 }

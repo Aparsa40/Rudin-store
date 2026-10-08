@@ -18,7 +18,7 @@ export const useWishlistStore = create<WishlistState>()(
         const { productIds } = get();
         const exists = productIds.includes(productId);
         if (exists) {
-          set({ productIds: productIds.filter((id) => id !== productId) });
+          set({ productIds: productIds.filter(id => id !== productId) });
           return false;
         } else {
           set({ productIds: [...productIds, productId] });
@@ -32,10 +32,10 @@ export const useWishlistStore = create<WishlistState>()(
 
       clearWishlist: () => set({ productIds: [] }),
 
-      getCount: () => get().productIds.length,
+      getCount: () => get().productIds.length
     }),
     {
-      name: 'rudin-wishlist-storage',
-    },
-  ),
+      name: 'rudin-wishlist-storage'
+    }
+  )
 );

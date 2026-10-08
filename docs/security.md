@@ -1,182 +1,86 @@
 # Security Architecture
 
-**Version:** 2.0.0
+**Version:** 2.1.0
 
 ## Security Boundary
 
-Rudin Store is currently a frontend application.
+    Frontend validation ≠ security enforcement
+    ProtectedRoute ≠ backend authorization
+    Demo authentication ≠ production authentication
+    localStorage ≠ secure credential storage
 
-The browser is an untrusted environment.
-
-Therefore:
-
-```text
-Frontend validation ≠ Security enforcement
-Frontend route guard ≠ Authorization
-Mock authentication ≠ Production authentication
-```
-
-Any security-sensitive decision must ultimately be enforced by a trusted backend.
-
----
+The browser is untrusted. Sensitive decisions must ultimately be enforced by a trusted backend.
 
 ## Authentication
 
-The current application contains mock/demo authentication behavior.
+v2.1.0 starts unauthenticated and provides explicit demo authentication/role workflows.
 
-The frontend may maintain:
+Production authentication must provide credential verification, session creation, refresh/revocation, logout, password reset, and account recovery.
 
-- current user state
-- authentication UI state
-- demo session state
-
-but these values must not be treated as authoritative identity proof.
-
-A production backend must validate credentials and establish trusted sessions.
-
----
+Prefer secure, HttpOnly, SameSite cookies for cookie-based sessions when practical.
 
 ## Authorization
 
-The frontend may protect routes for UX purposes.
+ProtectedRoute protects navigation for:
 
-Protected areas include concepts such as:
+    /account/*
+    /seller/dashboard
+    /admin
 
-```text
-/account
-/seller
-/admin
-```
+The backend must independently enforce authentication, permissions, roles, and resource ownership.
 
-The backend must independently verify:
+## Client Validation
 
-```text
-authenticated user
-+
-required role
-+
-resource ownership
-```
+v2.1 validates stock and coupon rules in the browser to prevent obvious invalid actions.
 
-for every sensitive operation.
-
----
-
-## Data Validation
-
-Client-side validation should be considered convenience validation.
-
-The backend must independently validate:
-
-- product IDs
-- quantities
-- prices
-- discounts
-- coupon rules
-- order ownership
-- seller ownership
-- user roles
-- payment state
-
-Never trust values received from the browser.
-
----
+The backend must independently validate product/variant availability, quantity, price, coupon rules, order ownership, seller ownership, and payment state.
 
 ## Payments
 
-Payment functionality in 2.0.0 is simulated.
+Payment behavior remains simulated. Real provider calls and webhook verification belong on the backend.
 
-No production payment processor is implemented.
+## Contact
 
-The frontend must not create authoritative payment state.
+There is no production contact backend in v2.1. A future Contact Us flow should call a backend endpoint, validate input server-side, rate-limit abuse, persist the inquiry, and use controlled email/ticket delivery.
 
-A production payment architecture should use a trusted backend and payment provider.
+## Database
 
----
+The browser must never connect directly to PostgreSQL.
 
-## Shipping
+    React
+      ↓
+    HTTPS API
+      ↓
+    Backend
+      ↓
+    PostgreSQL
 
-Shipping is currently simulated.
-
-External carrier operations must be performed and confirmed by backend integrations.
-
----
+Recommended domains include users, sessions, vendors, products, variants, inventory, carts, addresses, coupons, orders, payments, reviews, contact inquiries, and audit events.
 
 ## Secrets
 
-Do not put secrets in:
+Never put production secrets in source files, public assets, mock data, localStorage, or documentation.
 
-```text
-src/
-public/
-README.md
-mockData.ts
-```
-
-Do not commit `.env` files containing secrets.
-
-Use:
-
-```text
-.env.example
-```
-
-for safe configuration examples.
-
----
-
-## Local Storage
-
-The frontend uses browser persistence for selected demo/application state.
-
-Local storage must not be treated as a secure secret store.
-
-Do not store sensitive credentials or production authorization secrets in local storage.
-
----
+Use backend environment variables and safe examples in .env.example.
 
 ## Dependency Security
 
-Use the lockfile for reproducible installations:
+    npm ci
+    npm audit
 
-```bash
-npm ci
-```
+The v2.1 candidate's latest npm ci reported 0 vulnerabilities.
 
-Review dependency vulnerabilities regularly:
+## Production Checklist
 
-```bash
-npm audit
-```
-
----
-
-## Production Requirements
-
-Before treating the application as production software, implement:
-
-1. Server-side authentication.
-2. Server-side authorization.
-3. Secure session management.
-4. Backend input validation.
-5. Database access controls.
-6. Payment provider integration.
-7. Secure order processing.
-8. Secure seller authorization.
-9. Secure administrative authorization.
-10. Secret management.
-11. Security monitoring and logging.
-
----
-
-## Current Security Status
-
-```text
-Frontend hardening:          Improved
-Client-side validation:      Present
-Route-level UX protection:   Present where implemented
-Backend authorization:       Not implemented
-Production authentication:   Not implemented
-Production payments:         Not implemented
-Production database:         Not implemented
-```
+- [ ] Backend authentication
+- [ ] Server-side authorization
+- [ ] Secure sessions
+- [ ] Password hashing and recovery
+- [ ] Rate limiting
+- [ ] Input/schema validation
+- [ ] PostgreSQL access controls
+- [ ] Transactional order/inventory logic
+- [ ] Real payment provider
+- [ ] Secret management
+- [ ] Audit logging and monitoring
+- [ ] Contact/email abuse controls

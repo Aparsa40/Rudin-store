@@ -27,13 +27,13 @@ export const Header: React.FC = () => {
   const cartCount = useCartStore((state) => state.getItemCount());
   const openCartDrawer = useCartStore((state) => state.openDrawer);
   const wishlistCount = useWishlistStore((state) => state.getCount());
-  const { user, isAuthenticated, logout, updateUserRole } = useAuthStore();
+  const { user, logout, setDemoRole } = useAuthStore();
 
   const navigate = useNavigate();
   const location = useLocation();
 
   const handleRoleChange = (role: Role) => {
-    updateUserRole(role);
+    setDemoRole(role);
     setIsAccountDropdownOpen(false);
     if (role === 'VENDOR') navigate('/seller/dashboard');
     else if (role === 'ADMIN') navigate('/admin');
@@ -112,18 +112,12 @@ export const Header: React.FC = () => {
         </button>
 
         {/* Brand Logo */}
-        <Link to="/" className="flex items-center gap-2.5 flex-shrink-0 group">
-          <div className="w-9 h-9 bg-slate-900 text-white rounded-xl flex items-center justify-center font-black text-xl tracking-tight shadow-md group-hover:scale-105 transition-transform">
-            R
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xl font-black tracking-tight text-slate-900 leading-none">
-              RUDIN
-            </span>
-            <span className="text-[10px] tracking-widest text-slate-400 uppercase font-semibold">
-              Marketplace
-            </span>
-          </div>
+        <Link to="/" className="flex items-center shrink-0 group" aria-label="Rudin Store home">
+          <img
+            src="/branding/header-logo.svg"
+            alt="Rudin Store"
+            className="h-11 w-auto max-w-[170px] object-contain transition-transform group-hover:scale-[1.02]"
+          />
         </Link>
 
         {/* Search Bar (Desktop) */}
@@ -232,7 +226,7 @@ export const Header: React.FC = () => {
                     <Link
                       to="/seller/dashboard"
                       onClick={() => {
-                        updateUserRole('VENDOR');
+                        setDemoRole('VENDOR');
                         setIsAccountDropdownOpen(false);
                       }}
                       className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50"
@@ -242,7 +236,7 @@ export const Header: React.FC = () => {
                     <Link
                       to="/admin"
                       onClick={() => {
-                        updateUserRole('ADMIN');
+                        setDemoRole('ADMIN');
                         setIsAccountDropdownOpen(false);
                       }}
                       className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50"
@@ -291,18 +285,19 @@ export const Header: React.FC = () => {
 
       {/* Mobile Menu Drawer */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-[150] lg:hidden">
+        <div className="fixed inset-0 z-150 lg:hidden">
           <div
             className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm"
             onClick={() => setIsMobileMenuOpen(false)}
           />
           <div className="fixed top-0 bottom-0 left-0 w-80 bg-white shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 bg-slate-900 text-white rounded-lg flex items-center justify-center font-bold text-sm">
-                  R
-                </div>
-                <span className="font-bold text-slate-900 text-base">Rudin Store</span>
+              <div className="flex items-center">
+                <img
+                  src="/branding/header-logo.svg"
+                  alt="Rudin Store"
+                  className="h-9 w-auto max-w-[150px] object-contain"
+                />
               </div>
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -349,7 +344,7 @@ export const Header: React.FC = () => {
                   <Link
                     to="/vendors"
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="block px-3 py-2 text-sm font-semibold text-slate-900 rounded-lg hover:bg-slate-100 flex items-center gap-2"
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-slate-900 rounded-lg hover:bg-slate-100"
                   >
                     <Store className="w-4 h-4 text-slate-400" /> All Independent Stores
                   </Link>
@@ -364,7 +359,7 @@ export const Header: React.FC = () => {
                   <Link
                     to="/seller/dashboard"
                     onClick={() => {
-                      updateUserRole('VENDOR');
+                      setDemoRole('VENDOR');
                       setIsMobileMenuOpen(false);
                     }}
                     className="block px-3 py-2 text-sm font-semibold text-amber-700 rounded-lg hover:bg-amber-50"
@@ -374,7 +369,7 @@ export const Header: React.FC = () => {
                   <Link
                     to="/admin"
                     onClick={() => {
-                      updateUserRole('ADMIN');
+                      setDemoRole('ADMIN');
                       setIsMobileMenuOpen(false);
                     }}
                     className="block px-3 py-2 text-sm font-semibold text-blue-700 rounded-lg hover:bg-blue-50"

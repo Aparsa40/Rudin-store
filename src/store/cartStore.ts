@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { CartItem, Coupon } from '../types';
+import { cartService } from '../services/cart/cartService';
+
+export interface CartActionResult {
+  success: boolean;
+  error?: string;
+}
 
 interface CartState {
   items: CartItem[];
@@ -8,13 +14,13 @@ interface CartState {
   appliedCoupon: Coupon | null;
   isDrawerOpen: boolean;
 
-  addItem: (item: Omit<CartItem, 'id' | 'addedAt'>) => void;
+  addItem: (item: Omit<CartItem, 'id' | 'addedAt'>) => CartActionResult;
   removeItem: (id: string) => void;
-  updateQuantity: (id: string, quantity: number) => void;
+  updateQuantity: (id: string, quantity: number) => CartActionResult;
   clearCart: () => void;
 
   moveToSaveForLater: (id: string) => void;
-  moveToCartFromSaved: (id: string) => void;
+  moveToCartFromSaved: (id: string) => CartActionResult;
   removeSavedItem: (id: string) => void;
 
   applyCoupon: (coupon: Coupon) => void;
@@ -35,14 +41,32 @@ export const useCartStore = create<CartState>()(
       isDrawerOpen: false,
 
       addItem: (item) => {
-        set((state) => {
-          const existingIndex = state.items.findIndex(
-            (i) => i.productId === item.productId && i.variantId === item.variantId,
-          );
+        const stock = cartService.getAvailableStock(item.productId, item.variantId);
+        const state = get();
+        const existingIndex = state.items.findIndex(
+          (i) => i.productId === item.productId && i.variantId === item.variantId
+        );
+        const currentQty = existingIndex >= 0 ? state.items[existingIndex].quantity : 0;
+        const targetQty = currentQty + item.quantity;
 
+        if (stock <= 0) {
+          return {
+            success: false,
+            error: 'This item is currently out of stock.'
+          };
+        }
+
+        if (targetQty > stock) {
+          return {
+            success: false,
+            error: `Only ${stock} unit${stock === 1 ? '' : 's'} available in stock.`
+          };
+        }
+
+        set((state) => {
           if (existingIndex >= 0) {
             const newItems = [...state.items];
-            newItems[existingIndex].quantity += item.quantity;
+            newItems[existingIndex].quantity = targetQty;
             return { items: newItems, isDrawerOpen: true };
           }
 
@@ -52,26 +76,52 @@ export const useCartStore = create<CartState>()(
               {
                 ...item,
                 id: `ci_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-                addedAt: new Date().toISOString(),
-              },
+                addedAt: new Date().toISOString()
+              }
             ],
-            isDrawerOpen: true,
+            isDrawerOpen: true
           };
         });
+
+        return { success: true };
       },
 
       removeItem: (id) => {
         set((state) => ({
-          items: state.items.filter((i) => i.id !== id),
+          items: state.items.filter((i) => i.id !== id)
         }));
       },
 
       updateQuantity: (id, quantity) => {
-        set((state) => ({
-          items: state.items.map((i) =>
-            i.id === id ? { ...i, quantity: Math.max(1, quantity) } : i,
-          ),
+        const state = get();
+        const targetItem = state.items.find((i) => i.id === id);
+        if (!targetItem) {
+          return { success: false, error: 'Item not found in cart.' };
+        }
+
+        const stock = cartService.getAvailableStock(targetItem.productId, targetItem.variantId);
+
+        if (quantity > stock) {
+          // Clamp to maximum stock
+          set((curr) => ({
+            items: curr.items.map((i) =>
+              i.id === id ? { ...i, quantity: stock } : i
+            )
+          }));
+          return {
+            success: false,
+            error: `Only ${stock} unit${stock === 1 ? '' : 's'} available in stock.`
+          };
+        }
+
+        const safeQuantity = Math.max(1, quantity);
+        set((curr) => ({
+          items: curr.items.map((i) =>
+            i.id === id ? { ...i, quantity: safeQuantity } : i
+          )
         }));
+
+        return { success: true };
       },
 
       clearCart: () => {
@@ -80,29 +130,36 @@ export const useCartStore = create<CartState>()(
 
       moveToSaveForLater: (id) => {
         set((state) => {
-          const item = state.items.find((i) => i.id === id);
+          const item = state.items.find(i => i.id === id);
           if (!item) return state;
           return {
-            items: state.items.filter((i) => i.id !== id),
-            saveForLater: [...state.saveForLater, item],
+            items: state.items.filter(i => i.id !== id),
+            saveForLater: [...state.saveForLater, item]
           };
         });
       },
 
       moveToCartFromSaved: (id) => {
-        set((state) => {
-          const item = state.saveForLater.find((i) => i.id === id);
-          if (!item) return state;
-          return {
-            saveForLater: state.saveForLater.filter((i) => i.id !== id),
-            items: [...state.items, item],
-          };
-        });
+        const state = get();
+        const item = state.saveForLater.find(i => i.id === id);
+        if (!item) return { success: false, error: 'Item not found in saved list.' };
+
+        const stock = cartService.getAvailableStock(item.productId, item.variantId);
+        if (stock <= 0) {
+          return { success: false, error: 'This item is currently out of stock.' };
+        }
+
+        set((curr) => ({
+          saveForLater: curr.saveForLater.filter(i => i.id !== id),
+          items: [...curr.items, { ...item, quantity: Math.min(item.quantity, stock) }]
+        }));
+
+        return { success: true };
       },
 
       removeSavedItem: (id) => {
         set((state) => ({
-          saveForLater: state.saveForLater.filter((i) => i.id !== id),
+          saveForLater: state.saveForLater.filter((i) => i.id !== id)
         }));
       },
 
@@ -118,11 +175,12 @@ export const useCartStore = create<CartState>()(
       closeDrawer: () => set({ isDrawerOpen: false }),
 
       getItemCount: () => {
-        return get().items.reduce((total, item) => total + item.quantity, 0);
-      },
+        const items = get().items;
+        return items.reduce((acc, item) => acc + item.quantity, 0);
+      }
     }),
     {
-      name: 'rudin-cart-storage',
-    },
-  ),
+      name: 'rudin-cart-storage'
+    }
+  )
 );

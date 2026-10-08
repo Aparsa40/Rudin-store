@@ -1,144 +1,63 @@
 # Versioning Policy
 
-## Overview
+Rudin Store follows Semantic Versioning: MAJOR.MINOR.PATCH.
 
-Rudin Store follows Semantic Versioning:
+## MAJOR
 
-```text
-MAJOR.MINOR.PATCH
+Use MAJOR for incompatible public or architectural changes.
 
-For example:
+Example: 2.1.0 → 3.0.0
 
-2.0.0
+## MINOR
 
-MAJOR
+Use MINOR for backward-compatible functionality and meaningful feature additions.
 
-Increase the MAJOR version when incompatible changes are introduced.
+Example: 2.0.0 → 2.1.0
 
-Examples:
+The v2.1.0 candidate adds frontend hardening without introducing a production backend.
 
-Breaking public service contracts
+## PATCH
 
-Breaking domain type contracts
+Use PATCH for backward-compatible fixes and maintenance.
 
-Major architectural migration
+Example: 2.1.0 → 2.1.1
 
-Removal of supported application behavior
+## Current Candidate
 
-Breaking changes to documented integration contracts
+    Version: 2.1.0
+    Branch: release/v2.1.0
+    Status: Release candidate / under PR review
+    Base: main
 
-Example:
+## Version Authority
 
-2.0.0 → 3.0.0
+The authoritative application version is package.json.
 
-MINOR
+Keep package-lock.json synchronized through npm. Do not manually edit dependency-resolution metadata.
 
-Increase the MINOR version when backward-compatible functionality is added.
+## Branch Naming
 
-Examples:
+    feature/<name>
+    fix/<name>
+    refactor/<name>
+    test/<name>
+    docs/<name>
+    release/v<version>
 
-New marketplace functionality
+## Release Checklist
 
-New service domain
+1. Update package.json.
+2. Regenerate package-lock.json with npm.
+3. Update CHANGELOG.md.
+4. Update README.md and affected docs.
+5. Run npm run format:check.
+6. Run npm run lint.
+7. Run npm run build.
+8. Run automated tests when a test suite exists.
+9. Review git diff and git status.
+10. Confirm no secrets or generated artifacts are committed.
+11. Push the release branch.
+12. Review the release PR.
+13. Tag only after approval and merge.
 
-New reusable components
-
-New seller/admin capabilities
-
-New documented API-ready interfaces
-
-Example:
-
-2.0.0 → 2.1.0
-
-PATCH
-
-Increase the PATCH version for backward-compatible fixes.
-
-Examples:
-
-Bug fixes
-
-Security fixes
-
-Documentation corrections
-
-Formatting/configuration corrections
-
-Small internal improvements
-
-Example:
-
-2.0.0 → 2.0.1
-
-Current Release
-
-Version: 2.0.0
-Release type: MAJOR
-Status: Frontend Prototype / API-Ready Architecture
-
-Version 2 represents the transition from the previous 1.x frontend implementation to the expanded domain-service and state-management architecture.
-
-Version Sources
-
-The application version should be kept synchronized across project metadata.
-
-The authoritative application version is:
-
-package.json
-
-The lockfile must be regenerated through npm rather than manually edited:
-
-npm install
-
-Documentation should reference the same release version where a specific version is required.
-
-Git Branch Naming
-
-Recommended branch patterns:
-
-feature/<name>
-fix/<name>
-refactor/<name>
-docs/<name>
-release/<version>
-
-The version 2 migration branch is:
-
-release/v2.0.0
-
-Release Checklist
-
-Before releasing a version:
-
-Update package.json.
-
-Regenerate package-lock.json with npm.
-
-Update CHANGELOG.md.
-
-Update relevant documentation.
-
-Run formatting.
-
-Run TypeScript validation.
-
-Run production build.
-
-Review Git status.
-
-Commit the release.
-
-Push the release branch.
-
-Create the release PR.
-
-Tag the release after approval/merge according to repository policy.
-
-Important Rule
-
-Do not manually change the version in package-lock.json.
-
-Use npm to keep package metadata and the lockfile synchronized.
-
-```
+Never manually edit dependency-resolution entries in package-lock.json.

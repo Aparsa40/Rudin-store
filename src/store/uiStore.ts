@@ -27,19 +27,19 @@ export const useUIStore = create<UIState>((set) => ({
   addToast: (message, type = 'success', duration = 3000) => {
     const id = `t_${Date.now()}_${Math.random()}`;
     set((state) => ({
-      toasts: [...state.toasts, { id, type, message, duration }],
+      toasts: [...state.toasts, { id, type, message, duration }]
     }));
 
     if (duration > 0) {
       setTimeout(() => {
         set((state) => ({
-          toasts: state.toasts.filter((t) => t.id !== id),
+          toasts: state.toasts.filter((t) => t.id !== id)
         }));
       }, duration);
     }
   },
   removeToast: (id) =>
     set((state) => ({
-      toasts: state.toasts.filter((t) => t.id !== id),
-    })),
+      toasts: state.toasts.filter((t) => t.id !== id)
+    }))
 }));

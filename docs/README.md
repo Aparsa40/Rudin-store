@@ -1,87 +1,78 @@
 # Rudin Store Documentation
 
-**Documentation version:** 2.0.0
+**Documentation version:** 2.1.0
 
-This directory contains technical and operational documentation for Rudin Store.
+This directory contains technical and operational documentation for the v2.1.0 release candidate.
 
 ## Documentation Map
 
 ### Architecture
 
-- `architecture.md`
-- `frontend-architecture.md`
-- `component-system.md`
-
-These documents describe application layers, state management, service boundaries, and UI architecture.
+- architecture.md
+- frontend-architecture.md
+- component-system.md
 
 ### Development
 
-- `development.md`
-
-Development environment, commands, formatting, validation, and contribution workflow.
+- development.md
 
 ### Backend
 
-- `backend-integration.md`
-
-Describes the contract between the current frontend service layer and a future backend implementation.
+- backend-integration.md
 
 ### Testing
 
-- `testing.md`
-
-Describes the current validation strategy and the limitations of the prototype test setup.
+- testing.md
 
 ### Security
 
-- `security.md`
-
-Documents frontend security boundaries, mock authentication, authorization limitations, secrets handling, and future backend requirements.
+- security.md
 
 ### Versioning
 
-- `versioning.md`
+- versioning.md
 
-Describes release numbering, branch conventions, and version synchronization.
+### Branding
 
----
+- branding.md
 
-## Version 2.0.0 Status
+## v2.1.0 Status
 
-Rudin Store 2.0.0 is an API-ready frontend prototype.
+Implemented:
 
-The following remain outside the current frontend implementation:
+- unauthenticated default auth state
+- explicit demo roles
+- client-side protected routes
+- cart stock validation
+- coupon validation
+- local demo persistence improvements
+- strict TypeScript checking
+
+Still outside the frontend:
 
 - production backend
 - production authentication
 - server-side authorization
-- database
-- payment gateway
-- shipping provider integration
-- payout provider
-- escrow
-- production email delivery
-
----
+- production database
+- real payments
+- shipping provider
+- seller payouts
+- production contact/email delivery
 
 ## Validation
 
-Current validation commands:
+    npm ci
+    npm run lint
+    npm run build
 
-```bash
-npm run format:check
-npm run lint
-npm run build
-```
+Latest candidate result:
 
-The current v2 migration passed TypeScript validation and production build validation.
+    npm ci       PASS — 0 vulnerabilities reported
+    npm run lint PASS
+    npm run build PASS
 
----
+No dedicated unit/E2E suite is currently implemented.
 
 ## Documentation Rule
 
-Documentation must describe the implementation that actually exists.
-
-Do not document simulated functionality as a real external integration.
-
-When functionality changes, update the relevant technical document and the root `CHANGELOG.md`.
+Documentation must describe the implementation that actually exists. Do not document mock behavior as a real external integration.

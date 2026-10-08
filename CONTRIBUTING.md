@@ -1,192 +1,124 @@
 # Contributing to Rudin Store
 
-Thank you for contributing to Rudin Store.
+Rudin Store v2.1.0 is maintained as a hardened, API-ready frontend prototype.
 
-This project is currently maintained as an API-ready frontend prototype.
+## Development
 
----
+Install dependencies:
 
-## Development Requirements
+    npm ci
 
-Install:
+Run the development server:
 
-- Node.js
-- npm
+    npm run dev
 
-Install project dependencies:
+Recommended branch names:
 
-```bash
-npm install
+    feature/<name>
+    fix/<name>
+    refactor/<name>
+    test/<name>
+    docs/<name>
+    release/v<version>
 
-Development Workflow
+## Before Committing
 
-Create a branch from the appropriate base branch.
+    npm run format:check
+    npm run lint
+    npm run build
 
-Recommended naming:
+Run npm run format first when formatting changes are required.
 
-feature/<name>
-fix/<name>
-refactor/<name>
-docs/<name>
-release/<version>
+## TypeScript
 
-Example:
+npm run lint executes tsc --noEmit. Strict TypeScript checking is enabled.
 
-release/v2.0.0
-
-Before Committing
-
-Run:
-
-npm run format
-npm run format:check
-npm run lint
-npm run build
-
-All relevant checks should pass before creating a pull request.
-
-Formatting
-
-Prettier is the project formatter.
-
-Format the project:
-
-npm run format
-
-Check formatting without changing files:
-
-npm run format:check
-
-Do not manually introduce formatting styles that conflict with the project configuration.
-
-TypeScript
-
-The project uses TypeScript validation through:
-
-npm run lint
-
-The current lint command performs TypeScript checking with:
-
-tsc --noEmit
-
-Type errors should be fixed before merging.
-
-Architecture Rules
-
-Keep UI components independent from backend implementation details.
+## Architecture Rules
 
 Prefer:
 
-Component
-    ↓
-Service
-    ↓
-Mock/API implementation
+    React Component
+          ↓
+    Zustand Store
+          ↓
+    Domain Service
+          ↓
+    Mock implementation / future API client
 
-instead of embedding data access directly inside UI components.
+Do not put database access, payment-provider calls, or secret-bearing logic directly in React components.
 
-Keep state concerns in the appropriate Zustand store.
+## Mock / Demo Data
 
-Mock Data
+Mock data remains part of the current architecture.
 
-Mock data is intentionally part of the current architecture.
+Do:
 
-Do not remove mock data merely because a backend is planned.
+- keep demo behavior clearly identifiable
+- use existing persistence mechanisms
+- document simulated behavior
+- preserve stable domain contracts
 
-However:
+Do not:
 
-clearly distinguish mock behavior from real integrations
+- claim mock authentication is real authentication
+- fabricate payment or shipping confirmations
+- add fake provider APIs as production substitutes
+- put secrets into mock data
 
-do not fabricate successful external transactions
+## Security
 
-do not present demo authentication as production authentication
+Never commit passwords, API keys, tokens, database credentials, payment secrets, or production environment files.
 
-do not introduce fake payment/provider APIs
+Review SECURITY.md before security-sensitive changes.
 
-Security
+## Documentation
 
-Never commit:
+Update documentation whenever architecture, security boundaries, commands, versioning, or user-visible behavior changes.
 
-passwords
+Core documents:
 
-API keys
+    README.md
+    CHANGELOG.md
+    VERSIONING.md
+    SECURITY.md
+    CONTRIBUTING.md
 
-tokens
+Technical documents:
 
-database credentials
+    docs/README.md
+    docs/architecture.md
+    docs/backend-integration.md
+    docs/component-system.md
+    docs/development.md
+    docs/frontend-architecture.md
+    docs/security.md
+    docs/testing.md
+    docs/versioning.md
 
-production secrets
+## Pull Requests
 
-Review SECURITY.md before contributing security-sensitive changes.
+A PR should include a clear title, concise description, reason for the change, validation results, security implications when relevant, and documentation updates when required.
 
-Documentation
+Avoid unrelated changes.
 
-Update documentation when architectural or user-visible behavior changes.
+## Commit Messages
 
-Relevant documentation:
+Use clear action-oriented messages:
 
-README.md
-CHANGELOG.md
-SECURITY.md
-VERSIONING.md
+    feat: add wishlist service
+    fix: validate cart stock
+    refactor: isolate coupon service
+    docs: update v2.1 documentation
+    chore: enable strict TypeScript checks
 
-docs/
-├── README.md
-├── architecture.md
-├── backend-integration.md
-├── component-system.md
-├── development.md
-├── frontend-architecture.md
-├── security.md
-├── testing.md
-└── versioning.md
+## Pull Request Checklist
 
-Pull Requests
-
-A pull request should include:
-
-clear title
-
-concise description
-
-reason for the change
-
-relevant validation results
-
-documentation updates when required
-
-Do not include unrelated changes.
-
-Commit Messages
-
-Use clear, action-oriented commit messages.
-
-Examples:
-
-feat: add wishlist service
-fix: validate cart stock
-refactor: isolate coupon service
-docs: update v2 architecture
-chore: format project
-
-Pull Request Checklist
-
-Before opening a PR:
-
-Code is formatted.
-
-TypeScript validation passes.
-
-Production build passes.
-
-No secrets are committed.
-
-Relevant documentation is updated.
-
-No unrelated files were modified.
-
-Mock functionality is clearly identified.
-
-Security-sensitive behavior is not enforced only on the client.
-
-```
+- [ ] Formatting check passes.
+- [ ] TypeScript validation passes.
+- [ ] Production build passes.
+- [ ] Relevant automated tests pass, if present.
+- [ ] No secrets are committed.
+- [ ] Documentation is updated.
+- [ ] No unrelated files are modified.
+- [ ] Mock functionality is clearly identified.
+- [ ] Security-sensitive behavior is not enforced only on the client.

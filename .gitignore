@@ -1,13 +1,15 @@
 node_modules/
-dist/
 build/
+dist/
 coverage/
-
+.DS_Store
+*.log
 .env*
 !.env.example
-
-*.log
-
-.DS_Store
 .vscode/
 Rudin-Store.code-workspace
+
+# Environment files
+*.dev
+*.env
+env/
