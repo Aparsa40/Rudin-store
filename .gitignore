@@ -1,15 +1,28 @@
+# Dependencies
 node_modules/
+
+# Build output
 build/
 dist/
 coverage/
-.DS_Store
+
+# Logs and local OS/editor files
 *.log
-.env*
-!.env.example
+.DS_Store
 .vscode/
 Rudin-Store.code-workspace
 
-# Environment files
+# Environment files and local secrets
+.env*
+!.env.example
 *.dev
 *.env
 env/
+
+# Local databases and database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Runtime/debug output
+*.pid
