@@ -1,8 +1,6 @@
-import { randomBytes } from "node:crypto";
 import { Router } from "express";
 import type { SortOrder } from "mongoose";
 import { ProductModel } from "../models/product.model.js";
-import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const productsRouter = Router();
 const MAX_PAGE_SIZE = 100;
@@ -13,10 +11,16 @@ function parseNumber(
   options: { min?: number; max?: number; integer?: boolean } = {},
 ): number | undefined {
   if (value === undefined) return undefined;
-  if (typeof value !== "string" || value.trim() === "") throw new Error(`Query parameter "${name}" must be a number.`);
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`Query parameter "${name}" must be a number.`);
+  }
   const parsed = Number(value);
-  if (!Number.isFinite(parsed) || (options.integer && !Number.isInteger(parsed)) ||
-      (options.min !== undefined && parsed < options.min) || (options.max !== undefined && parsed > options.max)) {
+  if (
+    !Number.isFinite(parsed) ||
+    (options.integer && !Number.isInteger(parsed)) ||
+    (options.min !== undefined && parsed < options.min) ||
+    (options.max !== undefined && parsed > options.max)
+  ) {
     throw new Error(`Query parameter "${name}" is out of range.`);
   }
   return parsed;
@@ -43,10 +47,12 @@ productsRouter.get("/", async (req, res, next) => {
     const minRating = parseNumber(req.query.minRating, "minRating", { min: 0, max: 5 });
     const inStockOnly = parseBoolean(req.query.inStockOnly, "inStockOnly");
     const onSaleOnly = parseBoolean(req.query.onSaleOnly, "onSaleOnly");
+
     if (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice) {
       res.status(400).json({ error: { code: "INVALID_PRICE_RANGE", message: "minPrice cannot exceed maxPrice." } });
       return;
     }
+
     const filter: Record<string, any> = { status: "PUBLISHED" };
     if (typeof req.query.categoryId === "string" && req.query.categoryId.trim()) filter.categoryId = req.query.categoryId.trim();
     if (typeof req.query.vendorId === "string" && req.query.vendorId.trim()) filter.vendorId = req.query.vendorId.trim();
@@ -58,6 +64,7 @@ productsRouter.get("/", async (req, res, next) => {
     if (minRating !== undefined) filter.rating = { $gte: minRating };
     if (inStockOnly) filter.stock = { $gt: 0 };
     if (onSaleOnly) filter.$expr = { $gt: ["$compareAtPrice", "$price"] };
+
     if (typeof req.query.q === "string" && req.query.q.trim()) {
       const escapedQuery = req.query.q.trim().slice(0, 120).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       filter.$or = [
@@ -68,6 +75,7 @@ productsRouter.get("/", async (req, res, next) => {
         { tags: { $regex: escapedQuery, $options: "i" } },
       ];
     }
+
     const sortBy = typeof req.query.sortBy === "string" ? req.query.sortBy : "featured";
     const sort: Record<string, SortOrder> = {};
     switch (sortBy) {
@@ -80,10 +88,12 @@ productsRouter.get("/", async (req, res, next) => {
         res.status(400).json({ error: { code: "INVALID_SORT", message: "Unsupported sortBy value." } });
         return;
     }
+
     const [rows, total] = await Promise.all([
       ProductModel.find(filter).sort(sort).skip((page - 1) * limit).limit(limit).lean(),
       ProductModel.countDocuments(filter),
     ]);
+
     res.status(200).json({
       products: rows.map((row) => serializeProduct(row as unknown as Record<string, unknown>)),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
@@ -99,17 +109,23 @@ productsRouter.get("/", async (req, res, next) => {
 
 productsRouter.get("/:identifier", async (req, res, next) => {
   try {
+    const identifier = req.params.identifier;
     const product = await ProductModel.findOne({
       status: "PUBLISHED",
-      $or: [{ _id: req.params.identifier }, { slug: req.params.identifier }],
+      $or: [{ _id: identifier }, { slug: identifier }],
     }).lean();
+
     if (!product) {
       res.status(404).json({ error: { code: "PRODUCT_NOT_FOUND", message: "Product not found." } });
       return;
     }
+
     res.status(200).json({ product: serializeProduct(product as unknown as Record<string, unknown>) });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
+
 
 // Admins can publish products; vendors can create drafts owned by their own user ID.
 productsRouter.post("/", requireAuth, requireRole("ADMIN", "VENDOR"), async (req, res, next) => {
