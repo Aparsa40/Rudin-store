@@ -7,7 +7,8 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (user: User) => void;
+  accessToken: string | null;
+  login: (user: User, accessToken?: string) => void;
   loginAsDemo: (role: Role) => void;
   register: (userData: Omit<User, 'id' | 'createdAt'> & { id?: string; createdAt?: string }) => void;
   logout: () => void;
@@ -23,8 +24,9 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       isLoading: false,
+      accessToken: null,
 
-      login: (user) => set({ user, isAuthenticated: true, isLoading: false }),
+      login: (user, accessToken) => set({ user, accessToken: accessToken ?? null, isAuthenticated: Boolean(accessToken), isLoading: false }),
 
       loginAsDemo: (role: Role) => {
         let demoUser: User;
@@ -52,7 +54,7 @@ export const useAuthStore = create<AuthState>()(
           demoUser = mockCurrentUser;
         }
 
-        set({ user: demoUser, isAuthenticated: true, isLoading: false });
+        set({ user: demoUser, accessToken: null, isAuthenticated: false, isLoading: false });
       },
 
       register: (userData) => {
@@ -66,10 +68,10 @@ export const useAuthStore = create<AuthState>()(
           avatarUrl: userData.avatarUrl || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200&h=200`,
           createdAt: userData.createdAt || new Date().toISOString()
         };
-        set({ user: newUser, isAuthenticated: true, isLoading: false });
+        set({ user: newUser, accessToken: null, isAuthenticated: false, isLoading: false });
       },
 
-      logout: () => set({ user: null, isAuthenticated: false, isLoading: false }),
+      logout: () => set({ user: null, accessToken: null, isAuthenticated: false, isLoading: false }),
 
       // Explicit development/demo utility for testing different role perspectives
       setDemoRole: (role: Role) =>
@@ -88,7 +90,15 @@ export const useAuthStore = create<AuthState>()(
       setLoading: (isLoading) => set({ isLoading })
     }),
     {
-      name: 'rudin-auth-storage'
+      name: 'rudin-auth-storage',
+      // Access tokens stay in memory; a persisted user object is not proof of authentication.
+      partialize: (state) => ({ user: state.user }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.accessToken = null;
+          state.isAuthenticated = false;
+        }
+      }
     }
   )
 );
