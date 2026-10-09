@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import { Router } from "express";
 import { UserModel } from "../models/user.model.js";
 import { createAccessToken, requireAuth } from "../middleware/auth.js";
+import { withAdminStateLock } from "../lib/admin-state.js";
 
 const scrypt = promisify(scryptCallback);
 const authRouter = Router();
@@ -44,10 +45,6 @@ authRouter.post("/bootstrap-admin", async (req, res, next) => {
       res.status(404).json({ error: { code: "NOT_FOUND", message: "Not found." } });
       return;
     }
-    if (await UserModel.exists({ role: "ADMIN" })) {
-      res.status(409).json({ error: { code: "BOOTSTRAP_CLOSED", message: "An administrator already exists." } });
-      return;
-    }
     const { email, password, firstName, lastName } = req.body ?? {};
     if (typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ||
         typeof password !== "string" || password.length < 12 || password.length > 128 ||
@@ -56,11 +53,26 @@ authRouter.post("/bootstrap-admin", async (req, res, next) => {
       res.status(400).json({ error: { code: "INVALID_ADMIN", message: "Provide a valid email, a password of 12–128 characters, and a first name." } });
       return;
     }
-    const user = await UserModel.create({
-      _id: `usr_${randomBytes(12).toString("hex")}`, email: email.trim().toLowerCase(),
-      passwordHash: await hashPassword(password), firstName: firstName.trim(),
-      lastName: typeof lastName === "string" ? lastName.trim() : "", role: "ADMIN", status: "ACTIVE",
+    const normalizedEmail = email.trim().toLowerCase();
+    const passwordHash = await hashPassword(password);
+    const user = await withAdminStateLock(async (session) => {
+      const existingAdmin = await UserModel.exists({ role: "ADMIN" }).session(session);
+      if (existingAdmin) return null;
+      const [createdUser] = await UserModel.create([{
+        _id: `usr_${randomBytes(12).toString("hex")}`,
+        email: normalizedEmail,
+        passwordHash,
+        firstName: firstName.trim(),
+        lastName: typeof lastName === "string" ? lastName.trim() : "",
+        role: "ADMIN",
+        status: "ACTIVE",
+      }], { session });
+      return createdUser;
     });
+    if (!user) {
+      res.status(409).json({ error: { code: "BOOTSTRAP_CLOSED", message: "An administrator already exists." } });
+      return;
+    }
     res.status(201).json({
       user: publicUser(user),
       accessToken: createAccessToken({ id: user._id, email: user.email, role: "ADMIN" }),
