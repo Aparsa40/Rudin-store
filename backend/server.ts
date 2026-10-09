@@ -7,6 +7,7 @@ import healthRouter from "./routes/health.routes.js";
 import productsRouter from "./routes/products.routes.js";
 import authRouter from "./routes/auth.routes.js";
 import adminRouter from "./routes/admin.routes.js";
+import { createRateLimiter } from "./middleware/rate-limit.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
@@ -35,6 +36,9 @@ app.use((req, res, next) => {
 });
 
 app.use("/api/health", healthRouter);
+app.use("/api/auth/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
+app.use("/api/auth/register", createRateLimiter({ windowMs: 60 * 60 * 1000, maxRequests: 8, message: "Too many registration attempts. Please try again later." }));
+app.use("/api/auth/bootstrap-admin", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 5, message: "Too many bootstrap attempts. Please try again later." }));
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/products", productsRouter);
