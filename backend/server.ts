@@ -4,6 +4,7 @@ import { connectDatabase, disconnectDatabase } from "./config/database.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { notFoundHandler } from "./middleware/not-found.js";
 import healthRouter from "./routes/health.routes.js";
+import productsRouter from "./routes/products.routes.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
@@ -32,6 +33,7 @@ app.use((req, res, next) => {
 });
 
 app.use("/api/health", healthRouter);
+app.use("/api/products", productsRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
