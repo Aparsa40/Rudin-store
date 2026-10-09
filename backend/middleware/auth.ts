@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
+import { UserModel } from "../models/user.model.js";
 
 export type AppRole = "CUSTOMER" | "VENDOR" | "ADMIN";
 export interface AuthUser {
@@ -53,16 +54,30 @@ function verifyAccessToken(token: string): AuthUser | null {
   }
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authorization = req.header("authorization") ?? "";
   const match = /^Bearer\s+(.+)$/i.exec(authorization);
-  const user = match ? verifyAccessToken(match[1]) : null;
-  if (!user) {
+  const tokenUser = match ? verifyAccessToken(match[1]) : null;
+  if (!tokenUser) {
     res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "A valid bearer token is required." } });
     return;
   }
-  req.authUser = user;
-  next();
+  try {
+    // Re-read current role/status so disabled accounts or demoted admins lose access immediately.
+    const user = await UserModel.findOne({ _id: tokenUser.id, status: "ACTIVE" }).select("_id email role");
+    if (!user || user.email !== tokenUser.email) {
+      res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "Account is no longer active." } });
+      return;
+    }
+    if (!["CUSTOMER", "VENDOR", "ADMIN"].includes(user.role)) {
+      res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "Account role is invalid." } });
+      return;
+    }
+    req.authUser = { id: user._id, email: user.email, role: user.role as AppRole };
+    next();
+  } catch (error) {
+    next(error);
+  }
 }
 
 export function requireRole(...roles: AppRole[]) {
