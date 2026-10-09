@@ -128,7 +128,7 @@ authRouter.post("/login", async (req, res, next) => {
     await user.save();
     res.status(200).json({
       user: publicUser(user),
-      accessToken: createAccessToken({ id: user._id, email: user.email, role: user.role as "CUSTOMER" | "VENDOR" | "ADMIN" }),
+      accessToken: createAccessToken({ id: user._id, email: user.email, role: user.role as "CUSTOMER" | "VENDOR" | "ADMIN", authVersion: user.authVersion ?? 0 }),
     });
   } catch (error) { next(error); }
 });
