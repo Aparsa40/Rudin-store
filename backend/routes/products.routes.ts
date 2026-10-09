@@ -170,4 +170,114 @@ productsRouter.post("/", requireAuth, requireRole("ADMIN", "VENDOR"), async (req
   }
 });
 
+
+// Product updates and deletion are scoped to the authenticated owner; admins can manage any product.
+productsRouter.patch("/:id", requireAuth, requireRole("ADMIN", "VENDOR"), async (req, res, next) => {
+  try {
+    const body = req.body ?? {};
+    if (typeof body !== "object" || body === null || Array.isArray(body)) {
+      res.status(400).json({ error: { code: "INVALID_PRODUCT", message: "Request body must be a JSON object." } });
+      return;
+    }
+
+    const product = await ProductModel.findById(req.params.id);
+    if (!product) {
+      res.status(404).json({ error: { code: "PRODUCT_NOT_FOUND", message: "Product not found." } });
+      return;
+    }
+    if (req.authUser!.role !== "ADMIN" && product.vendorId !== req.authUser!.id) {
+      res.status(403).json({ error: { code: "FORBIDDEN", message: "You can only manage products owned by your account." } });
+      return;
+    }
+
+    const editableFields = [
+      "categoryId", "brandId", "brandName", "slug", "title", "description",
+      "shortDescription", "price", "compareAtPrice", "stock", "images",
+      "tags", "features", "specifications",
+    ] as const;
+    const merged: Record<string, unknown> = {
+      categoryId: product.categoryId,
+      brandId: product.brandId,
+      brandName: product.brandName,
+      slug: product.slug,
+      title: product.title,
+      description: product.description,
+      shortDescription: product.shortDescription,
+      price: product.price,
+      compareAtPrice: product.compareAtPrice,
+      stock: product.stock,
+      images: product.images,
+      tags: product.tags,
+      features: product.features,
+      specifications: Object.fromEntries(product.specifications ?? new Map()),
+    };
+    for (const field of editableFields) {
+      if (Object.prototype.hasOwnProperty.call(body, field)) merged[field] = body[field];
+    }
+
+    if (body.status !== undefined) {
+      if (!["DRAFT", "PUBLISHED", "ARCHIVED"].includes(body.status)) {
+        res.status(400).json({ error: { code: "INVALID_STATUS", message: "status must be DRAFT, PUBLISHED, or ARCHIVED." } });
+        return;
+      }
+      if (req.authUser!.role !== "ADMIN" && body.status !== "DRAFT") {
+        res.status(403).json({ error: { code: "FORBIDDEN", message: "Only administrators can publish or archive products." } });
+        return;
+      }
+    }
+
+    const validationError = validateProductInput(merged);
+    if (validationError) {
+      res.status(400).json({ error: { code: "INVALID_PRODUCT", message: validationError } });
+      return;
+    }
+    const slug = normalizeProductSlug(merged.slug, merged.title as string);
+    if (!slug) {
+      res.status(400).json({ error: { code: "INVALID_SLUG", message: "Provide an ASCII-compatible slug or a title that can be converted to one." } });
+      return;
+    }
+
+    Object.assign(product, {
+      categoryId: String(merged.categoryId).trim(),
+      brandId: typeof merged.brandId === "string" ? merged.brandId.trim() : undefined,
+      brandName: typeof merged.brandName === "string" ? merged.brandName.trim() : undefined,
+      slug,
+      title: String(merged.title).trim(),
+      description: String(merged.description).trim(),
+      shortDescription: String(merged.shortDescription).trim(),
+      price: merged.price,
+      compareAtPrice: merged.compareAtPrice,
+      stock: merged.stock ?? 0,
+      images: merged.images ?? [],
+      tags: merged.tags ?? [],
+      features: merged.features ?? [],
+      specifications: merged.specifications ?? {},
+      ...(req.authUser!.role === "ADMIN" && body.status ? { status: body.status } : {}),
+    });
+    await product.save();
+    res.status(200).json({ product: serializeProduct(product.toObject() as unknown as Record<string, unknown>) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+productsRouter.delete("/:id", requireAuth, requireRole("ADMIN", "VENDOR"), async (req, res, next) => {
+  try {
+    const product = await ProductModel.findById(req.params.id);
+    if (!product) {
+      res.status(404).json({ error: { code: "PRODUCT_NOT_FOUND", message: "Product not found." } });
+      return;
+    }
+    if (req.authUser!.role !== "ADMIN" && product.vendorId !== req.authUser!.id) {
+      res.status(403).json({ error: { code: "FORBIDDEN", message: "You can only manage products owned by your account." } });
+      return;
+    }
+    product.status = "ARCHIVED";
+    await product.save();
+    res.status(200).json({ success: true, productId: product._id, status: product.status });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default productsRouter;
