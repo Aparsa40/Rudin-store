@@ -5,6 +5,7 @@ import test from "node:test";
 import mongoose from "mongoose";
 import { UserModel } from "../models/user.model.js";
 import { ProductModel } from "../models/product.model.js";
+import { createAccessToken } from "../middleware/auth.js";
 
 const enabled = process.env.RUN_MONGODB_INTEGRATION === "true" && Boolean(process.env.MONGODB_URI);
 const port = 4317;
@@ -73,6 +74,29 @@ test("MongoDB-backed auth, role boundaries, bootstrap and product lifecycle", { 
       assert.equal(registered.response.status, 201);
       assert.equal(registered.body.user.role, "CUSTOMER");
       const customerToken = registered.body.accessToken as string;
+      process.env.AUTH_TOKEN_SECRET = tokenSecret;
+      const expiredToken = createAccessToken({
+        id: registered.body.user.id,
+        email: registered.body.user.email,
+        role: "CUSTOMER",
+      }, -1);
+      const expiredAccess = await request("/api/auth/me", {
+        headers: { authorization: `Bearer ${expiredToken}` },
+      });
+      assert.equal(expiredAccess.response.status, 401);
+
+      await UserModel.updateOne(
+        { email: "customer.integration@example.test" },
+        { $set: { status: "DISABLED" } },
+      );
+      const disabledAccess = await request("/api/auth/me", {
+        headers: { authorization: `Bearer ${customerToken}` },
+      });
+      assert.equal(disabledAccess.response.status, 401);
+      await UserModel.updateOne(
+        { email: "customer.integration@example.test" },
+        { $set: { status: "ACTIVE" } },
+      );
 
       const adminDenied = await request("/api/admin/admins", {
         headers: { authorization: `Bearer ${customerToken}` },
