@@ -53,7 +53,7 @@ productsRouter.get("/", async (req, res, next) => {
       return;
     }
 
-    const filter: FilterQuery<unknown> = { status: "PUBLISHED" };
+    const filter: FilterQuery<any> = { status: "PUBLISHED" };
     if (typeof req.query.categoryId === "string" && req.query.categoryId.trim()) filter.categoryId = req.query.categoryId.trim();
     if (typeof req.query.vendorId === "string" && req.query.vendorId.trim()) filter.vendorId = req.query.vendorId.trim();
     if (minPrice !== undefined || maxPrice !== undefined) {
@@ -63,7 +63,7 @@ productsRouter.get("/", async (req, res, next) => {
     }
     if (minRating !== undefined) filter.rating = { $gte: minRating };
     if (inStockOnly) filter.stock = { $gt: 0 };
-    if (onSaleOnly) filter.compareAtPrice = { $gt: 0 };
+    if (onSaleOnly) filter.$expr = { $gt: ["$compareAtPrice", "$price"] };
 
     if (typeof req.query.q === "string" && req.query.q.trim()) {
       const escapedQuery = req.query.q.trim().slice(0, 120).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
