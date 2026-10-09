@@ -21,7 +21,7 @@ async function verifyPassword(password: string, stored: string): Promise<boolean
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
-function publicUser(user: { _id: string; email: string; firstName: string; lastName?: string; phone?: string; role: string; createdAt?: Date }) {
+function publicUser(user: { _id: string; email: string; firstName: string; lastName?: string; phone?: string | null; role: string; createdAt?: Date }) {
   return {
     id: user._id, email: user.email, firstName: user.firstName, lastName: user.lastName ?? "",
     phone: user.phone, role: user.role, createdAt: user.createdAt,
