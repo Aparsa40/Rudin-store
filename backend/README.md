@@ -31,4 +31,22 @@ All routes under `/api/admin` require an active administrator bearer token.
 - `GET /api/products/:identifier`: published product by ID or slug.
 - `POST /api/products`: requires an active ADMIN or VENDOR bearer token. Admins can publish a product; vendor-created products are forced to DRAFT. Public requests cannot create or publish products.
 
-Product update/delete, vendor onboarding/ownership records, image upload/storage, rate limiting, refresh-token rotation, email verification, password reset, and frontend integration are not included yet. The current Login/Register, AdminDashboard, and SellerDashboard React screens still use mock/local state, so these API routes are not yet wired into the UI. Do not treat the feature as production-ready until the UI is connected and end-to-end security tests pass.
+Product update/delete, vendor onboarding/ownership records, image upload/storage, rate limiting, refresh-token rotation, email verification, password reset, and frontend integration are not included yet. The Login and Register screens now call the authentication API. The AdminDashboard and SellerDashboard product-management flows are still mock-driven and are not yet connected to backend admin/product management endpoints. Do not treat the feature as production-ready until the UI is connected and end-to-end security tests pass.
+
+## Frontend authentication
+
+The Vite client uses `VITE_API_URL` (default `http://localhost:4000`) for login and customer registration. The access token is held in memory and is not written to localStorage. A page refresh therefore requires signing in again until a refresh-token/session endpoint is implemented. Set `VITE_ENABLE_DEMO_AUTH=true` only for local development to reveal demo-role buttons; these sessions do not carry API credentials and must never be treated as real authentication.
+
+Public registration always creates a `CUSTOMER`. Vendor onboarding/approval is not implemented; selecting the seller option in the current registration UI does not grant the VENDOR role.
+
+## Validation and tests
+
+Run the backend validation tests with:
+
+```powershell
+npm test
+```
+
+Product creation validates required fields, numeric ranges, image object shape and HTTP(S) URLs, tags/features limits, and string-valued specifications. Duplicate-key errors return HTTP 409 and Mongoose validation/cast errors return HTTP 400 without exposing database details.
+
+The current automated tests cover pure product-payload validation. They do not replace MongoDB-backed integration tests for login, token expiry/revocation, authorization boundaries, bootstrap concurrency, or administrator status changes. Run `npm run lint` and `npm run build` before merging, and do not deploy this feature for real customers until those integration tests and the remaining admin/seller UI integration are complete.
