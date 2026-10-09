@@ -50,3 +50,7 @@ npm test
 Product creation validates required fields, numeric ranges, image object shape and HTTP(S) URLs, tags/features limits, and string-valued specifications. Duplicate-key errors return HTTP 409 and Mongoose validation/cast errors return HTTP 400 without exposing database details.
 
 The current automated tests cover pure product-payload validation. They do not replace MongoDB-backed integration tests for login, token expiry/revocation, authorization boundaries, bootstrap concurrency, or administrator status changes. Run `npm run lint` and `npm run build` before merging, and do not deploy this feature for real customers until those integration tests and the remaining admin/seller UI integration are complete.
+
+## Administrator concurrency safety
+
+The first-admin bootstrap and admin status-change operations share a transactional singleton guard. This serializes competing admin-critical transactions and prevents concurrent requests from bypassing the first-admin or final-active-admin checks. This mechanism requires MongoDB transactions, so use MongoDB Atlas or another replica-set/sharded deployment; a standalone MongoDB server does not support these transactions. Integration tests against the configured MongoDB deployment are still required before production use.
