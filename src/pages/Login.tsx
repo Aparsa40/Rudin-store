@@ -6,9 +6,10 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { ShieldCheck, User, Store, ShieldAlert, ArrowRight } from 'lucide-react';
 import { Role } from '../types';
+import { authService } from '../services/auth/authService';
 
 export const Login: React.FC = () => {
-  const { login, isLoading, setLoading } = useAuthStore();
+  const { login, loginAsDemo, isLoading, setLoading } = useAuthStore();
   const { addToast } = useUIStore();
   const navigate = useNavigate();
 
@@ -19,24 +20,19 @@ export const Login: React.FC = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
-    setTimeout(() => {
-      login({
-        id: 'u1',
-        email: email || 'alex.morgan@example.com',
-        firstName: email ? email.split('@')[0] : 'Alex',
-        lastName: 'Morgan',
-        role: 'CUSTOMER',
-        phone: '+1 (555) 234-5678',
-        createdAt: new Date().toISOString(),
-      });
-      setLoading(false);
+    try {
+      const session = await authService.login(email.trim(), password);
+      login(session.user, session.accessToken);
       addToast('Signed in successfully!', 'success');
       navigate('/account');
-    }, 400);
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Unable to sign in. Please try again.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDemoLogin = (role: Role) => {
