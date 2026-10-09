@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   TrendingUp,
   Users,
@@ -13,12 +13,13 @@ import {
   Percent,
   Search,
 } from 'lucide-react';
-import { mockProducts, mockVendors, mockOrders, mockCoupons } from '../data/mockData';
+import { mockVendors, mockOrders, mockCoupons } from '../data/mockData';
 import { Product, Vendor, Order, Coupon, OrderItem } from '../types';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { useUIStore } from '../store/uiStore';
+import { useAuthStore } from '../store/authStore';
 
 export const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<
@@ -26,7 +27,7 @@ export const AdminDashboard: React.FC = () => {
   >('overview');
 
   const [vendorsList, setVendorsList] = useState<Vendor[]>(mockVendors);
-  const [productsList, setProductsList] = useState<Product[]>(mockProducts);
+  const [productsList, setProductsList] = useState<Product[]>([]);
   const [ordersList, setOrdersList] = useState<Order[]>(mockOrders);
   const [couponsList, setCouponsList] = useState<Coupon[]>(mockCoupons);
 
@@ -37,6 +38,25 @@ export const AdminDashboard: React.FC = () => {
   const [newMinSpend, setNewMinSpend] = useState('100');
 
   const { addToast } = useUIStore();
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const apiBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/$/, '');
+
+  useEffect(() => {
+    if (!accessToken) {
+      setProductsList([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`${apiBaseUrl}/api/products/mine`, { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload?.error?.message || 'Unable to load products.');
+        return payload.products as Product[];
+      })
+      .then((products) => { if (!cancelled) setProductsList(products); })
+      .catch((error: unknown) => { if (!cancelled) addToast(error instanceof Error ? error.message : 'Unable to load products.', 'error'); });
+    return () => { cancelled = true; };
+  }, [accessToken, addToast, apiBaseUrl]);
 
   const handleToggleVendorVerification = (id: string) => {
     setVendorsList(
@@ -54,17 +74,22 @@ export const AdminDashboard: React.FC = () => {
     );
   };
 
-  const handleToggleProductFeatured = (id: string) => {
-    setProductsList(
-      productsList.map((p) => {
-        if (p.id === id) {
-          const next = !p.isFeatured;
-          addToast(`"${p.title}" featured status changed`, 'info');
-          return { ...p, isFeatured: next };
-        }
-        return p;
-      }),
-    );
+  const handleToggleProductFeatured = async (id: string) => {
+    const product = productsList.find((item) => item.id === id);
+    if (!product || !accessToken) return;
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/products/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ isFeatured: !product.isFeatured }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error?.message || 'Product feature status could not be updated.');
+      setProductsList((items) => items.map((item) => item.id === id ? payload.product as Product : item));
+      addToast(`"${product.title}" featured status saved.`, 'success');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Unable to update product.', 'error');
+    }
   };
 
   const handleCreateCoupon = (e: React.FormEvent) => {
