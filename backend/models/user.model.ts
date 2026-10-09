@@ -16,6 +16,7 @@ const userSchema = new Schema(
     vendorApplicationStatus: { type: String, enum: ["NONE", "PENDING", "APPROVED", "REJECTED"], default: "NONE", index: true },
     passwordResetTokenHash: { type: String, select: false },
     passwordResetExpiresAt: { type: Date, select: false },
+    authVersion: { type: Number, required: true, default: 0 },
     lastLoginAt: { type: Date },
   },
   { timestamps: true, versionKey: false },
