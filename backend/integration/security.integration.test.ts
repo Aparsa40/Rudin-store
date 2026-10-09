@@ -118,6 +118,58 @@ test("MongoDB-backed auth, role boundaries, bootstrap and product lifecycle", { 
       });
       assert.equal(secondBootstrap.response.status, 409);
 
+      const customerLogin = await request("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email: "customer.integration@example.test", password: "Customer-Password-123!" }),
+      });
+      assert.equal(customerLogin.response.status, 200);
+      const customerToken = customerLogin.body.accessToken as string;
+
+      const application = await request("/api/vendors/apply", {
+        method: "POST",
+        headers: { authorization: `Bearer ${customerToken}` },
+        body: JSON.stringify({ storeName: "Integration Store", storeDescription: "Test vendor application." }),
+      });
+      assert.equal(application.response.status, 201);
+      assert.equal(application.body.application.status, "PENDING");
+
+      const applications = await request("/api/admin/vendors/applications", {
+        headers: { authorization: `Bearer ${adminToken}` },
+      });
+      assert.equal(applications.response.status, 200);
+      const applicationId = application.body.application.id as string;
+      const approved = await request(`/api/admin/vendors/applications/${encodeURIComponent(applicationId)}`, {
+        method: "PATCH",
+        headers: { authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ decision: "APPROVED" }),
+      });
+      assert.equal(approved.response.status, 200);
+      assert.equal(approved.body.application.role, "VENDOR");
+
+      const vendorLogin = await request("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email: "customer.integration@example.test", password: "Customer-Password-123!" }),
+      });
+      assert.equal(vendorLogin.response.status, 200);
+      const vendorToken = vendorLogin.body.accessToken as string;
+      const vendorProduct = await request("/api/products", {
+        method: "POST",
+        headers: { authorization: `Bearer ${vendorToken}` },
+        body: JSON.stringify({
+          categoryId: "test-category",
+          title: "Vendor Draft Lamp",
+          description: "Draft created by approved vendor.",
+          shortDescription: "Vendor draft",
+          price: 19.99,
+          stock: 2,
+          status: "PUBLISHED",
+          images: [],
+        }),
+      });
+      assert.equal(vendorProduct.response.status, 201);
+      assert.equal(vendorProduct.body.product.status, "DRAFT");
+      assert.equal(vendorProduct.body.product.vendorId, applicationId);
+
       const created = await request("/api/products", {
         method: "POST",
         headers: { authorization: `Bearer ${adminToken}` },
