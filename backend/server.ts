@@ -10,6 +10,7 @@ import adminRouter from "./routes/admin.routes.js";
 import { createRateLimiter } from "./middleware/rate-limit.js";
 import vendorsRouter from "./routes/vendors.routes.js";
 import adminVendorsRouter from "./routes/admin-vendors.routes.js";
+import passwordResetRouter from "./routes/password-reset.routes.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
@@ -41,7 +42,9 @@ app.use("/api/health", healthRouter);
 app.use("/api/auth/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
 app.use("/api/auth/register", createRateLimiter({ windowMs: 60 * 60 * 1000, maxRequests: 8, message: "Too many registration attempts. Please try again later." }));
 app.use("/api/auth/bootstrap-admin", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 5, message: "Too many bootstrap attempts. Please try again later." }));
+app.use("/api/auth/password-reset", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 5, message: "Too many password reset attempts. Please try again later." }));
 app.use("/api/auth", authRouter);
+app.use("/api/auth/password-reset", passwordResetRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/admin/vendors", adminVendorsRouter);
 app.use("/api/vendors", vendorsRouter);
