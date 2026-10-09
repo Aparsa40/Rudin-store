@@ -9,6 +9,7 @@ import authRouter from "./routes/auth.routes.js";
 import adminRouter from "./routes/admin.routes.js";
 import { createRateLimiter } from "./middleware/rate-limit.js";
 import vendorsRouter from "./routes/vendors.routes.js";
+import adminVendorsRouter from "./routes/admin-vendors.routes.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
@@ -42,6 +43,7 @@ app.use("/api/auth/register", createRateLimiter({ windowMs: 60 * 60 * 1000, maxR
 app.use("/api/auth/bootstrap-admin", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 5, message: "Too many bootstrap attempts. Please try again later." }));
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/admin/vendors", adminVendorsRouter);
 app.use("/api/vendors", vendorsRouter);
 app.use("/api/products", productsRouter);
 app.use(notFoundHandler);
