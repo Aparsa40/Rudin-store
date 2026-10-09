@@ -5,7 +5,6 @@ import test from "node:test";
 import mongoose from "mongoose";
 import { UserModel } from "../models/user.model.js";
 import { ProductModel } from "../models/product.model.js";
-import { createAccessToken } from "../middleware/auth.js";
 
 const enabled = process.env.RUN_MONGODB_INTEGRATION === "true" && Boolean(process.env.MONGODB_URI);
 const port = 4317;
