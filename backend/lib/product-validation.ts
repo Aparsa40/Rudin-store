@@ -50,11 +50,12 @@ export function validateProductInput(body: ProductInput): string | null {
     }
   }
 
-  if (body.images !== undefined) {
-    if (!Array.isArray(body.images) || body.images.length > 20) {
+  const images = body.images;
+  if (images !== undefined) {
+    if (!Array.isArray(images) || images.length > 20) {
       return "images must be an array containing at most 20 image objects.";
     }
-    for (const [index, image] of body.images.entries()) {
+    for (const [index, image] of images.entries()) {
       if (!isPlainObject(image) ||
           typeof image.id !== "string" || !image.id.trim() ||
           typeof image.url !== "string" || !/^https?:\/\//i.test(image.url.trim())) {
@@ -74,20 +75,22 @@ export function validateProductInput(body: ProductInput): string | null {
   }
 
   for (const key of ["tags", "features"] as const) {
-    if (body[key] !== undefined) {
+    const value = body[key];
+    if (value !== undefined) {
       const maxItems = key === "tags" ? 30 : 50;
       const maxLength = key === "tags" ? 80 : 300;
-      if (!Array.isArray(body[key]) || body[key].length > maxItems ||
-          body[key].some((item) => typeof item !== "string" || !item.trim() || item.length > maxLength)) {
+      if (!Array.isArray(value) || value.length > maxItems ||
+          value.some((item) => typeof item !== "string" || !item.trim() || item.length > maxLength)) {
         return `${key} must contain at most ${maxItems} non-empty strings (maximum ${maxLength} characters each).`;
       }
     }
   }
 
-  if (body.specifications !== undefined) {
-    if (!isPlainObject(body.specifications) ||
-        Object.entries(body.specifications).length > 100 ||
-        Object.entries(body.specifications).some(([key, value]) =>
+  const specifications = body.specifications;
+  if (specifications !== undefined) {
+    if (!isPlainObject(specifications) ||
+        Object.entries(specifications).length > 100 ||
+        Object.entries(specifications).some(([key, value]) =>
           !key.trim() || key.length > 100 || typeof value !== "string" || value.length > 500)) {
       return "specifications must be an object with at most 100 string values.";
     }
