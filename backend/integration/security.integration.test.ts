@@ -170,6 +170,41 @@ test("MongoDB-backed auth, role boundaries, bootstrap and product lifecycle", { 
       assert.equal(vendorProduct.body.product.status, "DRAFT");
       assert.equal(vendorProduct.body.product.vendorId, applicationId);
 
+      const secondCustomer = await request("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+          email: "second-vendor.integration@example.test",
+          password: "Second-Customer-Password-123!",
+          firstName: "Second Vendor",
+        }),
+      });
+      assert.equal(secondCustomer.response.status, 201);
+      const secondCustomerToken = secondCustomer.body.accessToken as string;
+      const secondApplication = await request("/api/vendors/apply", {
+        method: "POST",
+        headers: { authorization: `Bearer ${secondCustomerToken}` },
+        body: JSON.stringify({ storeName: "Second Integration Store" }),
+      });
+      assert.equal(secondApplication.response.status, 201);
+      const secondApplicationId = secondApplication.body.application.id as string;
+      const secondApproval = await request(`/api/admin/vendors/applications/${encodeURIComponent(secondApplicationId)}`, {
+        method: "PATCH",
+        headers: { authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ decision: "APPROVED" }),
+      });
+      assert.equal(secondApproval.response.status, 200);
+      const secondVendorLogin = await request("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email: "second-vendor.integration@example.test", password: "Second-Customer-Password-123!" }),
+      });
+      const secondVendorToken = secondVendorLogin.body.accessToken as string;
+      const crossVendorEdit = await request(`/api/products/${encodeURIComponent(vendorProduct.body.product.id as string)}`, {
+        method: "PATCH",
+        headers: { authorization: `Bearer ${secondVendorToken}` },
+        body: JSON.stringify({ price: 1 }),
+      });
+      assert.equal(crossVendorEdit.response.status, 403);
+
       const created = await request("/api/products", {
         method: "POST",
         headers: { authorization: `Bearer ${adminToken}` },
