@@ -20,7 +20,7 @@ export async function withAdminStateLock<T>(
   operation: (session: ClientSession) => Promise<T>,
 ): Promise<T> {
   const session = await mongoose.startSession();
-  let result: T;
+  let result!: T;
   try {
     await session.withTransaction(async () => {
       await AdminStateModel.updateOne(
@@ -30,7 +30,7 @@ export async function withAdminStateLock<T>(
       );
       result = await operation(session);
     });
-    return result!;
+    return result;
   } finally {
     await session.endSession();
   }
