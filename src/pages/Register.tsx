@@ -4,9 +4,10 @@ import { useAuthStore } from '../store/authStore';
 import { useUIStore } from '../store/uiStore';
 import { Button } from '../components/ui/Button';
 import { Role } from '../types';
+import { authService } from '../services/auth/authService';
 
 export const Register: React.FC = () => {
-  const { register, isLoading, setLoading } = useAuthStore();
+  const { login, isLoading, setLoading } = useAuthStore();
   const { addToast } = useUIStore();
   const navigate = useNavigate();
 
@@ -20,31 +21,34 @@ export const Register: React.FC = () => {
     termsAccepted: true,
   });
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.firstName || !formData.email || !formData.password) {
-      addToast('Please complete all required fields', 'error');
+    if (!formData.firstName.trim() || !formData.email.trim() || formData.password.length < 12) {
+      addToast('Enter your name and email, and use a password of at least 12 characters.', 'error');
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
-      register({
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        phone: formData.phone,
-        role: formData.role,
+    try {
+      const session = await authService.register({
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        password: formData.password
       });
-      setLoading(false);
-      addToast('Welcome to Rudin Store! Your account is created.', 'success');
-
+      login(session.user, session.accessToken);
       if (formData.role === 'VENDOR') {
-        navigate('/seller/dashboard');
+        addToast('Your customer account is ready. Seller onboarding and approval are not available yet.', 'info');
       } else {
-        navigate('/account');
+        addToast('Welcome to Rudin Store! Your account is created.', 'success');
       }
-    }, 400);
+      navigate('/account');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Unable to create your account. Please try again.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -139,7 +143,10 @@ export const Register: React.FC = () => {
             <input
               required
               type="password"
-              placeholder="Create a strong password"
+              minLength={12}
+              maxLength={128}
+              autoComplete="new-password"
+              placeholder="At least 12 characters"
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none focus:border-slate-500"
