@@ -71,6 +71,7 @@ export const Login: React.FC = () => {
           </p>
         </div>
 
+        {import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_AUTH === 'true' && (
         {/* 1-Click Demo Profiles (For Instant Evaluation & Testing) */}
         <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
           <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
@@ -107,6 +108,8 @@ export const Login: React.FC = () => {
           </div>
         </div>
 
+        )}
+
         {/* Standard Credentials Form */}
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
@@ -126,7 +129,7 @@ export const Login: React.FC = () => {
               <label className="block text-xs font-bold text-slate-900">Password</label>
               <button
                 type="button"
-                onClick={() => setIsForgotModalOpen(true)}
+                onClick={() => addToast('Password reset is not available yet. Please contact support.', 'info')}
                 className="text-xs text-blue-600 hover:underline font-semibold"
               >
                 Forgot?
