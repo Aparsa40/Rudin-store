@@ -14,7 +14,7 @@ import {
   CreditCard,
   AlertCircle,
 } from 'lucide-react';
-import { mockProducts, mockOrders, mockVendors } from '../data/mockData';
+import { mockOrders, mockVendors } from '../data/mockData';
 import { Product, Order } from '../types';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
