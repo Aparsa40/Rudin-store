@@ -113,13 +113,9 @@ export const Login: React.FC = () => {
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-xs font-bold text-slate-900">Password</label>
-              <button
-                type="button"
-                onClick={() => addToast('Password reset is not available yet. Please contact support.', 'info')}
-                className="text-xs text-blue-600 hover:underline font-semibold"
-              >
+              <Link to="/reset-password" className="text-xs text-blue-600 hover:underline font-semibold">
                 Forgot?
-              </button>
+              </Link>
             </div>
             <input
               type="password"
