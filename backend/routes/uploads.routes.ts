@@ -45,7 +45,9 @@ uploadsRouter.post("/images", requireAuth, requireRole("ADMIN", "VENDOR"), async
     const signatureInput = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
     const signature = createHash("sha1").update(signatureInput).digest("hex");
     const form = new FormData();
-    form.set("file", new Blob([image.bytes], { type: image.mimeType }), `product-image.${image.extension}`);
+    const blobBuffer = new ArrayBuffer(image.bytes.length);
+    new Uint8Array(blobBuffer).set(image.bytes);
+    form.set("file", new Blob([blobBuffer], { type: image.mimeType }), `product-image.${image.extension}`);
     form.set("api_key", apiKey);
     form.set("timestamp", String(timestamp));
     form.set("folder", folder);
