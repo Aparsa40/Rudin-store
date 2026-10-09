@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { randomBytes } from "node:crypto";
+import { requireAuth, requireRole } from "../middleware/auth.js";
 import type { SortOrder } from "mongoose";
 import { ProductModel } from "../models/product.model.js";
 
@@ -121,6 +123,49 @@ productsRouter.get("/:identifier", async (req, res, next) => {
     }
 
     res.status(200).json({ product: serializeProduct(product as unknown as Record<string, unknown>) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+// Admins can publish products; vendors can create drafts owned by their own user ID.
+productsRouter.post("/", requireAuth, requireRole("ADMIN", "VENDOR"), async (req, res, next) => {
+  try {
+    const body = req.body ?? {};
+    const requiredStrings = ["categoryId", "title", "description", "shortDescription"] as const;
+    if (requiredStrings.some((key) => typeof body[key] !== "string" || !body[key].trim()) ||
+        typeof body.price !== "number" || !Number.isFinite(body.price) || body.price < 0 ||
+        (body.stock !== undefined && (!Number.isInteger(body.stock) || body.stock < 0)) ||
+        (body.compareAtPrice !== undefined && (typeof body.compareAtPrice !== "number" || !Number.isFinite(body.compareAtPrice) || body.compareAtPrice < 0)) ||
+        (body.images !== undefined && (!Array.isArray(body.images) || body.images.length > 20))) {
+      res.status(400).json({ error: { code: "INVALID_PRODUCT", message: "Provide title, description, shortDescription, categoryId, a non-negative numeric price, valid stock, and at most 20 images." } });
+      return;
+    }
+    const slug = (typeof body.slug === "string" && body.slug.trim()
+      ? body.slug.trim()
+      : body.title.trim().toLowerCase()).normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 120);
+    if (!slug) {
+      res.status(400).json({ error: { code: "INVALID_SLUG", message: "A valid slug could not be generated." } });
+      return;
+    }
+    const vendorId = req.authUser!.role === "ADMIN" && typeof body.vendorId === "string" && body.vendorId.trim()
+      ? body.vendorId.trim()
+      : req.authUser!.id;
+    const status = req.authUser!.role === "ADMIN" && body.status === "PUBLISHED" ? "PUBLISHED" : "DRAFT";
+    const product = await ProductModel.create({
+      _id: `prd_${randomBytes(12).toString("hex")}`, vendorId,
+      categoryId: body.categoryId.trim(), brandId: typeof body.brandId === "string" ? body.brandId.trim() : undefined,
+      brandName: typeof body.brandName === "string" ? body.brandName.trim() : undefined,
+      slug, title: body.title.trim(), description: body.description.trim(), shortDescription: body.shortDescription.trim(),
+      price: body.price, compareAtPrice: body.compareAtPrice, stock: body.stock ?? 0,
+      images: body.images ?? [], variants: [], tags: Array.isArray(body.tags) ? body.tags.filter((v: unknown) => typeof v === "string").slice(0, 30) : [],
+      features: Array.isArray(body.features) ? body.features.filter((v: unknown) => typeof v === "string").slice(0, 50) : [],
+      specifications: body.specifications && typeof body.specifications === "object" && !Array.isArray(body.specifications) ? body.specifications : {},
+      isFeatured: req.authUser!.role === "ADMIN" && body.isFeatured === true,
+      isBestSeller: false, isNewArrival: false, isFlashDeal: false, status,
+    });
+    res.status(201).json({ product: serializeProduct(product.toObject() as unknown as Record<string, unknown>) });
   } catch (error) {
     next(error);
   }

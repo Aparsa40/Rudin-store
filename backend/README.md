@@ -1,63 +1,34 @@
-# Backend setup (MongoDB Atlas)
+# Backend API: Authentication, administrators, and products
 
-This directory contains the Express API. The React/Vite frontend and API run as separate processes during local development.
+## Authentication
 
-## Configure MongoDB Atlas
+- `POST /api/auth/register`: creates a customer account. Public registration cannot choose an elevated role.
+- `POST /api/auth/login`: validates credentials against MongoDB and returns a one-hour bearer access token.
+- `GET /api/auth/me`: returns the currently authenticated account.
+- Passwords are hashed with Node.js scrypt and random per-password salts; plaintext passwords are never stored.
+- Send protected API requests with `Authorization: Bearer <accessToken>`.
+- The token secret must be at least 32 characters. Generate one in PowerShell:
+  ```powershell
+  [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
+  ```
+  Put it in the ignored local `.env` as `AUTH_TOKEN_SECRET`. Do not commit or share it.
 
-1. In Atlas, open **Database Access** and create a database user if one does not already exist.
-2. Under **Network Access**, allow your current public IP address. Avoid opening access to every IP address except as a temporary, deliberate troubleshooting step.
-3. Open your cluster and choose **Connect → Drivers**. Copy the Node.js connection string provided by Atlas.
-4. In the repository root, copy `.env.example` to `.env`.
-5. Replace the placeholders in `MONGODB_URI` with the Atlas URI, username, password, and cluster host. URL-encode special characters in credentials as required by MongoDB URI syntax.
-6. Never commit `.env` or share the real URI/password.
+## First administrator bootstrap
 
-## Start and verify the API
+The first admin must be created once using `POST /api/auth/bootstrap-admin`. Before starting the API, put a separate random value of at least 32 characters in local `.env` as `ADMIN_BOOTSTRAP_SECRET`. Send it in the `X-Admin-Bootstrap-Secret` header with a JSON body containing `email`, `password` (12–128 characters), and `firstName` (optional `lastName`). The route only works while no admin account exists. After success, remove `ADMIN_BOOTSTRAP_SECRET` from `.env` and restart the API. Never expose the bootstrap secret in a browser app or commit it.
 
-Run from the repository root:
+## Administrator management
 
-```powershell
-npm run server:dev
-```
+All routes under `/api/admin` require an active administrator bearer token.
 
-The API waits for MongoDB to connect before it accepts requests. If the URI is missing or Atlas rejects the connection, startup fails instead of reporting a false healthy state.
+- `GET /api/admin/admins`: list administrator accounts (never returns password hashes).
+- `POST /api/admin/admins`: create another admin account.
+- `PATCH /api/admin/admins/:id/status`: activate or disable an admin. The current admin cannot disable itself, and the last active admin cannot be disabled.
 
-```powershell
-curl.exe http://localhost:4000/api/health
-```
+## Product catalog and authoring
 
-The health route pings MongoDB and returns HTTP 503 when the database is disconnected or unavailable.
+- `GET /api/products`: published catalog with filters, sorting, and pagination.
+- `GET /api/products/:identifier`: published product by ID or slug.
+- `POST /api/products`: requires an active ADMIN or VENDOR bearer token. Admins can publish a product; vendor-created products are forced to DRAFT. Public requests cannot create or publish products.
 
-## Product catalog API
-
-All catalog routes return only products with `status: "PUBLISHED"`. Product IDs remain compatible with the existing frontend's string IDs.
-
-### `GET /api/products`
-
-Supported query parameters:
-
-- `page` (integer, default 1)
-- `limit` (integer, default 12, maximum 100)
-- `categoryId`, `vendorId`
-- `q` (searches title, description, short description, brand, and tags)
-- `minPrice`, `maxPrice`, `minRating`
-- `inStockOnly=true|false`, `onSaleOnly=true|false`
-- `sortBy=featured|price-asc|price-desc|rating|newest`
-
-Example response:
-
-```json
-{
-  "products": [],
-  "pagination": { "page": 1, "limit": 12, "total": 0, "totalPages": 0 }
-}
-```
-
-Invalid query values return HTTP 400 with a structured error. Page size is capped at 100.
-
-### `GET /api/products/:identifier`
-
-Looks up a published product by its string ID or slug. A missing product returns HTTP 404.
-
-## Current scope and safety
-
-The product model and read-only catalog endpoints are the first marketplace API slice. Product creation/update, vendor authorization, categories/vendors APIs, cart, orders, authentication, stock reservation, payment integration, and review persistence are not implemented by this slice. The frontend still uses mock data until its product service is explicitly connected to these endpoints. Do not store real customer or payment data until those controls are implemented and tested.
+Product update/delete, vendor onboarding/ownership records, image upload/storage, rate limiting, refresh-token rotation, email verification, password reset, and frontend integration are not included yet. The current Login/Register, AdminDashboard, and SellerDashboard React screens still use mock/local state, so these API routes are not yet wired into the UI. Do not treat the feature as production-ready until the UI is connected and end-to-end security tests pass.
