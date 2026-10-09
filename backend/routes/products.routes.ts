@@ -1,5 +1,5 @@
 import { Router } from "express";
-import type { FilterQuery, SortOrder } from "mongoose";
+import type { SortOrder } from "mongoose";
 import { ProductModel } from "../models/product.model.js";
 
 const productsRouter = Router();
@@ -53,7 +53,7 @@ productsRouter.get("/", async (req, res, next) => {
       return;
     }
 
-    const filter: FilterQuery<any> = { status: "PUBLISHED" };
+    const filter: Record<string, any> = { status: "PUBLISHED" };
     if (typeof req.query.categoryId === "string" && req.query.categoryId.trim()) filter.categoryId = req.query.categoryId.trim();
     if (typeof req.query.vendorId === "string" && req.query.vendorId.trim()) filter.vendorId = req.query.vendorId.trim();
     if (minPrice !== undefined || maxPrice !== undefined) {
