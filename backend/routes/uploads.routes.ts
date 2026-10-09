@@ -5,7 +5,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 const uploadsRouter = Router();
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
-function decodeImageDataUrl(value: unknown): { mimeType: string; bytes: Buffer; extension: string } | null {
+export function decodeImageDataUrl(value: unknown): { mimeType: string; bytes: Buffer; extension: string } | null {
   if (typeof value !== "string") return null;
   const match = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
   if (!match) return null;
