@@ -54,7 +54,7 @@ export const useAuthStore = create<AuthState>()(
           demoUser = mockCurrentUser;
         }
 
-        set({ user: demoUser, accessToken: null, isAuthenticated: false, isLoading: false });
+        set({ user: demoUser, accessToken: null, isAuthenticated: true, isLoading: false });
       },
 
       register: (userData) => {
