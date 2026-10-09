@@ -59,7 +59,6 @@ export const Login: React.FC = () => {
         </div>
 
         {import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_AUTH === 'true' && (
-        {/* 1-Click Demo Profiles (For Instant Evaluation & Testing) */}
         <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
           <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
             <span>Fast 1-Click Demo Logins:</span>
