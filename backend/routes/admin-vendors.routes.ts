@@ -13,9 +13,9 @@ adminVendorsRouter.get("/applications", async (req, res, next) => {
       return;
     }
     const filter = requestedStatus === "ALL" ? {} : { vendorApplicationStatus: requestedStatus };
-    const applications = await UserModel.find(filter)
+    const applications = await UserModel.find(filter as any)
       .select("_id email firstName lastName storeName storeDescription vendorApplicationStatus role status createdAt")
-      .sort({ createdAt: -1 }).lean();
+      .sort({ createdAt: -1 }).lean() as unknown as Array<Record<string, any>>;
     res.status(200).json({
       applications: applications.filter((user) => user.vendorApplicationStatus !== "NONE").map((user) => ({
         id: user._id, email: user.email, firstName: user.firstName, lastName: user.lastName,
@@ -43,7 +43,7 @@ adminVendorsRouter.patch("/applications/:id", async (req, res, next) => {
       { _id: req.params.id, role: "CUSTOMER", status: "ACTIVE", vendorApplicationStatus: "PENDING" },
       update,
       { new: true, runValidators: true },
-    ).select("_id email firstName lastName storeName vendorApplicationStatus role");
+    ).select("_id email firstName lastName storeName vendorApplicationStatus role") as any;
 
     if (!application) {
       res.status(404).json({ error: { code: "APPLICATION_NOT_FOUND", message: "A pending application for an active customer was not found." } });
