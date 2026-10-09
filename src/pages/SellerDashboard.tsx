@@ -125,6 +125,36 @@ export const SellerDashboard: React.FC = () => {
     }
   };
 
+  const handleEditProduct = async (id: string) => {
+    const product = vendorProducts.find((item) => item.id === id);
+    if (!product || !accessToken) return;
+    const title = window.prompt('Product title', product.title);
+    if (title === null) return;
+    const priceText = window.prompt('Price', String(product.price));
+    if (priceText === null) return;
+    const stockText = window.prompt('Stock quantity', String(product.stock));
+    if (stockText === null) return;
+    const price = Number(priceText);
+    const stock = Number(stockText);
+    if (!title.trim() || !Number.isFinite(price) || price < 0 || !Number.isInteger(stock) || stock < 0) {
+      addToast('Enter a title, non-negative price, and whole-number stock quantity.', 'error');
+      return;
+    }
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/products/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ title: title.trim(), price, stock }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error?.message || 'Product could not be updated.');
+      setVendorProducts((products) => products.map((item) => item.id === id ? payload.product as Product : item));
+      addToast('Product changes saved.', 'success');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Unable to edit product.', 'error');
+    }
+  };
+
   const handleArchiveProduct = async (id: string) => {
     if (!accessToken) return;
     try {
@@ -442,6 +472,12 @@ export const SellerDashboard: React.FC = () => {
                         </Badge>
                       </td>
                       <td className="p-4 text-right space-x-2">
+                        <button
+                          onClick={() => handleEditProduct(p.id)}
+                          className="text-xs font-bold text-slate-700 hover:underline"
+                        >
+                          Edit
+                        </button>
                         <button
                           onClick={() => handleToggleProductStatus(p.id)}
                           className="text-xs font-bold text-blue-600 hover:underline"
