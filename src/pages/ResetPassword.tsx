@@ -59,7 +59,7 @@ export const ResetPassword: React.FC = () => {
               <input required type="password" minLength={12} maxLength={128} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} className="w-full px-3.5 py-3 border border-slate-300 rounded-xl outline-none focus:border-slate-500" />
             </div>
           )}
-          <Button type="submit" block disabled={busy}>{busy ? 'Please wait…' : token ? 'Update password' : 'Send reset link'}</Button>
+          <Button type="submit" className="w-full" disabled={busy}>{busy ? 'Please wait…' : token ? 'Update password' : 'Send reset link'}</Button>
         </form>
         {message && <p role="status" className="text-sm text-slate-600">{message}</p>}
         <p className="text-sm text-slate-500"><Link to="/login" className="font-semibold text-slate-900 hover:underline">Back to sign in</Link></p>
