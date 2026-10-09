@@ -266,6 +266,9 @@ productsRouter.patch("/:id", requireAuth, requireRole("ADMIN", "VENDOR"), async 
       specifications: merged.specifications ?? {},
       ...(req.authUser!.role === "ADMIN" && body.status ? { status: body.status } : {}),
     });
+    if (req.authUser!.role === "ADMIN" && typeof body.isFeatured === "boolean") {
+      product.isFeatured = body.isFeatured;
+    }
     await product.save();
     res.status(200).json({ product: serializeProduct(product.toObject() as unknown as Record<string, unknown>) });
   } catch (error) {
