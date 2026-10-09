@@ -264,7 +264,7 @@ productsRouter.patch("/:id", requireAuth, requireRole("ADMIN", "VENDOR"), async 
       tags: merged.tags ?? [],
       features: merged.features ?? [],
       specifications: merged.specifications ?? {},
-      ...(req.authUser!.role === "ADMIN" && body.status ? { status: body.status } : {}),
+      ...(body.status === "DRAFT" ? { status: "DRAFT" } : req.authUser!.role === "ADMIN" && body.status ? { status: body.status } : {}),
     });
     if (req.authUser!.role === "ADMIN" && typeof body.isFeatured === "boolean") {
       product.isFeatured = body.isFeatured;
