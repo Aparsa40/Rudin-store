@@ -14,6 +14,8 @@ const userSchema = new Schema(
     storeName: { type: String, trim: true, maxlength: 120 },
     storeDescription: { type: String, trim: true, maxlength: 2000 },
     vendorApplicationStatus: { type: String, enum: ["NONE", "PENDING", "APPROVED", "REJECTED"], default: "NONE", index: true },
+    passwordResetTokenHash: { type: String, select: false },
+    passwordResetExpiresAt: { type: Date, select: false },
     lastLoginAt: { type: Date },
   },
   { timestamps: true, versionKey: false },
