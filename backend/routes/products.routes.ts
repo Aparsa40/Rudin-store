@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { randomBytes } from "node:crypto";
+import { requireAuth, requireRole } from "../middleware/auth.middleware.js";
 import type { SortOrder } from "mongoose";
 import { ProductModel } from "../models/product.model.js";
 
