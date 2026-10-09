@@ -110,6 +110,18 @@ productsRouter.get("/", async (req, res, next) => {
   }
 });
 
+productsRouter.get("/mine", requireAuth, requireRole("ADMIN", "VENDOR"), async (req, res, next) => {
+  try {
+    const filter = req.authUser!.role === "ADMIN" ? {} : { vendorId: req.authUser!.id };
+    const products = await ProductModel.find(filter).sort({ createdAt: -1 }).lean();
+    res.status(200).json({
+      products: products.map((product) => serializeProduct(product as unknown as Record<string, unknown>)),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 productsRouter.get("/:identifier", async (req, res, next) => {
   try {
     const identifier = req.params.identifier;
