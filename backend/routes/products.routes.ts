@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import type { SortOrder } from "mongoose";
 import { ProductModel } from "../models/product.model.js";
+import { normalizeProductSlug, validateProductInput } from "../lib/product-validation.js";
 
 const productsRouter = Router();
 const MAX_PAGE_SIZE = 100;
@@ -133,20 +134,18 @@ productsRouter.get("/:identifier", async (req, res, next) => {
 productsRouter.post("/", requireAuth, requireRole("ADMIN", "VENDOR"), async (req, res, next) => {
   try {
     const body = req.body ?? {};
-    const requiredStrings = ["categoryId", "title", "description", "shortDescription"] as const;
-    if (requiredStrings.some((key) => typeof body[key] !== "string" || !body[key].trim()) ||
-        typeof body.price !== "number" || !Number.isFinite(body.price) || body.price < 0 ||
-        (body.stock !== undefined && (!Number.isInteger(body.stock) || body.stock < 0)) ||
-        (body.compareAtPrice !== undefined && (typeof body.compareAtPrice !== "number" || !Number.isFinite(body.compareAtPrice) || body.compareAtPrice < 0)) ||
-        (body.images !== undefined && (!Array.isArray(body.images) || body.images.length > 20))) {
-      res.status(400).json({ error: { code: "INVALID_PRODUCT", message: "Provide title, description, shortDescription, categoryId, a non-negative numeric price, valid stock, and at most 20 images." } });
+    if (typeof body !== "object" || body === null || Array.isArray(body)) {
+      res.status(400).json({ error: { code: "INVALID_PRODUCT", message: "Request body must be a JSON object." } });
       return;
     }
-    const slug = (typeof body.slug === "string" && body.slug.trim()
-      ? body.slug.trim()
-      : body.title.trim().toLowerCase()).normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 120);
+    const validationError = validateProductInput(body as Record<string, unknown>);
+    if (validationError) {
+      res.status(400).json({ error: { code: "INVALID_PRODUCT", message: validationError } });
+      return;
+    }
+    const slug = normalizeProductSlug(body.slug, body.title as string);
     if (!slug) {
-      res.status(400).json({ error: { code: "INVALID_SLUG", message: "A valid slug could not be generated." } });
+      res.status(400).json({ error: { code: "INVALID_SLUG", message: "Provide an ASCII-compatible slug or a title that can be converted to one." } });
       return;
     }
     const vendorId = req.authUser!.role === "ADMIN" && typeof body.vendorId === "string" && body.vendorId.trim()
