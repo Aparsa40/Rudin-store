@@ -36,27 +36,11 @@ export const Login: React.FC = () => {
   };
 
   const handleDemoLogin = (role: Role) => {
-    setLoading(true);
-    setTimeout(() => {
-      login({
-        id: role === 'VENDOR' ? 'u_v1' : role === 'ADMIN' ? 'u_admin' : 'u1',
-        email:
-          role === 'VENDOR'
-            ? 'aether@rudinstore.com'
-            : role === 'ADMIN'
-              ? 'admin@rudinstore.com'
-              : 'alex.morgan@example.com',
-        firstName: role === 'VENDOR' ? 'Aether' : role === 'ADMIN' ? 'Admin' : 'Alex',
-        lastName: role === 'VENDOR' ? 'Acoustics' : role === 'ADMIN' ? 'Ops' : 'Morgan',
-        role,
-        createdAt: new Date().toISOString(),
-      });
-      setLoading(false);
-      addToast(`Logged in with demo ${role.toLowerCase()} privileges!`, 'success');
-      if (role === 'VENDOR') navigate('/seller/dashboard');
-      else if (role === 'ADMIN') navigate('/admin');
-      else navigate('/account');
-    }, 200);
+    loginAsDemo(role);
+    addToast(`Demo ${role.toLowerCase()} session enabled for local evaluation only.`, 'info');
+    if (role === 'VENDOR') navigate('/seller/dashboard');
+    else if (role === 'ADMIN') navigate('/admin');
+    else navigate('/account');
   };
 
   const handleSendOtp = (e: React.FormEvent) => {
