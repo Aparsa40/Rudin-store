@@ -95,7 +95,15 @@ test("MongoDB-backed auth, role boundaries, bootstrap and product lifecycle", { 
       assert.equal(disabledAccess.response.status, 401);
       await UserModel.updateOne(
         { email: "customer.integration@example.test" },
-        { $set: { status: "ACTIVE" } },
+        { $set: { status: "ACTIVE", authVersion: 1 } },
+      );
+      const revokedAccess = await request("/api/auth/me", {
+        headers: { authorization: `Bearer ${customerToken}` },
+      });
+      assert.equal(revokedAccess.response.status, 401);
+      await UserModel.updateOne(
+        { email: "customer.integration@example.test" },
+        { $set: { authVersion: 0 } },
       );
 
       const adminDenied = await request("/api/admin/admins", {
