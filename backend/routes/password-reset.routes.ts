@@ -105,6 +105,7 @@ passwordResetRouter.post("/confirm", async (req, res, next) => {
       },
       {
         $set: { passwordHash },
+        $inc: { authVersion: 1 },
         $unset: { passwordResetTokenHash: 1, passwordResetExpiresAt: 1 },
       },
     );
