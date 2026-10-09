@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   TrendingUp,
   ShoppingBag,
@@ -20,12 +20,11 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { useUIStore } from '../store/uiStore';
+import { useAuthStore } from '../store/authStore';
 
 export const SellerDashboard: React.FC = () => {
   const currentVendor = mockVendors[0]; // Aether Acoustic Labs
-  const [vendorProducts, setVendorProducts] = useState<Product[]>(
-    mockProducts.filter((p) => p.vendorId === currentVendor.id),
-  );
+  const [vendorProducts, setVendorProducts] = useState<Product[]>([]);
   const [activeTab, setActiveTab] = useState<
     'overview' | 'products' | 'orders' | 'payouts' | 'settings'
   >('overview');
@@ -44,52 +43,102 @@ export const SellerDashboard: React.FC = () => {
   const [sellerOrders, setSellerOrders] = useState<Order[]>(mockOrders);
 
   const { addToast } = useUIStore();
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const apiBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/$/, '');
 
-  const handleAddProduct = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!accessToken) {
+      setVendorProducts([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`${apiBaseUrl}/api/products/mine`, { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload?.error?.message || 'Unable to load your products.');
+        return payload.products as Product[];
+      })
+      .then((products) => { if (!cancelled) setVendorProducts(products); })
+      .catch((error: unknown) => { if (!cancelled) addToast(error instanceof Error ? error.message : 'Unable to load products.', 'error'); });
+    return () => { cancelled = true; };
+  }, [accessToken, addToast, apiBaseUrl]);
+
+  const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle.trim()) return;
-
-    const newProd: Product = {
-      id: `p_new_${Date.now()}`,
-      vendorId: currentVendor.id,
-      categoryId: 'c1',
-      brandName: currentVendor.storeName,
-      slug: newTitle.toLowerCase().replace(/\s+/g, '-'),
-      title: newTitle,
-      shortDescription: newDesc || 'Handcrafted acoustic precision engineering.',
-      description: newDesc || 'Designed and manufactured in Copenhagen.',
-      price: parseFloat(newPrice) || 99,
-      images: [{ id: 'img_new', url: newImage, isPrimary: true, displayOrder: 1 }],
-      variants: [],
-      rating: 5.0,
-      reviewCount: 0,
-      status: 'PUBLISHED',
-      tags: ['audio', 'artisan'],
-      features: ['Hand-tested in studio'],
-      specifications: { Warranty: '2 Years' },
-      stock: parseInt(newStock) || 10,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    setVendorProducts([newProd, ...vendorProducts]);
-    setIsAddModalOpen(false);
-    setNewTitle('');
-    setNewDesc('');
-    addToast(`"${newProd.title}" published to marketplace catalog!`, 'success');
+    if (!accessToken) {
+      addToast('Sign in with an approved seller account to manage real products.', 'error');
+      return;
+    }
+    const price = Number(newPrice);
+    const stock = Number(newStock);
+    if (!newTitle.trim() || !newDesc.trim() || !Number.isFinite(price) || price < 0 || !Number.isInteger(stock) || stock < 0) {
+      addToast('Enter a title, description, non-negative price, and whole-number stock quantity.', 'error');
+      return;
+    }
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          categoryId: 'c1',
+          title: newTitle.trim(),
+          description: newDesc.trim(),
+          shortDescription: newDesc.trim().slice(0, 500),
+          price,
+          stock,
+          images: newImage.trim() ? [{ id: `img_${Date.now()}`, url: newImage.trim(), isPrimary: true, displayOrder: 0 }] : [],
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error?.message || 'Product could not be created.');
+      const createdProduct = payload.product as Product;
+      setVendorProducts((products) => [createdProduct, ...products]);
+      setIsAddModalOpen(false);
+      setNewTitle('');
+      setNewDesc('');
+      addToast('Product saved as a draft. An administrator must approve publication.', 'success');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Unable to create product.', 'error');
+    }
   };
 
-  const handleToggleProductStatus = (id: string) => {
-    setVendorProducts(
-      vendorProducts.map((p) => {
-        if (p.id === id) {
-          const nextStatus = p.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
-          addToast(`Product status updated to ${nextStatus}`, 'info');
-          return { ...p, status: nextStatus };
-        }
-        return p;
-      }),
-    );
+  const handleToggleProductStatus = async (id: string) => {
+    const product = vendorProducts.find((item) => item.id === id);
+    if (!product) return;
+    if (product.status !== 'PUBLISHED') {
+      addToast('Draft products cannot be published by sellers; request administrator approval.', 'info');
+      return;
+    }
+    if (!accessToken) return;
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/products/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ status: 'DRAFT' }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error?.message || 'Product status could not be changed.');
+      setVendorProducts((products) => products.map((item) => item.id === id ? payload.product as Product : item));
+      addToast('Product moved to draft.', 'success');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Unable to update product.', 'error');
+    }
+  };
+
+  const handleArchiveProduct = async (id: string) => {
+    if (!accessToken) return;
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/products/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error?.message || 'Product could not be archived.');
+      setVendorProducts((products) => products.filter((item) => item.id !== id));
+      addToast('Product archived.', 'success');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Unable to archive product.', 'error');
+    }
   };
 
   const handleDispatchOrder = (orderId: string) => {
@@ -397,7 +446,13 @@ export const SellerDashboard: React.FC = () => {
                           onClick={() => handleToggleProductStatus(p.id)}
                           className="text-xs font-bold text-blue-600 hover:underline"
                         >
-                          {p.status === 'PUBLISHED' ? 'Unpublish' : 'Publish'}
+                          {p.status === 'PUBLISHED' ? 'Unpublish' : 'Pending approval'}
+                        </button>
+                        <button
+                          onClick={() => handleArchiveProduct(p.id)}
+                          className="text-xs font-bold text-red-600 hover:underline"
+                        >
+                          Archive
                         </button>
                       </td>
                     </tr>
