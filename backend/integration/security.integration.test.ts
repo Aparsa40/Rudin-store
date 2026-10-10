@@ -24,6 +24,12 @@ async function request(path: string, options: RequestInit = {}) {
 
 test("MongoDB-backed auth, role boundaries, bootstrap and product lifecycle", { skip: !enabled }, async (t) => {
   const uri = process.env.MONGODB_URI!;
+  const databaseName = uri.match(/^mongodb(?:\\+srv)?:\\/\\/[^/]+\\/([^?]+)/i)?.[1];
+  assert.equal(
+    databaseName,
+    "rudin_store_integration_test",
+    "Integration tests may only run against the dedicated rudin_store_integration_test database.",
+  );
   await mongoose.connect(uri);
   await Promise.all([
     UserModel.deleteMany({}),
