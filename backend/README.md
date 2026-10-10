@@ -4,7 +4,9 @@
 
 - `POST /api/auth/register`: creates a customer account. Public registration cannot choose an elevated role.
 - `POST /api/auth/login`: validates credentials against MongoDB and returns a one-hour bearer access token.
-- `GET /api/auth/me`: returns the currently authenticated account.\n- `POST /api/auth/password-reset/request`: sends a single-use reset link through Resend. Configure server-side `RESEND_API_KEY` and `EMAIL_FROM`.\n- `POST /api/auth/password-reset/confirm`: validates the reset token, changes the password, and invalidates existing access tokens.
+- `GET /api/auth/me`: returns the currently authenticated account.
+- `POST /api/auth/password-reset/request`: sends a single-use reset link through Resend. Configure server-side `RESEND_API_KEY` and `EMAIL_FROM`.
+- `POST /api/auth/password-reset/confirm`: validates the reset token, changes the password, and invalidates existing access tokens.
 - Passwords are hashed with Node.js scrypt and random per-password salts; plaintext passwords are never stored.
 - Send protected API requests with `Authorization: Bearer <accessToken>`.
 - The token secret must be at least 32 characters. Generate one in PowerShell:
@@ -29,7 +31,10 @@ All routes under `/api/admin` require an active administrator bearer token.
 
 - `GET /api/products`: published catalog with filters, sorting, and pagination.
 - `GET /api/products/:identifier`: published product by ID or slug.
-- `GET /api/products/mine`: returns all products for the current vendor, or all products for an administrator.\n- `POST /api/products`: requires an active ADMIN or VENDOR bearer token. Admins can publish a product; vendor-created products are forced to DRAFT. Public requests cannot create or publish products.\n- `PATCH /api/products/:id`: updates a product with validation and owner checks. Only administrators can publish/archive products or change featured status.\n- `DELETE /api/products/:id`: archives a product after an owner/admin authorization check.
+- `GET /api/products/mine`: returns all products for the current vendor, or all products for an administrator.
+- `POST /api/products`: requires an active ADMIN or VENDOR bearer token. Admins can publish a product; vendor-created products are forced to DRAFT. Public requests cannot create or publish products.
+- `PATCH /api/products/:id`: updates a product with validation and owner checks. Only administrators can publish/archive products or change featured status.
+- `DELETE /api/products/:id`: archives a product after an owner/admin authorization check.
 
 Product CRUD/archive, vendor onboarding/ownership checks, Cloudinary image upload, rate limiting, and password-reset API are implemented on this branch. Login/Register and the seller/admin product-management flows use the API. The public storefront catalog is being migrated to the API as well. Email verification, refresh-token rotation, orders, checkout, payments, addresses, coupons, reviews, and several seller/admin dashboard sections do not yet have complete production backend endpoints. Do not treat those domains as backend-connected or production-ready until their API contracts and end-to-end tests are implemented.
 
