@@ -24,7 +24,7 @@ async function request(path: string, options: RequestInit = {}) {
 
 test("MongoDB-backed auth, role boundaries, bootstrap and product lifecycle", { skip: !enabled }, async (t) => {
   const uri = process.env.MONGODB_URI!;
-  const databaseName = uri.match(/^mongodb(?:\\+srv)?:\\/\\/[^/]+\\/([^?]+)/i)?.[1];
+  const databaseName = uri.split("://")[1]?.split("/")[1]?.split("?")[0];
   assert.equal(
     databaseName,
     "rudin_store_integration_test",
