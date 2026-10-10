@@ -49,7 +49,11 @@ productsRouter.get("/", async (req, res, next) => {
     const maxPrice = parseNumber(req.query.maxPrice, "maxPrice", { min: 0 });
     const minRating = parseNumber(req.query.minRating, "minRating", { min: 0, max: 5 });
     const inStockOnly = parseBoolean(req.query.inStockOnly, "inStockOnly");
-    const onSaleOnly = parseBoolean(req.query.onSaleOnly, "onSaleOnly");\n    const featured = parseBoolean(req.query.featured, "featured");\n    const bestSeller = parseBoolean(req.query.bestSeller, "bestSeller");\n    const newArrival = parseBoolean(req.query.newArrival, "newArrival");\n    const flashDeal = parseBoolean(req.query.flashDeal, "flashDeal");
+    const onSaleOnly = parseBoolean(req.query.onSaleOnly, "onSaleOnly");
+    const featured = parseBoolean(req.query.featured, "featured");
+    const bestSeller = parseBoolean(req.query.bestSeller, "bestSeller");
+    const newArrival = parseBoolean(req.query.newArrival, "newArrival");
+    const flashDeal = parseBoolean(req.query.flashDeal, "flashDeal");\n    const featured = parseBoolean(req.query.featured, "featured");\n    const bestSeller = parseBoolean(req.query.bestSeller, "bestSeller");\n    const newArrival = parseBoolean(req.query.newArrival, "newArrival");\n    const flashDeal = parseBoolean(req.query.flashDeal, "flashDeal");
 
     if (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice) {
       res.status(400).json({ error: { code: "INVALID_PRICE_RANGE", message: "minPrice cannot exceed maxPrice." } });
@@ -58,7 +62,12 @@ productsRouter.get("/", async (req, res, next) => {
 
     const filter: Record<string, any> = { status: "PUBLISHED" };
     if (typeof req.query.categoryId === "string" && req.query.categoryId.trim()) filter.categoryId = req.query.categoryId.trim();
-    if (typeof req.query.vendorId === "string" && req.query.vendorId.trim()) filter.vendorId = req.query.vendorId.trim();\n    if (typeof req.query.brandId === "string" && req.query.brandId.trim()) filter.brandId = req.query.brandId.trim();\n    if (featured !== undefined) filter.isFeatured = featured;\n    if (bestSeller !== undefined) filter.isBestSeller = bestSeller;\n    if (newArrival !== undefined) filter.isNewArrival = newArrival;\n    if (flashDeal !== undefined) filter.isFlashDeal = flashDeal;
+    if (typeof req.query.vendorId === "string" && req.query.vendorId.trim()) filter.vendorId = req.query.vendorId.trim();
+    if (typeof req.query.brandId === "string" && req.query.brandId.trim()) filter.brandId = req.query.brandId.trim();
+    if (featured !== undefined) filter.isFeatured = featured;
+    if (bestSeller !== undefined) filter.isBestSeller = bestSeller;
+    if (newArrival !== undefined) filter.isNewArrival = newArrival;
+    if (flashDeal !== undefined) filter.isFlashDeal = flashDeal;\n    if (typeof req.query.brandId === "string" && req.query.brandId.trim()) filter.brandId = req.query.brandId.trim();\n    if (featured !== undefined) filter.isFeatured = featured;\n    if (bestSeller !== undefined) filter.isBestSeller = bestSeller;\n    if (newArrival !== undefined) filter.isNewArrival = newArrival;\n    if (flashDeal !== undefined) filter.isFlashDeal = flashDeal;
     if (minPrice !== undefined || maxPrice !== undefined) {
       filter.price = {};
       if (minPrice !== undefined) filter.price.$gte = minPrice;
