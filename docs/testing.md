@@ -2,96 +2,49 @@
 
 **Version:** 2.1.0
 
-## Current State
+## Automated validation
 
-Rudin Store currently relies on TypeScript validation, production builds, dependency installation checks, and manual workflow validation.
+Install dependencies:
 
-There is no dedicated unit, integration, or E2E test suite yet.
+```powershell
+npm ci
+```
 
-## Dependency Installation
+Run TypeScript validation, unit/integration tests, and production build:
 
-    npm ci
+```powershell
+npm run lint
+npm test
+npm run build
+```
 
-The v2.1 candidate's latest local run completed successfully and reported 0 vulnerabilities.
+The MongoDB-backed integration test is skipped by default. CI runs it against an ephemeral MongoDB replica set and a database named `rudin_store_integration_test`.
 
-## TypeScript Validation
+## MongoDB integration-test safety
 
-    npm run lint
+The integration test clears documents from the `users`, `products`, and `adminstates` collections at setup and teardown. It must only ever target the isolated `rudin_store_integration_test` database. The test and backend connection guard reject other database names when `RUN_MONGODB_INTEGRATION=true`.
 
-This executes tsc --noEmit.
+Never set `RUN_MONGODB_INTEGRATION=true` while using the manual test database (`rudin_store_test`), development database, or any production database. Do not remove the isolation guard to make tests pass.
 
-v2.1.0 candidate result: PASS.
+For manual storefront testing, set the local `.env` `MONGODB_URI` to the Atlas connection URI with `/rudin_store_test` as the database path, then run the backend and Vite frontend separately. Keep real credentials only in the ignored local `.env`.
 
-Strict TypeScript checking is enabled.
-
-## Production Build
-
-    npm run build
-
-v2.1.0 candidate result: PASS.
-
-The build emits a non-blocking warning because the main JavaScript chunk exceeds Vite's default 500 kB warning threshold.
-
-## Formatting
-
-    npm run format:check
-    npm run format
-
-## Manual Validation Priorities
+## Manual validation priorities
 
 ### Authentication
-
-- default state is logged out
-- demo login/register
-- logout
-- protected account route
-- seller/admin role navigation
-- unauthorized role navigation
+- Register a customer and log in.
+- Verify logout and protected-route behavior.
+- Verify a customer cannot use administrator or seller-only API operations.
+- Verify password reset only after Resend credentials and a verified sender are configured.
 
 ### Catalog
-
-- product listing
-- search
-- category filtering
-- product detail
-- vendor navigation
-
-### Cart
-
-- add product
-- stock limit
-- quantity update
-- out-of-stock behavior
-- save for later
-- restore from save for later
-- coupon validation
-
-### Checkout
-
-- address selection
-- delivery selection
-- payment simulation
-- order confirmation
+- Confirm the product listing, search, category/vendor filters, detail page, featured products, sale filters, and pagination use the API.
+- The test database contains seed products with `PUBLISHED` status. Use only this database for manual catalog testing.
+- Confirm a product created as a vendor remains a draft until an administrator publishes it.
 
 ### Seller/Admin
+- Verify vendor application submission and administrator approval.
+- Verify seller product creation, editing, unpublishing, archiving, and image upload after Cloudinary credentials are configured.
+- Admin product management and vendor-application review use backend endpoints.
 
-- dashboard access
-- product/vendor management
-- coupon management
-
-## Planned Focused Tests
-
-When a lightweight test runner is introduced, prioritize:
-
-1. order ID consistency
-2. coupon validity window
-3. coupon minimum purchase
-4. coupon maximum discount
-5. stock validation
-6. published product filtering
-7. review verification
-8. ProtectedRoute role behavior
-9. cart totals
-10. multi-vendor shipping calculations
-
-Do not claim automated coverage until tests exist and have actually run.
+### Not yet fully backend-connected
+Cart persistence, server-side inventory reservation, checkout/orders, payment provider/webhooks, account addresses, coupons, reviews, email verification, refresh-token rotation, and remaining seller/admin order/payout/settings screens require their own backend contracts and end-to-end tests. Do not treat mock-backed UI in those domains as production-connected.
