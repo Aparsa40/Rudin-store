@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   TrendingUp,
   ShoppingBag,
@@ -14,18 +14,17 @@ import {
   CreditCard,
   AlertCircle,
 } from 'lucide-react';
-import { mockProducts, mockOrders, mockVendors } from '../data/mockData';
+import { mockOrders, mockVendors } from '../data/mockData';
 import { Product, Order } from '../types';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { useUIStore } from '../store/uiStore';
+import { useAuthStore } from '../store/authStore';
 
 export const SellerDashboard: React.FC = () => {
   const currentVendor = mockVendors[0]; // Aether Acoustic Labs
-  const [vendorProducts, setVendorProducts] = useState<Product[]>(
-    mockProducts.filter((p) => p.vendorId === currentVendor.id),
-  );
+  const [vendorProducts, setVendorProducts] = useState<Product[]>([]);
   const [activeTab, setActiveTab] = useState<
     'overview' | 'products' | 'orders' | 'payouts' | 'settings'
   >('overview');
@@ -35,61 +34,158 @@ export const SellerDashboard: React.FC = () => {
   const [newTitle, setNewTitle] = useState('');
   const [newPrice, setNewPrice] = useState('199.00');
   const [newStock, setNewStock] = useState('25');
-  const [newImage, setNewImage] = useState(
-    'https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&q=80&w=800',
-  );
+  const [newImageFile, setNewImageFile] = useState<File | null>(null);
   const [newDesc, setNewDesc] = useState('');
 
   // Seller Orders
   const [sellerOrders, setSellerOrders] = useState<Order[]>(mockOrders);
 
   const { addToast } = useUIStore();
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const apiBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/$/, '');
 
-  const handleAddProduct = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!accessToken) {
+      setVendorProducts([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`${apiBaseUrl}/api/products/mine`, { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload?.error?.message || 'Unable to load your products.');
+        return payload.products as Product[];
+      })
+      .then((products) => { if (!cancelled) setVendorProducts(products); })
+      .catch((error: unknown) => { if (!cancelled) addToast(error instanceof Error ? error.message : 'Unable to load products.', 'error'); });
+    return () => { cancelled = true; };
+  }, [accessToken, addToast, apiBaseUrl]);
+
+  const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle.trim()) return;
+    if (!accessToken) {
+      addToast('Sign in with an approved seller account to manage real products.', 'error');
+      return;
+    }
+    const price = Number(newPrice);
+    const stock = Number(newStock);
+    if (!newTitle.trim() || !newDesc.trim() || !Number.isFinite(price) || price < 0 || !Number.isInteger(stock) || stock < 0) {
+      addToast('Enter a title, description, non-negative price, and whole-number stock quantity.', 'error');
+      return;
+    }
+    try {
+      let uploadedImageUrl = '';
+      if (newImageFile) {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Could not read the selected image.'));
+          reader.onerror = () => reject(new Error('Could not read the selected image.'));
+          reader.readAsDataURL(newImageFile);
+        });
+        const uploadResponse = await fetch(`${apiBaseUrl}/api/uploads/images`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ dataUrl }),
+        });
+        const uploadPayload = await uploadResponse.json().catch(() => ({}));
+        if (!uploadResponse.ok) throw new Error(uploadPayload?.error?.message || 'Image upload failed.');
+        uploadedImageUrl = uploadPayload.image.url as string;
+      }
 
-    const newProd: Product = {
-      id: `p_new_${Date.now()}`,
-      vendorId: currentVendor.id,
-      categoryId: 'c1',
-      brandName: currentVendor.storeName,
-      slug: newTitle.toLowerCase().replace(/\s+/g, '-'),
-      title: newTitle,
-      shortDescription: newDesc || 'Handcrafted acoustic precision engineering.',
-      description: newDesc || 'Designed and manufactured in Copenhagen.',
-      price: parseFloat(newPrice) || 99,
-      images: [{ id: 'img_new', url: newImage, isPrimary: true, displayOrder: 1 }],
-      variants: [],
-      rating: 5.0,
-      reviewCount: 0,
-      status: 'PUBLISHED',
-      tags: ['audio', 'artisan'],
-      features: ['Hand-tested in studio'],
-      specifications: { Warranty: '2 Years' },
-      stock: parseInt(newStock) || 10,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    setVendorProducts([newProd, ...vendorProducts]);
-    setIsAddModalOpen(false);
-    setNewTitle('');
-    setNewDesc('');
-    addToast(`"${newProd.title}" published to marketplace catalog!`, 'success');
+      const response = await fetch(`${apiBaseUrl}/api/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          categoryId: 'c1',
+          title: newTitle.trim(),
+          description: newDesc.trim(),
+          shortDescription: newDesc.trim().slice(0, 500),
+          price,
+          stock,
+          images: uploadedImageUrl ? [{ id: `img_${Date.now()}`, url: uploadedImageUrl, isPrimary: true, displayOrder: 0 }] : [],
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error?.message || 'Product could not be created.');
+      const createdProduct = payload.product as Product;
+      setVendorProducts((products) => [createdProduct, ...products]);
+      setIsAddModalOpen(false);
+      setNewTitle('');
+      setNewDesc('');
+      setNewImageFile(null);
+      addToast('Product saved as a draft. An administrator must approve publication.', 'success');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Unable to create product.', 'error');
+    }
   };
 
-  const handleToggleProductStatus = (id: string) => {
-    setVendorProducts(
-      vendorProducts.map((p) => {
-        if (p.id === id) {
-          const nextStatus = p.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
-          addToast(`Product status updated to ${nextStatus}`, 'info');
-          return { ...p, status: nextStatus };
-        }
-        return p;
-      }),
-    );
+  const handleToggleProductStatus = async (id: string) => {
+    const product = vendorProducts.find((item) => item.id === id);
+    if (!product) return;
+    if (product.status !== 'PUBLISHED') {
+      addToast('Draft products cannot be published by sellers; request administrator approval.', 'info');
+      return;
+    }
+    if (!accessToken) return;
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/products/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ status: 'DRAFT' }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error?.message || 'Product status could not be changed.');
+      setVendorProducts((products) => products.map((item) => item.id === id ? payload.product as Product : item));
+      addToast('Product moved to draft.', 'success');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Unable to update product.', 'error');
+    }
+  };
+
+  const handleEditProduct = async (id: string) => {
+    const product = vendorProducts.find((item) => item.id === id);
+    if (!product || !accessToken) return;
+    const title = window.prompt('Product title', product.title);
+    if (title === null) return;
+    const priceText = window.prompt('Price', String(product.price));
+    if (priceText === null) return;
+    const stockText = window.prompt('Stock quantity', String(product.stock));
+    if (stockText === null) return;
+    const price = Number(priceText);
+    const stock = Number(stockText);
+    if (!title.trim() || !Number.isFinite(price) || price < 0 || !Number.isInteger(stock) || stock < 0) {
+      addToast('Enter a title, non-negative price, and whole-number stock quantity.', 'error');
+      return;
+    }
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/products/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ title: title.trim(), price, stock }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error?.message || 'Product could not be updated.');
+      setVendorProducts((products) => products.map((item) => item.id === id ? payload.product as Product : item));
+      addToast('Product changes saved.', 'success');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Unable to edit product.', 'error');
+    }
+  };
+
+  const handleArchiveProduct = async (id: string) => {
+    if (!accessToken) return;
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/products/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error?.message || 'Product could not be archived.');
+      setVendorProducts((products) => products.filter((item) => item.id !== id));
+      addToast('Product archived.', 'success');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Unable to archive product.', 'error');
+    }
   };
 
   const handleDispatchOrder = (orderId: string) => {
@@ -394,10 +490,22 @@ export const SellerDashboard: React.FC = () => {
                       </td>
                       <td className="p-4 text-right space-x-2">
                         <button
+                          onClick={() => handleEditProduct(p.id)}
+                          className="text-xs font-bold text-slate-700 hover:underline"
+                        >
+                          Edit
+                        </button>
+                        <button
                           onClick={() => handleToggleProductStatus(p.id)}
                           className="text-xs font-bold text-blue-600 hover:underline"
                         >
-                          {p.status === 'PUBLISHED' ? 'Unpublish' : 'Publish'}
+                          {p.status === 'PUBLISHED' ? 'Unpublish' : 'Pending approval'}
+                        </button>
+                        <button
+                          onClick={() => handleArchiveProduct(p.id)}
+                          className="text-xs font-bold text-red-600 hover:underline"
+                        >
+                          Archive
                         </button>
                       </td>
                     </tr>
@@ -560,13 +668,14 @@ export const SellerDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block font-bold text-slate-900 mb-1">Image URL</label>
+            <label className="block font-bold text-slate-900 mb-1">Product Image</label>
             <input
-              type="url"
-              value={newImage}
-              onChange={(e) => setNewImage(e.target.value)}
-              className="w-full p-2.5 border border-slate-300 rounded-xl outline-none text-slate-600 font-mono text-[11px]"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(e) => setNewImageFile(e.target.files?.[0] ?? null)}
+              className="w-full p-2.5 border border-slate-300 rounded-xl outline-none text-slate-600 text-[11px]"
             />
+            <p className="mt-1 text-[10px] text-slate-500">PNG, JPEG, or WebP; maximum 4 MB. Cloudinary storage must be configured on the API.</p>
           </div>
 
           <div>

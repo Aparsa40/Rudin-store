@@ -7,6 +7,11 @@ import healthRouter from "./routes/health.routes.js";
 import productsRouter from "./routes/products.routes.js";
 import authRouter from "./routes/auth.routes.js";
 import adminRouter from "./routes/admin.routes.js";
+import { createRateLimiter } from "./middleware/rate-limit.js";
+import vendorsRouter from "./routes/vendors.routes.js";
+import adminVendorsRouter from "./routes/admin-vendors.routes.js";
+import passwordResetRouter from "./routes/password-reset.routes.js";
+import uploadsRouter from "./routes/uploads.routes.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
@@ -20,7 +25,7 @@ if (process.env.NODE_ENV === "production" && (!process.env.AUTH_TOKEN_SECRET || 
 }
 
 app.disable("x-powered-by");
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "6mb" }));
 
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", webUrl);
@@ -35,8 +40,17 @@ app.use((req, res, next) => {
 });
 
 app.use("/api/health", healthRouter);
+app.use("/api/auth/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
+app.use("/api/auth/register", createRateLimiter({ windowMs: 60 * 60 * 1000, maxRequests: 8, message: "Too many registration attempts. Please try again later." }));
+app.use("/api/auth/bootstrap-admin", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 5, message: "Too many bootstrap attempts. Please try again later." }));
+app.use("/api/auth/password-reset", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 5, message: "Too many password reset attempts. Please try again later." }));
+app.use("/api/uploads/images", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 20, message: "Too many image uploads. Please try again later." }));
 app.use("/api/auth", authRouter);
+app.use("/api/auth/password-reset", passwordResetRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/admin/vendors", adminVendorsRouter);
+app.use("/api/uploads", uploadsRouter);
+app.use("/api/vendors", vendorsRouter);
 app.use("/api/products", productsRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);

@@ -6,75 +6,42 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { ShieldCheck, User, Store, ShieldAlert, ArrowRight } from 'lucide-react';
 import { Role } from '../types';
+import { authService } from '../services/auth/authService';
 
 export const Login: React.FC = () => {
-  const { login, isLoading, setLoading } = useAuthStore();
+  const { login, loginAsDemo, isLoading, setLoading } = useAuthStore();
   const { addToast } = useUIStore();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
-    setTimeout(() => {
-      login({
-        id: 'u1',
-        email: email || 'alex.morgan@example.com',
-        firstName: email ? email.split('@')[0] : 'Alex',
-        lastName: 'Morgan',
-        role: 'CUSTOMER',
-        phone: '+1 (555) 234-5678',
-        createdAt: new Date().toISOString(),
-      });
-      setLoading(false);
+    try {
+      const session = await authService.login(email.trim(), password);
+      login(session.user, session.accessToken);
       addToast('Signed in successfully!', 'success');
-      navigate('/account');
-    }, 400);
+      if (session.user.role === 'ADMIN') navigate('/admin');
+      else if (session.user.role === 'VENDOR') navigate('/seller/dashboard');
+      else navigate('/account');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Unable to sign in. Please try again.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDemoLogin = (role: Role) => {
-    setLoading(true);
-    setTimeout(() => {
-      login({
-        id: role === 'VENDOR' ? 'u_v1' : role === 'ADMIN' ? 'u_admin' : 'u1',
-        email:
-          role === 'VENDOR'
-            ? 'aether@rudinstore.com'
-            : role === 'ADMIN'
-              ? 'admin@rudinstore.com'
-              : 'alex.morgan@example.com',
-        firstName: role === 'VENDOR' ? 'Aether' : role === 'ADMIN' ? 'Admin' : 'Alex',
-        lastName: role === 'VENDOR' ? 'Acoustics' : role === 'ADMIN' ? 'Ops' : 'Morgan',
-        role,
-        createdAt: new Date().toISOString(),
-      });
-      setLoading(false);
-      addToast(`Logged in with demo ${role.toLowerCase()} privileges!`, 'success');
-      if (role === 'VENDOR') navigate('/seller/dashboard');
-      else if (role === 'ADMIN') navigate('/admin');
-      else navigate('/account');
-    }, 200);
+    loginAsDemo(role);
+    addToast(`Demo ${role.toLowerCase()} session enabled for local evaluation only.`, 'info');
+    if (role === 'VENDOR') navigate('/seller/dashboard');
+    else if (role === 'ADMIN') navigate('/admin');
+    else navigate('/account');
   };
 
-  const handleSendOtp = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!forgotEmail) return;
-    setOtpSent(true);
-    addToast('One-Time Passcode (OTP) sent to your inbox: 8492', 'info');
-  };
 
-  const handleVerifyOtp = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsForgotModalOpen(false);
-    addToast('Password successfully reset! You can now log in.', 'success');
-  };
 
   return (
     <div className="container mx-auto px-4 py-16 flex flex-col items-center justify-center max-w-lg">
@@ -91,7 +58,7 @@ export const Login: React.FC = () => {
           </p>
         </div>
 
-        {/* 1-Click Demo Profiles (For Instant Evaluation & Testing) */}
+        {import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_AUTH === 'true' && (
         <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
           <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
             <span>Fast 1-Click Demo Logins:</span>
@@ -127,6 +94,8 @@ export const Login: React.FC = () => {
           </div>
         </div>
 
+        )}
+
         {/* Standard Credentials Form */}
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
@@ -144,13 +113,9 @@ export const Login: React.FC = () => {
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-xs font-bold text-slate-900">Password</label>
-              <button
-                type="button"
-                onClick={() => setIsForgotModalOpen(true)}
-                className="text-xs text-blue-600 hover:underline font-semibold"
-              >
+              <Link to="/reset-password" className="text-xs text-blue-600 hover:underline font-semibold">
                 Forgot?
-              </button>
+              </Link>
             </div>
             <input
               type="password"
@@ -175,77 +140,6 @@ export const Login: React.FC = () => {
         </div>
       </div>
 
-      {/* Forgot Password / OTP Modal */}
-      {isForgotModalOpen && (
-        <div className="fixed inset-0 z-150 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full space-y-4 shadow-xl border border-slate-100">
-            <h3 className="text-lg font-black text-slate-900">Reset Account Password</h3>
-
-            {!otpSent ? (
-              <form onSubmit={handleSendOtp} className="space-y-4 text-xs">
-                <p className="text-slate-500">
-                  Enter your registered account email to receive a 4-digit verification code.
-                </p>
-                <div>
-                  <label className="block font-bold text-slate-900 mb-1">Email Address</label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="name@example.com"
-                    value={forgotEmail}
-                    onChange={(e) => setForgotEmail(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl outline-none"
-                  />
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsForgotModalOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" size="sm">
-                    Send Code
-                  </Button>
-                </div>
-              </form>
-            ) : (
-              <form onSubmit={handleVerifyOtp} className="space-y-4 text-xs">
-                <p className="text-slate-500">
-                  Enter the 4-digit code sent to <strong>{forgotEmail}</strong> (Demo code: 8492).
-                </p>
-                <div>
-                  <label className="block font-bold text-slate-900 mb-1">Passcode</label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={4}
-                    placeholder="8492"
-                    value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl outline-none text-center font-mono font-bold text-base tracking-widest"
-                  />
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setOtpSent(false)}
-                  >
-                    Back
-                  </Button>
-                  <Button type="submit" size="sm">
-                    Verify & Reset
-                  </Button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

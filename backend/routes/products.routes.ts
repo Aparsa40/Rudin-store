@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import type { SortOrder } from "mongoose";
 import { ProductModel } from "../models/product.model.js";
+import { normalizeProductSlug, validateProductInput } from "../lib/product-validation.js";
 
 const productsRouter = Router();
 const MAX_PAGE_SIZE = 100;
@@ -49,6 +50,10 @@ productsRouter.get("/", async (req, res, next) => {
     const minRating = parseNumber(req.query.minRating, "minRating", { min: 0, max: 5 });
     const inStockOnly = parseBoolean(req.query.inStockOnly, "inStockOnly");
     const onSaleOnly = parseBoolean(req.query.onSaleOnly, "onSaleOnly");
+    const featured = parseBoolean(req.query.featured, "featured");
+    const bestSeller = parseBoolean(req.query.bestSeller, "bestSeller");
+    const newArrival = parseBoolean(req.query.newArrival, "newArrival");
+    const flashDeal = parseBoolean(req.query.flashDeal, "flashDeal");
 
     if (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice) {
       res.status(400).json({ error: { code: "INVALID_PRICE_RANGE", message: "minPrice cannot exceed maxPrice." } });
@@ -58,6 +63,11 @@ productsRouter.get("/", async (req, res, next) => {
     const filter: Record<string, any> = { status: "PUBLISHED" };
     if (typeof req.query.categoryId === "string" && req.query.categoryId.trim()) filter.categoryId = req.query.categoryId.trim();
     if (typeof req.query.vendorId === "string" && req.query.vendorId.trim()) filter.vendorId = req.query.vendorId.trim();
+    if (typeof req.query.brandId === "string" && req.query.brandId.trim()) filter.brandId = req.query.brandId.trim();
+    if (featured !== undefined) filter.isFeatured = featured;
+    if (bestSeller !== undefined) filter.isBestSeller = bestSeller;
+    if (newArrival !== undefined) filter.isNewArrival = newArrival;
+    if (flashDeal !== undefined) filter.isFlashDeal = flashDeal;
     if (minPrice !== undefined || maxPrice !== undefined) {
       filter.price = {};
       if (minPrice !== undefined) filter.price.$gte = minPrice;
@@ -109,6 +119,18 @@ productsRouter.get("/", async (req, res, next) => {
   }
 });
 
+productsRouter.get("/mine", requireAuth, requireRole("ADMIN", "VENDOR"), async (req, res, next) => {
+  try {
+    const filter = req.authUser!.role === "ADMIN" ? {} : { vendorId: req.authUser!.id };
+    const products = await ProductModel.find(filter).sort({ createdAt: -1 }).lean();
+    res.status(200).json({
+      products: products.map((product) => serializeProduct(product as unknown as Record<string, unknown>)),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 productsRouter.get("/:identifier", async (req, res, next) => {
   try {
     const identifier = req.params.identifier;
@@ -133,20 +155,18 @@ productsRouter.get("/:identifier", async (req, res, next) => {
 productsRouter.post("/", requireAuth, requireRole("ADMIN", "VENDOR"), async (req, res, next) => {
   try {
     const body = req.body ?? {};
-    const requiredStrings = ["categoryId", "title", "description", "shortDescription"] as const;
-    if (requiredStrings.some((key) => typeof body[key] !== "string" || !body[key].trim()) ||
-        typeof body.price !== "number" || !Number.isFinite(body.price) || body.price < 0 ||
-        (body.stock !== undefined && (!Number.isInteger(body.stock) || body.stock < 0)) ||
-        (body.compareAtPrice !== undefined && (typeof body.compareAtPrice !== "number" || !Number.isFinite(body.compareAtPrice) || body.compareAtPrice < 0)) ||
-        (body.images !== undefined && (!Array.isArray(body.images) || body.images.length > 20))) {
-      res.status(400).json({ error: { code: "INVALID_PRODUCT", message: "Provide title, description, shortDescription, categoryId, a non-negative numeric price, valid stock, and at most 20 images." } });
+    if (typeof body !== "object" || body === null || Array.isArray(body)) {
+      res.status(400).json({ error: { code: "INVALID_PRODUCT", message: "Request body must be a JSON object." } });
       return;
     }
-    const slug = (typeof body.slug === "string" && body.slug.trim()
-      ? body.slug.trim()
-      : body.title.trim().toLowerCase()).normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 120);
+    const validationError = validateProductInput(body as Record<string, unknown>);
+    if (validationError) {
+      res.status(400).json({ error: { code: "INVALID_PRODUCT", message: validationError } });
+      return;
+    }
+    const slug = normalizeProductSlug(body.slug, body.title as string);
     if (!slug) {
-      res.status(400).json({ error: { code: "INVALID_SLUG", message: "A valid slug could not be generated." } });
+      res.status(400).json({ error: { code: "INVALID_SLUG", message: "Provide an ASCII-compatible slug or a title that can be converted to one." } });
       return;
     }
     const vendorId = req.authUser!.role === "ADMIN" && typeof body.vendorId === "string" && body.vendorId.trim()
@@ -166,6 +186,119 @@ productsRouter.post("/", requireAuth, requireRole("ADMIN", "VENDOR"), async (req
       isBestSeller: false, isNewArrival: false, isFlashDeal: false, status,
     });
     res.status(201).json({ product: serializeProduct(product.toObject() as unknown as Record<string, unknown>) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+// Product updates and deletion are scoped to the authenticated owner; admins can manage any product.
+productsRouter.patch("/:id", requireAuth, requireRole("ADMIN", "VENDOR"), async (req, res, next) => {
+  try {
+    const body = req.body ?? {};
+    if (typeof body !== "object" || body === null || Array.isArray(body)) {
+      res.status(400).json({ error: { code: "INVALID_PRODUCT", message: "Request body must be a JSON object." } });
+      return;
+    }
+
+    const product = await ProductModel.findById(req.params.id);
+    if (!product) {
+      res.status(404).json({ error: { code: "PRODUCT_NOT_FOUND", message: "Product not found." } });
+      return;
+    }
+    if (req.authUser!.role !== "ADMIN" && product.vendorId !== req.authUser!.id) {
+      res.status(403).json({ error: { code: "FORBIDDEN", message: "You can only manage products owned by your account." } });
+      return;
+    }
+
+    const editableFields = [
+      "categoryId", "brandId", "brandName", "slug", "title", "description",
+      "shortDescription", "price", "compareAtPrice", "stock", "images",
+      "tags", "features", "specifications",
+    ] as const;
+    const merged: Record<string, unknown> = {
+      categoryId: product.categoryId,
+      brandId: product.brandId,
+      brandName: product.brandName,
+      slug: product.slug,
+      title: product.title,
+      description: product.description,
+      shortDescription: product.shortDescription,
+      price: product.price,
+      compareAtPrice: product.compareAtPrice,
+      stock: product.stock,
+      images: product.images,
+      tags: product.tags,
+      features: product.features,
+      specifications: Object.fromEntries(product.specifications ?? new Map()),
+    };
+    for (const field of editableFields) {
+      if (Object.prototype.hasOwnProperty.call(body, field)) merged[field] = body[field];
+    }
+
+    if (body.status !== undefined) {
+      if (!["DRAFT", "PUBLISHED", "ARCHIVED"].includes(body.status)) {
+        res.status(400).json({ error: { code: "INVALID_STATUS", message: "status must be DRAFT, PUBLISHED, or ARCHIVED." } });
+        return;
+      }
+      if (req.authUser!.role !== "ADMIN" && body.status !== "DRAFT") {
+        res.status(403).json({ error: { code: "FORBIDDEN", message: "Only administrators can publish or archive products." } });
+        return;
+      }
+    }
+
+    const validationError = validateProductInput(merged);
+    if (validationError) {
+      res.status(400).json({ error: { code: "INVALID_PRODUCT", message: validationError } });
+      return;
+    }
+    const slug = normalizeProductSlug(merged.slug, merged.title as string);
+    if (!slug) {
+      res.status(400).json({ error: { code: "INVALID_SLUG", message: "Provide an ASCII-compatible slug or a title that can be converted to one." } });
+      return;
+    }
+
+    Object.assign(product, {
+      categoryId: String(merged.categoryId).trim(),
+      brandId: typeof merged.brandId === "string" ? merged.brandId.trim() : undefined,
+      brandName: typeof merged.brandName === "string" ? merged.brandName.trim() : undefined,
+      slug,
+      title: String(merged.title).trim(),
+      description: String(merged.description).trim(),
+      shortDescription: String(merged.shortDescription).trim(),
+      price: merged.price,
+      compareAtPrice: merged.compareAtPrice,
+      stock: merged.stock ?? 0,
+      images: merged.images ?? [],
+      tags: merged.tags ?? [],
+      features: merged.features ?? [],
+      specifications: merged.specifications ?? {},
+      ...(body.status === "DRAFT" ? { status: "DRAFT" } : req.authUser!.role === "ADMIN" && body.status ? { status: body.status } : {}),
+    });
+    if (req.authUser!.role === "ADMIN" && typeof body.isFeatured === "boolean") {
+      product.isFeatured = body.isFeatured;
+    }
+    await product.save();
+    res.status(200).json({ product: serializeProduct(product.toObject() as unknown as Record<string, unknown>) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+productsRouter.delete("/:id", requireAuth, requireRole("ADMIN", "VENDOR"), async (req, res, next) => {
+  try {
+    const product = await ProductModel.findById(req.params.id);
+    if (!product) {
+      res.status(404).json({ error: { code: "PRODUCT_NOT_FOUND", message: "Product not found." } });
+      return;
+    }
+    if (req.authUser!.role !== "ADMIN" && product.vendorId !== req.authUser!.id) {
+      res.status(403).json({ error: { code: "FORBIDDEN", message: "You can only manage products owned by your account." } });
+      return;
+    }
+    product.status = "ARCHIVED";
+    await product.save();
+    res.status(200).json({ success: true, productId: product._id, status: product.status });
   } catch (error) {
     next(error);
   }

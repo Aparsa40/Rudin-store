@@ -8,6 +8,7 @@ import { Cart } from './pages/Cart';
 import { Checkout } from './pages/Checkout';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
+import { ResetPassword } from './pages/ResetPassword';
 import { Account } from './pages/Account';
 import { VendorsList } from './pages/VendorsList';
 import { VendorDetail } from './pages/VendorDetail';
@@ -45,6 +46,7 @@ export const App: React.FC = () => {
           <Route path="checkout" element={<Checkout />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
+          <Route path="reset-password" element={<ResetPassword />} />
           <Route path="account/*" element={<ProtectedRoute><Account /></ProtectedRoute>} />
           <Route path="vendors" element={<VendorsList />} />
           <Route path="vendors/:slug" element={<VendorDetail />} />
