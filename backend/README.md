@@ -31,7 +31,7 @@ All routes under `/api/admin` require an active administrator bearer token.
 - `GET /api/products/:identifier`: published product by ID or slug.
 - `GET /api/products/mine`: returns all products for the current vendor, or all products for an administrator.\n- `POST /api/products`: requires an active ADMIN or VENDOR bearer token. Admins can publish a product; vendor-created products are forced to DRAFT. Public requests cannot create or publish products.\n- `PATCH /api/products/:id`: updates a product with validation and owner checks. Only administrators can publish/archive products or change featured status.\n- `DELETE /api/products/:id`: archives a product after an owner/admin authorization check.
 
-Product update/delete, vendor onboarding/ownership records, image upload/storage, rate limiting, refresh-token rotation, email verification, password reset, and frontend integration are not included yet. The Login and Register screens now call the authentication API. The AdminDashboard and SellerDashboard product-management flows are still mock-driven and are not yet connected to backend admin/product management endpoints. Do not treat the feature as production-ready until the UI is connected and end-to-end security tests pass.
+Product CRUD/archive, vendor onboarding/ownership checks, Cloudinary image upload, rate limiting, and password-reset API are implemented on this branch. Login/Register and the seller/admin product-management flows use the API. The public storefront catalog is being migrated to the API as well. Email verification, refresh-token rotation, orders, checkout, payments, addresses, coupons, reviews, and several seller/admin dashboard sections do not yet have complete production backend endpoints. Do not treat those domains as backend-connected or production-ready until their API contracts and end-to-end tests are implemented.
 
 ## Frontend authentication
 
@@ -49,7 +49,7 @@ npm test
 
 Product creation validates required fields, numeric ranges, image object shape and HTTP(S) URLs, tags/features limits, and string-valued specifications. Duplicate-key errors return HTTP 409 and Mongoose validation/cast errors return HTTP 400 without exposing database details.
 
-The current automated tests cover pure product-payload validation. They do not replace MongoDB-backed integration tests for login, token expiry/revocation, authorization boundaries, bootstrap concurrency, or administrator status changes. Run `npm run lint` and `npm run build` before merging, and do not deploy this feature for real customers until those integration tests and the remaining admin/seller UI integration are complete.
+Automated unit and MongoDB-backed integration tests cover product validation, rate limiting, upload validation, authentication, role boundaries, bootstrap, vendor approval, and product lifecycle. The integration test deletes documents from `users`, `products`, and `adminstates`; it therefore asserts that its URI targets only `rudin_store_integration_test`. CI uses an ephemeral MongoDB replica set. Never point `RUN_MONGODB_INTEGRATION=true` at a development, manual-test, or production database. Run `npm run lint`, `npm test`, and `npm run build` before merging.
 
 ## Administrator concurrency safety
 
