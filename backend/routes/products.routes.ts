@@ -53,7 +53,7 @@ productsRouter.get("/", async (req, res, next) => {
     const featured = parseBoolean(req.query.featured, "featured");
     const bestSeller = parseBoolean(req.query.bestSeller, "bestSeller");
     const newArrival = parseBoolean(req.query.newArrival, "newArrival");
-    const flashDeal = parseBoolean(req.query.flashDeal, "flashDeal");\n    const featured = parseBoolean(req.query.featured, "featured");\n    const bestSeller = parseBoolean(req.query.bestSeller, "bestSeller");\n    const newArrival = parseBoolean(req.query.newArrival, "newArrival");\n    const flashDeal = parseBoolean(req.query.flashDeal, "flashDeal");
+    const flashDeal = parseBoolean(req.query.flashDeal, "flashDeal");
 
     if (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice) {
       res.status(400).json({ error: { code: "INVALID_PRICE_RANGE", message: "minPrice cannot exceed maxPrice." } });
@@ -67,7 +67,7 @@ productsRouter.get("/", async (req, res, next) => {
     if (featured !== undefined) filter.isFeatured = featured;
     if (bestSeller !== undefined) filter.isBestSeller = bestSeller;
     if (newArrival !== undefined) filter.isNewArrival = newArrival;
-    if (flashDeal !== undefined) filter.isFlashDeal = flashDeal;\n    if (typeof req.query.brandId === "string" && req.query.brandId.trim()) filter.brandId = req.query.brandId.trim();\n    if (featured !== undefined) filter.isFeatured = featured;\n    if (bestSeller !== undefined) filter.isBestSeller = bestSeller;\n    if (newArrival !== undefined) filter.isNewArrival = newArrival;\n    if (flashDeal !== undefined) filter.isFlashDeal = flashDeal;
+    if (flashDeal !== undefined) filter.isFlashDeal = flashDeal;
     if (minPrice !== undefined || maxPrice !== undefined) {
       filter.price = {};
       if (minPrice !== undefined) filter.price.$gte = minPrice;
