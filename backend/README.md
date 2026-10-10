@@ -36,7 +36,7 @@ All routes under `/api/admin` require an active administrator bearer token.
 - `PATCH /api/products/:id`: updates a product with validation and owner checks. Only administrators can publish/archive products or change featured status.
 - `DELETE /api/products/:id`: archives a product after an owner/admin authorization check.
 
-Product CRUD/archive, vendor onboarding/ownership checks, Cloudinary image upload, rate limiting, and password-reset API are implemented on this branch. Login/Register and the seller/admin product-management flows use the API. The public storefront catalog is being migrated to the API as well. Email verification, refresh-token rotation, orders, checkout, payments, addresses, coupons, reviews, and several seller/admin dashboard sections do not yet have complete production backend endpoints. Do not treat those domains as backend-connected or production-ready until their API contracts and end-to-end tests are implemented.
+Product CRUD/archive, vendor onboarding/ownership checks, Cloudinary image upload, rate limiting, and password-reset API are implemented on this branch. Login/Register and the seller/admin product-management flows use the API. The public storefront catalog service now reads published products from the API, including search, price/rating/stock/sale filters, vendor/category filters, featured/bestseller/new-arrival/flash-deal lists, and product details. Email verification, refresh-token rotation, orders, checkout, payments, addresses, coupons, reviews, and several seller/admin dashboard sections do not yet have complete production backend endpoints. Do not treat those domains as backend-connected or production-ready until their API contracts and end-to-end tests are implemented.
 
 ## Frontend authentication
 
