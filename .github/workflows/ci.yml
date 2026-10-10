@@ -60,7 +60,7 @@ jobs:
       - name: Backend unit and MongoDB integration tests
         env:
           RUN_MONGODB_INTEGRATION: "true"
-          MONGODB_URI: mongodb://127.0.0.1:27017/rudin_store_test?replicaSet=rs0
+          MONGODB_URI: mongodb://127.0.0.1:27017/rudin_store_integration_test?replicaSet=rs0
         run: npm test
 
   build:
