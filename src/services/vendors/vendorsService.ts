@@ -1,6 +1,52 @@
 import { Vendor, Product } from '../../types';
-import { mockVendors, mockProducts } from '../../data/mockData';
+import { mockVendors } from '../../data/mockData';
+import { productsService } from '../products/productsService';
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/$/, '');
+
+interface ApiVendor {
+  id: string;
+  userId?: string;
+  storeName: string;
+  slug: string;
+  description?: string;
+  createdAt?: string;
+}
+
+async function readApiResponse<T>(response: Response): Promise<T> {
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = payload?.error?.message || 'The vendor request could not be completed.';
+    throw new Error(message);
+  }
+  return payload as T;
+}
+
+// The backend exposes public vendor fields only. UI-only fields fall back to
+// neutral defaults instead of fabricated demo data.
+function toVendor(v: ApiVendor): Vendor {
+  return {
+    id: v.id,
+    userId: v.userId ?? v.id,
+    storeName: v.storeName,
+    slug: v.slug,
+    description: v.description ?? '',
+    logoUrl: '',
+    bannerUrl: '',
+    rating: 0,
+    reviewCount: 0,
+    followerCount: 0,
+    isVerified: false,
+    responseTime: '',
+    policies: { shipping: '', returns: '', processingTime: '' },
+    location: '',
+    categories: [],
+    createdAt: v.createdAt ?? new Date().toISOString(),
+  };
+}
+
+// Local demo helpers kept for the admin vendor-management UI, which has no
+// backend API yet. They never touch real catalog data.
 const getStoredVendors = (): Vendor[] => {
   try {
     const data = localStorage.getItem('rudin_vendors');
@@ -21,35 +67,37 @@ const saveStoredVendors = (vendors: Vendor[]) => {
 
 export const vendorsService = {
   getVendors: async (): Promise<Vendor[]> => {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    return getStoredVendors();
+    const response = await fetch(`${API_BASE_URL}/api/vendors`);
+    const payload = await readApiResponse<{ vendors: ApiVendor[] }>(response);
+    return (payload.vendors || []).map(toVendor);
   },
 
   getVendorById: async (id: string): Promise<Vendor | null> => {
-    await new Promise(resolve => setTimeout(resolve, 80));
-    return getStoredVendors().find(v => v.id === id) || null;
+    const response = await fetch(`${API_BASE_URL}/api/vendors/${encodeURIComponent(id)}`);
+    if (response.status === 404) return null;
+    const payload = await readApiResponse<{ vendor: ApiVendor }>(response);
+    return toVendor(payload.vendor);
   },
 
   getVendorBySlug: async (slug: string): Promise<Vendor | null> => {
-    await new Promise(resolve => setTimeout(resolve, 80));
-    return getStoredVendors().find(v => v.slug === slug) || null;
+    const response = await fetch(`${API_BASE_URL}/api/vendors?slug=${encodeURIComponent(slug)}`);
+    const payload = await readApiResponse<{ vendors: ApiVendor[] }>(response);
+    const match = (payload.vendors || []).find((v) => v.slug === slug);
+    return match ? toVendor(match) : null;
   },
 
-  getVendorProducts: async (vendorId: string): Promise<Product[]> => {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    return mockProducts.filter(p => p.vendorId === vendorId);
-  },
+  getVendorProducts: async (vendorId: string): Promise<Product[]> =>
+    productsService.getProductsByVendor(vendorId),
 
   searchVendors: async (query: string): Promise<Vendor[]> => {
-    await new Promise(resolve => setTimeout(resolve, 80));
+    const vendors = await vendorsService.getVendors();
     const q = query.toLowerCase();
-    return getStoredVendors().filter(v =>
-      v.storeName.toLowerCase().includes(q) ||
-      v.description.toLowerCase().includes(q) ||
-      v.location.toLowerCase().includes(q)
+    return vendors.filter(
+      (v) => v.storeName.toLowerCase().includes(q) || v.description.toLowerCase().includes(q)
     );
   },
 
+  // Local demo helpers (no backend API exists for these yet).
   updateVendor: async (id: string, updates: Partial<Vendor>): Promise<Vendor | null> => {
     await new Promise(resolve => setTimeout(resolve, 120));
     const current = getStoredVendors();

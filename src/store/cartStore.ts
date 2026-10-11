@@ -14,13 +14,13 @@ interface CartState {
   appliedCoupon: Coupon | null;
   isDrawerOpen: boolean;
 
-  addItem: (item: Omit<CartItem, 'id' | 'addedAt'>) => CartActionResult;
+  addItem: (item: Omit<CartItem, 'id' | 'addedAt'>) => Promise<CartActionResult>;
   removeItem: (id: string) => void;
-  updateQuantity: (id: string, quantity: number) => CartActionResult;
+  updateQuantity: (id: string, quantity: number) => Promise<CartActionResult>;
   clearCart: () => void;
 
   moveToSaveForLater: (id: string) => void;
-  moveToCartFromSaved: (id: string) => CartActionResult;
+  moveToCartFromSaved: (id: string) => Promise<CartActionResult>;
   removeSavedItem: (id: string) => void;
 
   applyCoupon: (coupon: Coupon) => void;
@@ -40,8 +40,10 @@ export const useCartStore = create<CartState>()(
       appliedCoupon: null,
       isDrawerOpen: false,
 
-      addItem: (item) => {
-        const stock = cartService.getAvailableStock(item.productId, item.variantId);
+      // Stock is validated against the live catalog API before the cart is
+      // mutated, so success only reflects operations that actually succeeded.
+      addItem: async (item) => {
+        const stock = await cartService.fetchAvailableStock(item.productId, item.variantId);
         const state = get();
         const existingIndex = state.items.findIndex(
           (i) => i.productId === item.productId && i.variantId === item.variantId
@@ -92,14 +94,21 @@ export const useCartStore = create<CartState>()(
         }));
       },
 
-      updateQuantity: (id, quantity) => {
+      updateQuantity: async (id, quantity) => {
         const state = get();
         const targetItem = state.items.find((i) => i.id === id);
         if (!targetItem) {
           return { success: false, error: 'Item not found in cart.' };
         }
 
-        const stock = cartService.getAvailableStock(targetItem.productId, targetItem.variantId);
+        const stock = await cartService.fetchAvailableStock(targetItem.productId, targetItem.variantId);
+
+        if (stock <= 0) {
+          set((curr) => ({
+            items: curr.items.filter((i) => i.id !== id)
+          }));
+          return { success: false, error: 'This item is no longer available and was removed from your cart.' };
+        }
 
         if (quantity > stock) {
           // Clamp to maximum stock
@@ -139,12 +148,12 @@ export const useCartStore = create<CartState>()(
         });
       },
 
-      moveToCartFromSaved: (id) => {
+      moveToCartFromSaved: async (id) => {
         const state = get();
         const item = state.saveForLater.find(i => i.id === id);
         if (!item) return { success: false, error: 'Item not found in saved list.' };
 
-        const stock = cartService.getAvailableStock(item.productId, item.variantId);
+        const stock = await cartService.fetchAvailableStock(item.productId, item.variantId);
         if (stock <= 0) {
           return { success: false, error: 'This item is currently out of stock.' };
         }
@@ -159,7 +168,7 @@ export const useCartStore = create<CartState>()(
 
       removeSavedItem: (id) => {
         set((state) => ({
-          saveForLater: state.saveForLater.filter((i) => i.id !== id)
+          saveForLater: state.saveForLater.filter(i => i.id !== id)
         }));
       },
 
