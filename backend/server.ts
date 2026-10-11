@@ -12,6 +12,7 @@ import vendorsRouter from "./routes/vendors.routes.js";
 import adminVendorsRouter from "./routes/admin-vendors.routes.js";
 import passwordResetRouter from "./routes/password-reset.routes.js";
 import uploadsRouter from "./routes/uploads.routes.js";
+import ordersRouter from "./routes/orders.routes.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
@@ -31,7 +32,7 @@ app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", webUrl);
   res.header("Vary", "Origin");
   res.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Admin-Bootstrap-Secret");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Admin-Bootstrap-Secret, Idempotency-Key");
   if (req.method === "OPTIONS") {
     res.sendStatus(204);
     return;
@@ -52,6 +53,8 @@ app.use("/api/admin/vendors", adminVendorsRouter);
 app.use("/api/uploads", uploadsRouter);
 app.use("/api/vendors", vendorsRouter);
 app.use("/api/products", productsRouter);
+app.use("/api/orders", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 30, message: "Too many order requests. Please try again later." }));
+app.use("/api/orders", ordersRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
