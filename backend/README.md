@@ -1,4 +1,4 @@
-# Backend API: Authentication, administrators, and products
+# Backend API: Authentication, administrators, products, and orders
 
 ## Authentication
 
@@ -36,7 +36,26 @@ All routes under `/api/admin` require an active administrator bearer token.
 - `PATCH /api/products/:id`: updates a product with validation and owner checks. Only administrators can publish/archive products or change featured status.
 - `DELETE /api/products/:id`: archives a product after an owner/admin authorization check.
 
-Product CRUD/archive, vendor onboarding/ownership checks, Cloudinary image upload, rate limiting, and password-reset API are implemented on this branch. Login/Register and the seller/admin product-management flows use the API. The public storefront catalog service now reads published products from the API, including search, price/rating/stock/sale filters, vendor/category filters, featured/bestseller/new-arrival/flash-deal lists, and product details. Email verification, refresh-token rotation, orders, checkout, payments, addresses, coupons, reviews, and several seller/admin dashboard sections do not yet have complete production backend endpoints. Do not treat those domains as backend-connected or production-ready until their API contracts and end-to-end tests are implemented.
+Product CRUD/archive, vendor onboarding/ownership checks, Cloudinary image upload, rate limiting, and password-reset API are implemented. Login/Register and the seller/admin product-management flows use the API. The public storefront catalog service reads published products from the API, including search, price/rating/stock/sale filters, vendor/category filters, featured/bestseller/new-arrival/flash-deal lists, and product details.
+
+## Orders (server-authoritative)
+
+- `POST /api/orders` (authentication required): creates an order. The server:
+  - resolves every item against **published** products only (DRAFT/ARCHIVED or unknown products return 400 `PRODUCT_NOT_FOUND`; variant products require a `variantId` via 400 `VARIANT_REQUIRED`/`VARIANT_NOT_FOUND`);
+  - computes unit prices, subtotals, and the total **exclusively from database prices** — client-supplied monetary fields are ignored entirely;
+  - decrements product and variant stock inside the **same MongoDB transaction** as the order insert, so insufficient stock (409 `OUT_OF_STOCK`), a duplicate idempotency key, or any persistence/validation failure rolls back every decrement and consumes no inventory;
+  - matches variant stock with `$elemMatch`, so the variant identity and the sufficient-stock condition must hold on the same array element;
+  - supports an optional `Idempotency-Key` header (8–128 characters). A unique partial index on `(userId, idempotencyKey)` makes idempotency race-safe: a replay or a concurrent duplicate returns 200 with `idempotentReplay: true` and the original order, never a second order or a second decrement;
+  - creates every order as `status: PENDING` and `paymentStatus: PENDING`. No payment gateway exists, so no order can be born `PAID`; `paymentMethod` is a label only (CASH_ON_DELIVERY, CREDIT_CARD, PAYPAL, APPLE_PAY).
+- `GET /api/orders` (authentication required): the authenticated user's own orders, newest first.
+- `GET /api/orders/:id` (authentication required): owner-scoped lookup. Another user's order is indistinguishable from a missing one (404 `ORDER_NOT_FOUND`).
+- Rate limiting: 30 requests per 15 minutes per IP on `/api/orders`.
+
+Order creation uses MongoDB multi-document transactions, so the database must be a replica set (MongoDB Atlas or a local replica set); a standalone `mongod` cannot serve `POST /api/orders`. Tax and shipping are computed as zero until the corresponding product decisions are made (see `docs/server-authoritative-checkout.md`). The frontend checkout flow does **not** call these endpoints yet; the frontend `ordersService` remains browser-local.
+
+## Not implemented
+
+There is no payment-provider integration, no verified payment callbacks, no coupon engine, no cancellation/refund/fulfillment endpoints, no per-vendor order splitting, no server-side cart persistence, no customer address CRUD, and no reviews endpoint. Email verification and refresh-token rotation are also not implemented. Do not treat those domains as backend-connected or production-ready until their API contracts and tests exist.
 
 ## Frontend authentication
 
@@ -46,15 +65,21 @@ Public registration always creates a `CUSTOMER`. Seller registration submits a v
 
 ## Validation and tests
 
-Run the backend validation tests with:
+Run the automated tests with:
 
 ```powershell
 npm test
 ```
 
-Product creation validates required fields, numeric ranges, image object shape and HTTP(S) URLs, tags/features limits, and string-valued specifications. Duplicate-key errors return HTTP 409 and Mongoose validation/cast errors return HTTP 400 without exposing database details.
+`npm test` discovers every `*.test.ts` under `backend/` and `src/`:
 
-Automated unit and MongoDB-backed integration tests cover product validation, rate limiting, upload validation, authentication, role boundaries, bootstrap, vendor approval, and product lifecycle. The integration test deletes documents from `users`, `products`, and `adminstates`; it therefore asserts that its URI targets only `rudin_store_integration_test`. CI uses an ephemeral MongoDB replica set. Never point `RUN_MONGODB_INTEGRATION=true` at a development, manual-test, or production database. Run `npm run lint`, `npm test`, and `npm run build` before merging.
+- Backend unit tests: product-input validation, rate-limiter behavior, upload image decoding.
+- Frontend unit test: the browser-local `ordersService` (orders start PENDING/unpaid, no fabricated tracking data).
+- MongoDB integration suites (skipped unless `RUN_MONGODB_INTEGRATION=true`):
+  - the security suite on `rudin_store_integration_test` covers authentication, disabled/revoked tokens, role boundaries, concurrent first-admin bootstrap, vendor approval, product lifecycle, cross-vendor ownership, and PUBLISHED-only public catalog;
+  - the orders suite runs on a dedicated derived database (`rudin_store_integration_test_orders`) on its own port, because the Node test runner executes test files in parallel; it covers server-computed pricing, out-of-stock and persistence-failure transaction rollback, variant mismatch, sequential and concurrent idempotent replays, and cross-user order isolation.
+
+Both integration suites assert that their URI targets only the isolated integration database(s), delete their collections' documents at setup and teardown, terminate their spawned API child processes, and close their Mongoose connections in a `finally` block. The backend connection guard refuses any other database when `RUN_MONGODB_INTEGRATION=true`. CI uses an ephemeral MongoDB replica set. Never point `RUN_MONGODB_INTEGRATION=true` at a development, manual-test, or production database. Run `npm run lint`, `npm test`, and `npm run build` before merging.
 
 ## Administrator concurrency safety
 
