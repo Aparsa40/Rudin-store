@@ -1,99 +1,97 @@
 # Rudin Store
 
-## Multi-Vendor E-Commerce Frontend
+## Multi-Vendor E-Commerce Application
 
-**Version:** 2.1.0  
-**Status:** Release candidate / API-ready frontend prototype
+**Version:** 2.1.0 (per package.json)  
+**Status:** Frontend release candidate plus an unreleased Node.js/Express/MongoDB backend under active development
 
-Rudin Store is a multi-vendor marketplace frontend built with React 19, TypeScript, Vite 8, Tailwind CSS 4, React Router 7, and Zustand 5.
+Rudin Store is a multi-vendor marketplace built with React 19, TypeScript, Vite 8, Tailwind CSS 4, React Router 7, and Zustand 5 on the frontend, and Node.js (Express, Mongoose) against MongoDB on the backend.
 
-Version 2.1.0 is a hardening upgrade over v2.0.0. It improves client-side authentication state, protected routes, cart stock validation, coupon validation, and local mock-data persistence while preserving the existing UI and service-oriented architecture.
+The v2.1.0 frontend is a hardening upgrade over v2.0.0: unauthenticated default auth state, protected routes, cart stock validation, coupon validation, and local demo-data persistence. Backend work (authentication, administrators, vendors, products, server-authoritative orders, tests, CI) has been merged to the default branch but is **not yet part of a released version**; see the Unreleased section of CHANGELOG.md.
 
-> **Important:** v2.1.0 is still a frontend prototype. It does not provide production authentication, server-side authorization, a production database, real payment processing, shipping-provider integration, seller payouts, or transactional inventory.
-
-## v2.1.0 Highlights
-
-- Application version synchronized to 2.1.0.
-- Unauthenticated default auth state instead of a fake logged-in customer.
-- Explicit demo authentication and CUSTOMER/VENDOR/ADMIN role workflows.
-- ProtectedRoute guards for account, seller, and admin UX.
-- Cart stock validation for add/update/save-for-later flows.
-- Coupon validation for status, validity dates, minimum purchase, percentage limits, and maximum discount.
-- Local persistence improvements for demo authentication, vendors, coupons, and products.
-- Products service barrel added.
-- TypeScript strict and cross-platform filename-casing checks enabled.
-- Tailwind flex/block conflict in the mobile vendor link removed.
+> **Important:** This is not a complete production marketplace. There is no payment-provider integration, no verified payment callbacks, no shipping-provider integration, no seller payouts, no server-side coupon engine, no order lifecycle (cancellation/refund/fulfillment) workflows, and the frontend checkout/order flow is not yet connected to the server order API.
 
 ## Architecture
 
-    React Pages / Components
-              |
-              v
-        Zustand Stores
-              |
-              v
-        Domain Services
-              |
-              v
-    Mock Data / Local Persistence
-              |
-              +---- future HTTPS API ----> Backend
-                                           |
-                                           +--> PostgreSQL
-                                           +--> Auth / Sessions
-                                           +--> Orders / Inventory
-                                           +--> Payments
-                                           +--> Contact / Email
+```text
+React Pages / Components
+        |
+        v
+   Zustand Stores
+        |
+        v
+  Domain Services  ------------------------------+
+        |                                         |
+        v (browser-local demo data)               v (HTTP, VITE_API_URL)
+  Mock Data / localStorage              Express backend (backend/)
+                                               |
+                                               v
+                                     Mongoose --> MongoDB (replica set)
+```
 
-The service layer is the intended integration boundary. UI components should not connect directly to databases or provider APIs.
+The service layer is the integration boundary. UI components must not connect directly to databases or provider APIs. The browser must never receive database credentials.
 
-## Running Locally
+## Frontend service integration status
+
+| Frontend service | Backend integration |
+|---|---|
+| Auth (login, register, me) | Real API |
+| Public product catalog, search, filters, details | Real API |
+| Seller/admin product management | Real API |
+| Vendor application and admin approval | Real API |
+| Orders / checkout | **Browser-local only** (`localStorage`); not connected to `/api/orders` |
+| Cart, coupons, wishlist, reviews, addresses | Browser-local demo data |
+
+The frontend `ordersService` persists orders in `localStorage` only. The server-authoritative order API (`POST /api/orders`, `GET /api/orders`, `GET /api/orders/:id`) exists, but the checkout UI does not call it yet, so a browser order is not a server order. See docs/server-authoritative-checkout.md and backend/README.md.
+
+## Running locally
 
 Requirements: Node.js and npm.
 
     npm ci
-    npm run dev
+    npm run dev          # Vite frontend on port 3000
+    npm run server:dev   # Express API on port 4000 (needs local .env)
     npm run lint
     npm run format
     npm run format:check
+    npm test
     npm run build
     npm run preview
 
-## Validation Status
+Server configuration is documented in .env.example (variable names only; keep real values in the ignored local `.env`).
 
-The v2.1.0 candidate was validated locally with:
+## Validation status
 
-    npm ci       PASS — 0 vulnerabilities reported
-    npm run lint PASS
-    npm run build PASS
+GitHub Actions CI (`.github/workflows/ci.yml`) runs on every pull request and push to the main branch:
+
+- **TypeScript Check** — `npm ci`, `npm run lint` (tsc), then `npm test` against an ephemeral MongoDB replica set.
+- **Production Build** — `npm ci`, `npm run build`.
+
+`npm test` (scripts/run-tests.mjs) discovers every `*.test.ts` under `backend/` and `src/`:
+
+- Backend unit tests: product validation, rate limiting, upload validation.
+- Frontend unit test: ordersService (browser-local behavior, honest payment states).
+- MongoDB integration suites (skipped unless `RUN_MONGODB_INTEGRATION=true`): security (auth, roles, bootstrap, vendor approval, product lifecycle) and orders (server-authoritative pricing, transactional stock rollback, concurrent idempotency, variant matching, cross-user isolation).
+
+See docs/testing.md for the database-isolation rules.
 
 The production build emits a non-blocking warning because the main JavaScript chunk exceeds Vite's default 500 kB warning threshold.
 
-There is currently no dedicated unit or E2E test suite. See docs/testing.md.
+## Production integration roadmap
 
-## Production Integration Roadmap
+### Implemented on the backend (unreleased)
 
-### Authentication
+Authentication with scrypt password hashing and bearer tokens; first-admin bootstrap and admin management with a transactional singleton guard; vendor applications and admin approval; product catalog, authoring, ownership, and archive; Cloudinary image uploads; password reset via Resend; server-authoritative order creation (transactional, idempotent) and owner-scoped order history.
 
-Connect login, registration, logout, password reset, session refresh/revocation, and current-user loading to a trusted backend. The backend must verify credentials and enforce authorization.
+### Not implemented
 
-### Cart and Checkout
-
-Connect server-side stock and price validation, coupon validation, cart persistence, address management, shipping calculation, order creation, payment authorization, and transaction status.
-
-### Contact Us
-
-The repository does not currently contain a production contact backend. A future Contact Us flow should submit to a backend endpoint, persist the inquiry, apply rate/spam controls, and use a controlled email or ticket integration.
+Payment-provider integration and verified callbacks; currency, tax, shipping, and coupon product decisions; order cancellation/refund/fulfillment; server-side cart persistence; customer address CRUD; reviews; contact backend/email; seller payouts; refresh-token rotation and email verification.
 
 ### Database
 
-PostgreSQL is the recommended production relational database. The backend should own users, sessions, vendors, products, variants, inventory, carts, addresses, coupons, orders, payments, reviews, contact inquiries, and audit events.
+MongoDB is the database. MongoDB transactions require a replica set (or sharded cluster); a standalone `mongod` cannot run the transactional order or admin operations. The earlier PostgreSQL recommendation in the frontend roadmap is superseded by the implemented MongoDB backend.
 
-No production database is connected in v2.1.0.
-
-## Branding and Browser Assets
-
-Branding assets are now part of the v2.1.0 release branch.
+## Branding and browser assets
 
 - Header logo: `public/branding/header-logo.svg`
 - Footer logo: `public/branding/footer-logo.svg`
@@ -106,34 +104,34 @@ Branding assets are now part of the v2.1.0 release branch.
 
 `index.html` references the favicon, Apple touch icon, manifest, Open Graph image, and Twitter image. The header and footer use their dedicated logo variants.
 
-## Security Boundary
+## Security boundary
 
-Frontend validation and ProtectedRoute are UX protections, not backend security. The browser is untrusted.
+Frontend validation and ProtectedRoute are UX protections, not backend security. The browser is untrusted; the backend re-validates everything (roles, ownership, prices, stock, totals).
 
-See SECURITY.md, docs/security.md, and docs/backend-integration.md.
+See SECURITY.md, docs/security.md, docs/backend-integration.md, and backend/README.md.
 
-## Project Status
+## Project status
 
-| Area | v2.1.0 |
+| Area | Status |
 |---|---|
 | Frontend UI | Implemented |
-| Mock/demo architecture | Implemented |
-| Client route guards | Implemented |
-| Cart stock validation | Implemented |
-| Coupon validation | Implemented |
-| Production authentication | Not implemented |
-| Backend authorization | Not implemented |
-| Production database | Not connected |
-| Payment gateway | Not implemented |
-| Shipping provider | Not implemented |
-| Seller payouts | Not implemented |
+| Demo/local persistence architecture | Implemented |
+| Client route guards | Implemented (UX only) |
+| Backend authentication/authorization (auth, admin, vendors, products, orders) | Implemented, unreleased |
+| MongoDB backend + transactional inventory | Implemented, unreleased; replica set required |
+| Frontend checkout/order API wiring | Not implemented (browser-local orders) |
+| Payment gateway / verified callbacks | Not implemented |
+| Currency / tax / shipping / coupon rules | Not implemented (open product decisions) |
+| Order lifecycle (cancel/refund/fulfillment) | Not implemented |
+| Shipping provider / seller payouts | Not implemented |
 | Contact backend/email | Not implemented |
+| Email verification / refresh-token rotation | Not implemented |
 
-Rudin Store v2.1.0 is a hardened, API-ready frontend prototype, not a complete production marketplace backend.
+Rudin Store is a functional marketplace prototype with a partially integrated backend, not a production-ready marketplace.
 
 ## Documentation
 
-See CHANGELOG.md, CONTRIBUTING.md, SECURITY.md, VERSIONING.md, and the docs/ directory.
+See CHANGELOG.md, CONTRIBUTING.md, SECURITY.md, VERSIONING.md, backend/README.md, and the docs/ directory (architecture.md, backend-integration.md, server-authoritative-checkout.md, testing.md, security.md, development.md, versioning.md, branding.md).
 
 ## License
 
