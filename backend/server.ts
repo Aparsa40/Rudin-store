@@ -54,8 +54,11 @@ app.use("/api/auth/password-reset", createRateLimiter({ windowMs: 15 * 60 * 1000
 app.use("/api/uploads/images", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 20, message: "Too many image uploads. Please try again later." }));
 app.use("/api/auth", authRouter);
 app.use("/api/auth/password-reset", passwordResetRouter);
-app.use("/api/admin", adminRouter);
+// The vendor-application review router is shared with the least-privilege MANAGER role,
+// so it must be mounted before the ADMIN-only /api/admin router; otherwise the admin
+// router's requireRole("ADMIN") guard rejects managers on every /api/admin/vendors/* path.
 app.use("/api/admin/vendors", adminVendorsRouter);
+app.use("/api/admin", adminRouter);
 app.use("/api/uploads", uploadsRouter);
 app.use("/api/vendors", vendorsRouter);
 app.use("/api/products", productsRouter);
