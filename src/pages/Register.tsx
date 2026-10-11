@@ -4,9 +4,10 @@ import { useAuthStore } from '../store/authStore';
 import { useUIStore } from '../store/uiStore';
 import { Button } from '../components/ui/Button';
 import { Role } from '../types';
+import { authService } from '../services/auth/authService';
 
 export const Register: React.FC = () => {
-  const { register, isLoading, setLoading } = useAuthStore();
+  const { login, isLoading, setLoading } = useAuthStore();
   const { addToast } = useUIStore();
   const navigate = useNavigate();
 
@@ -16,35 +17,48 @@ export const Register: React.FC = () => {
     email: '',
     phone: '',
     password: '',
+    storeName: '',
+    storeDescription: '',
     role: 'CUSTOMER' as Role,
     termsAccepted: true,
   });
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.firstName || !formData.email || !formData.password) {
-      addToast('Please complete all required fields', 'error');
+    if (!formData.firstName.trim() || !formData.email.trim() || formData.password.length < 12 || (formData.role === 'VENDOR' && formData.storeName.trim().length < 2)) {
+      addToast(formData.role === 'VENDOR' ? 'Enter your name, email, a password of at least 12 characters, and a store name.' : 'Enter your name and email, and use a password of at least 12 characters.', 'error');
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
-      register({
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        phone: formData.phone,
-        role: formData.role,
+    try {
+      const session = await authService.register({
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        password: formData.password
       });
-      setLoading(false);
-      addToast('Welcome to Rudin Store! Your account is created.', 'success');
-
+      login(session.user, session.accessToken);
       if (formData.role === 'VENDOR') {
-        navigate('/seller/dashboard');
+        const apiBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/$/, '');
+        const response = await fetch(`${apiBaseUrl}/api/vendors/apply`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.accessToken}` },
+          body: JSON.stringify({ storeName: formData.storeName.trim(), storeDescription: formData.storeDescription.trim() }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload?.error?.message || 'Vendor application could not be submitted.');
+        addToast('Your store application was submitted. You can sell after an administrator approves it.', 'success');
       } else {
-        navigate('/account');
+        addToast('Welcome to Rudin Store! Your account is created.', 'success');
       }
-    }, 400);
+      navigate('/account');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Unable to create your account. Please try again.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -134,12 +148,44 @@ export const Register: React.FC = () => {
             />
           </div>
 
+          {formData.role === 'VENDOR' && (
+            <>
+              <div>
+                <label className="block font-bold text-slate-900 mb-1">Store Name *</label>
+                <input
+                  required
+                  minLength={2}
+                  maxLength={120}
+                  type="text"
+                  value={formData.storeName}
+                  onChange={(e) => setFormData({ ...formData, storeName: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none focus:border-slate-500"
+                  placeholder="Your store or artisan brand"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-slate-900 mb-1">Store Description</label>
+                <textarea
+                  rows={3}
+                  maxLength={2000}
+                  value={formData.storeDescription}
+                  onChange={(e) => setFormData({ ...formData, storeDescription: e.target.value })}
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none focus:border-slate-500"
+                  placeholder="Tell us about your products and craft"
+                />
+              </div>
+            </>
+          )}
+
           <div>
             <label className="block font-bold text-slate-900 mb-1">Password *</label>
             <input
               required
               type="password"
-              placeholder="Create a strong password"
+              minLength={12}
+              maxLength={128}
+              autoComplete="new-password"
+              placeholder="At least 12 characters"
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none focus:border-slate-500"

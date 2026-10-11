@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import { Router } from "express";
 import { UserModel } from "../models/user.model.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { withAdminStateLock } from "../lib/admin-state.js";
 
 const scrypt = promisify(scryptCallback);
 const adminRouter = Router();
@@ -59,19 +60,42 @@ adminRouter.patch("/admins/:id/status", async (req, res, next) => {
       res.status(400).json({ error: { code: "CANNOT_DISABLE_SELF", message: "You cannot disable your own admin account." } });
       return;
     }
-    if (status === "DISABLED" && await UserModel.countDocuments({ role: "ADMIN", status: "ACTIVE" }) <= 1) {
+
+    const outcome = await withAdminStateLock(async (session) => {
+      if (status === "DISABLED") {
+        const activeAdmins = await UserModel.countDocuments({ role: "ADMIN", status: "ACTIVE" }).session(session);
+        if (activeAdmins <= 1) return { kind: "last-active-admin" as const };
+      }
+      const user = await UserModel.findOneAndUpdate(
+        { _id: req.params.id, role: "ADMIN" },
+        { $set: { status } },
+        { new: true, session },
+      );
+      if (!user) return { kind: "not-found" as const };
+      return { kind: "ok" as const, user };
+    });
+
+    if (outcome.kind === "last-active-admin") {
       res.status(409).json({ error: { code: "LAST_ACTIVE_ADMIN", message: "The last active administrator cannot be disabled." } });
       return;
     }
-    const user = await UserModel.findOneAndUpdate(
-      { _id: req.params.id, role: "ADMIN" }, { $set: { status } }, { new: true },
-    );
-    if (!user) {
+    if (outcome.kind === "not-found") {
       res.status(404).json({ error: { code: "ADMIN_NOT_FOUND", message: "Administrator not found." } });
       return;
     }
-    res.status(200).json({ admin: { id: user._id, email: user.email, firstName: user.firstName, lastName: user.lastName, status: user.status } });
-  } catch (error) { next(error); }
+    const user = outcome.user;
+    res.status(200).json({
+      admin: {
+        id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        status: user.status,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 export default adminRouter;

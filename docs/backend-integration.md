@@ -1,184 +1,74 @@
 # Backend Integration Contract
 
-This document defines the migration from mock/demo services to a production backend.
+This document records the actual API boundary and the remaining integration work for Rudin Store v2.1.0.
 
-## Principle
+## Architecture
 
-Keep the UI contract stable and replace service implementations behind the existing service boundary.
+The application uses MongoDB Atlas through the Node.js backend. The browser must never connect directly to MongoDB or receive database credentials.
 
-    React UI
-       ↓
-    Zustand
-       ↓
-    Domain Service
-       ↓
-    API Client
-       ↓
-    Backend
-       ↓
-    PostgreSQL
+```text
+React UI → Zustand/domain service → HTTP API → Express backend → Mongoose → MongoDB Atlas
+```
 
-The browser must never connect directly to PostgreSQL.
+The browser-facing API base URL is `VITE_API_URL` (default `http://localhost:4000`). Server secrets belong only in the backend's ignored local `.env` or deployment secrets.
 
-## Authentication
+## Implemented backend endpoints
 
-Current: authService and authStore provide demo/local authentication.
+### Authentication and account security
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/auth/bootstrap-admin` (one-time setup)
+- `POST /api/auth/password-reset/request`
+- `POST /api/auth/password-reset/confirm`
 
-Production endpoints:
+Passwords are scrypt-hashed. Role checks are enforced by the backend, not by UI routing alone. Password-reset tokens are single-use, hashed, and expire. Email verification and refresh-token rotation are not implemented yet.
 
-    POST /api/auth/register
-    POST /api/auth/login
-    POST /api/auth/logout
-    POST /api/auth/refresh
-    POST /api/auth/forgot-password
-    POST /api/auth/reset-password
-    GET  /api/auth/me
+### Vendors and products
+- `POST /api/vendors/apply`
+- `GET /api/admin/vendors/applications`
+- `PATCH /api/admin/vendors/applications/:id`
+- `GET /api/products`
+- `GET /api/products/:identifier`
+- `GET /api/products/mine`
+- `POST /api/products`
+- `PATCH /api/products/:id`
+- `DELETE /api/products/:id` (soft archive)
+- `POST /api/uploads/images`
 
-The backend must hash passwords, manage sessions, rate-limit authentication, validate credentials, and enforce roles/permissions.
+The public catalog supports pagination, search, price/rating/stock/sale filters, category/vendor/brand filters, sorting, and featured/bestseller/new-arrival/flash-deal filters. Public catalog requests return only published products. Vendors can manage only their own products; vendor-created products remain drafts. Admin publishing and archive permissions are enforced server-side.
 
-## Protected Routes
+Image uploads require server-side Cloudinary configuration. Password reset delivery requires Resend configuration.
 
-ProtectedRoute remains useful for UX, but every protected API endpoint must verify authenticated session, required permission, and resource ownership.
+## MongoDB databases
 
-## Cart and Inventory
+Use explicit database names in the connection URI:
+- `rudin_store_dev` for local development.
+- `rudin_store_test` for manual storefront testing; this Atlas database is seeded with clearly named test products.
+- `rudin_store_integration_test` for automated MongoDB integration tests only.
 
-Current cartService/cartStore perform client-side stock checks.
+The integration test clears documents from `users`, `products`, and `adminstates`. A runtime guard and test assertion reject any other database when `RUN_MONGODB_INTEGRATION=true`. CI uses an ephemeral MongoDB replica set. Never run integration tests against the manual-test or production database.
 
-Production endpoints:
+## Domains not yet fully integrated
 
-    GET  /api/cart
-    POST /api/cart/items
-    PATCH /api/cart/items/:id
-    DELETE /api/cart/items/:id
-    POST /api/cart/coupons
-    DELETE /api/cart/coupons/:code
+These areas still need backend models/routes, service wiring, authorization and end-to-end tests before they can be considered real rather than mock-backed:
+- Cart persistence and server-authoritative inventory checks/reservation.
+- Checkout and order creation/history, order status, cancellation and fulfillment.
+- Payment-provider integration, verified webhooks, refunds and payment reconciliation.
+- Customer address CRUD and ownership enforcement.
+- Coupon validation/redemption and usage limits.
+- Reviews and verified-purchase checks.
+- Contact inquiries and notifications.
+- Remaining seller/admin order, coupon, payout, and settings screens.
+- Email verification and refresh-token rotation.
 
-The server must re-check stock and current price on every sensitive operation.
+Do not trust client-supplied prices, stock, discount calculations, role claims, or payment-success flags. Sensitive checkout and order operations must be recalculated and authorized by the backend.
 
-## Checkout and Orders
+## Recommended next implementation order
 
-Recommended endpoints:
-
-    POST /api/checkout/validate
-    POST /api/orders
-    GET  /api/orders
-    GET  /api/orders/:id
-    POST /api/orders/:id/cancel
-
-Order creation and inventory reservation should use a database transaction.
-
-## Payments
-
-Use a trusted backend boundary:
-
-    Frontend
-       ↓
-    Backend payment endpoint
-       ↓
-    Payment provider
-       ↓
-    Verified webhook
-       ↓
-    Backend order/payment state
-
-Never trust a browser-only payment-success flag.
-
-## Addresses
-
-    GET    /api/account/addresses
-    POST   /api/account/addresses
-    PATCH  /api/account/addresses/:id
-    DELETE /api/account/addresses/:id
-
-Ownership must be checked server-side.
-
-## Vendors and Products
-
-    GET  /api/products
-    GET  /api/products/:id
-    GET  /api/vendors
-    GET  /api/vendors/:slug
-    POST /api/vendor/products
-    PATCH /api/vendor/products/:id
-    DELETE /api/vendor/products/:id
-
-Seller operations require server-side vendor ownership checks.
-
-## Coupons
-
-Production validation must check active state, validity window, minimum purchase, discount type, maximum discount, customer eligibility, and usage limits.
-
-## Reviews
-
-    GET  /api/products/:id/reviews
-    POST /api/products/:id/reviews
-    PATCH /api/reviews/:id
-    DELETE /api/reviews/:id
-
-The backend should derive verified-purchase status from order history.
-
-## Contact Us
-
-Recommended endpoint:
-
-    POST /api/contact
-
-Backend responsibilities:
-
-1. validate and normalize the message
-2. rate-limit and apply spam controls
-3. persist the inquiry
-4. optionally notify a controlled support mailbox/ticket system
-5. return a non-sensitive confirmation ID
-
-Current status: no production contact backend exists in v2.1.0.
-
-## Database
-
-PostgreSQL is the recommended relational database.
-
-Initial logical domains:
-
-    users
-    sessions
-    roles / permissions
-    vendors
-    products
-    product_variants
-    inventory
-    addresses
-    carts
-    cart_items
-    coupons
-    coupon_redemptions
-    orders
-    order_items
-    payments
-    reviews
-    contact_inquiries
-    audit_events
-
-The backend owns migrations, constraints, indexes, transactions, and access control.
-
-## API Client
-
-Introduce one shared API client for base URL, credentials/cookies, JSON handling, error normalization, abort/timeout, and authentication refresh behavior.
-
-Avoid scattering raw fetch calls across React components.
-
-## Recommended Integration Order
-
-1. Backend project + PostgreSQL
-2. Database schema/migrations
-3. Authentication/session API
-4. API client + authStore integration
-5. Products/vendors APIs
-6. Cart + inventory APIs
-7. Checkout + orders
-8. Payment provider + webhooks
-9. Addresses/account APIs
-10. Reviews/coupons
-11. Contact API + email/ticket integration
-12. Seller/admin authorization and audit logging
-
-Do not mark an integration complete until the backend is authoritative for that domain.
+1. Persist cart server-side and re-check current product price/stock on every checkout operation.
+2. Add order/order-item models and transactional inventory reservation.
+3. Add payment-provider intents and verified webhook handling before marking orders paid.
+4. Add addresses, coupons/redemptions, reviews, and contact inquiries.
+5. Wire seller/admin order, coupon, payout and settings screens to their APIs.
+6. Add end-to-end tests for ownership, concurrency, failed payments, stock conflicts, and order state transitions.

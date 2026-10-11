@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   TrendingUp,
   Users,
@@ -13,20 +13,23 @@ import {
   Percent,
   Search,
 } from 'lucide-react';
-import { mockProducts, mockVendors, mockOrders, mockCoupons } from '../data/mockData';
-import { Product, Vendor, Order, Coupon, OrderItem } from '../types';
+import { mockOrders, mockCoupons } from '../data/mockData';
+import { Product, Order, Coupon, OrderItem } from '../types';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { useUIStore } from '../store/uiStore';
+import { useAuthStore } from '../store/authStore';
+
+type VendorApplication = { id: string; email: string; firstName: string; lastName: string; storeName: string; storeDescription: string; status: string; role: string };
 
 export const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<
     'overview' | 'vendors' | 'products' | 'orders' | 'coupons'
   >('overview');
 
-  const [vendorsList, setVendorsList] = useState<Vendor[]>(mockVendors);
-  const [productsList, setProductsList] = useState<Product[]>(mockProducts);
+  const [vendorsList, setVendorsList] = useState<VendorApplication[]>([]);
+  const [productsList, setProductsList] = useState<Product[]>([]);
   const [ordersList, setOrdersList] = useState<Order[]>(mockOrders);
   const [couponsList, setCouponsList] = useState<Coupon[]>(mockCoupons);
 
@@ -37,34 +40,76 @@ export const AdminDashboard: React.FC = () => {
   const [newMinSpend, setNewMinSpend] = useState('100');
 
   const { addToast } = useUIStore();
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const apiBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/$/, '');
 
-  const handleToggleVendorVerification = (id: string) => {
-    setVendorsList(
-      vendorsList.map((v) => {
-        if (v.id === id) {
-          const next = !v.isVerified;
-          addToast(
-            `${v.storeName} verification status changed to ${next ? 'VERIFIED' : 'PENDING'}`,
-            'info',
-          );
-          return { ...v, isVerified: next };
-        }
-        return v;
-      }),
-    );
+  useEffect(() => {
+    if (!accessToken) {
+      setProductsList([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`${apiBaseUrl}/api/products/mine`, { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload?.error?.message || 'Unable to load products.');
+        return payload.products as Product[];
+      })
+      .then((products) => { if (!cancelled) setProductsList(products); })
+      .catch((error: unknown) => { if (!cancelled) addToast(error instanceof Error ? error.message : 'Unable to load products.', 'error'); });
+    return () => { cancelled = true; };
+  }, [accessToken, addToast, apiBaseUrl]);
+
+  useEffect(() => {
+    if (!accessToken) {
+      setVendorsList([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`${apiBaseUrl}/api/admin/vendors/applications?status=PENDING`, { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload?.error?.message || 'Unable to load vendor applications.');
+        return payload.applications as VendorApplication[];
+      })
+      .then((applications) => { if (!cancelled) setVendorsList(applications); })
+      .catch((error: unknown) => { if (!cancelled) addToast(error instanceof Error ? error.message : 'Unable to load vendor applications.', 'error'); });
+    return () => { cancelled = true; };
+  }, [accessToken, addToast, apiBaseUrl]);
+
+  const handleReviewVendorApplication = async (id: string, decision: 'APPROVED' | 'REJECTED') => {
+    if (!accessToken) return;
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/vendors/applications/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ decision }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error?.message || 'Vendor application could not be reviewed.');
+      setVendorsList((applications) => applications.filter((application) => application.id !== id));
+      addToast(`${payload.application.storeName || 'Store'} application ${decision.toLowerCase()}.`, 'success');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Unable to review vendor application.', 'error');
+    }
   };
 
-  const handleToggleProductFeatured = (id: string) => {
-    setProductsList(
-      productsList.map((p) => {
-        if (p.id === id) {
-          const next = !p.isFeatured;
-          addToast(`"${p.title}" featured status changed`, 'info');
-          return { ...p, isFeatured: next };
-        }
-        return p;
-      }),
-    );
+  const handleToggleProductFeatured = async (id: string) => {
+    const product = productsList.find((item) => item.id === id);
+    if (!product || !accessToken) return;
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/products/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ isFeatured: !product.isFeatured }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error?.message || 'Product feature status could not be updated.');
+      setProductsList((items) => items.map((item) => item.id === id ? payload.product as Product : item));
+      addToast(`"${product.title}" featured status saved.`, 'success');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Unable to update product.', 'error');
+    }
   };
 
   const handleCreateCoupon = (e: React.FormEvent) => {
@@ -296,55 +341,40 @@ export const AdminDashboard: React.FC = () => {
         {/* TAB 2: VENDORS */}
         {activeTab === 'vendors' && (
           <div className="space-y-6">
-            <h1 className="text-2xl font-black text-slate-900">Makers & Store Approvals</h1>
+            <div>
+              <h1 className="text-2xl font-black text-slate-900">Vendor Applications</h1>
+              <p className="mt-1 text-xs text-slate-500">Approve an application to grant vendor access. Rejected applicants remain customers.</p>
+            </div>
             <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-400 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
                   <tr>
-                    <th className="p-4">Store Profile</th>
-                    <th className="p-4">Location</th>
-                    <th className="p-4">Reputation</th>
-                    <th className="p-4">Followers</th>
-                    <th className="p-4">Verification</th>
-                    <th className="p-4 text-right">Moderation</th>
+                    <th className="p-4">Store</th>
+                    <th className="p-4">Applicant</th>
+                    <th className="p-4">Description</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4 text-right">Decision</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {vendorsList.map((v) => (
-                    <tr key={v.id} className="hover:bg-slate-50">
+                  {vendorsList.map((application) => (
+                    <tr key={application.id} className="hover:bg-slate-50">
+                      <td className="p-4 font-bold text-slate-900">{application.storeName}</td>
                       <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={v.logoUrl}
-                            alt=""
-                            className="w-10 h-10 rounded-xl object-cover"
-                          />
-                          <div>
-                            <p className="font-bold text-slate-900">{v.storeName}</p>
-                            <span className="text-[11px] text-slate-400">{v.slug}</span>
-                          </div>
-                        </div>
+                        <div className="font-semibold">{application.firstName} {application.lastName}</div>
+                        <div className="text-[11px] text-slate-500">{application.email}</div>
                       </td>
-                      <td className="p-4">{v.location}</td>
-                      <td className="p-4 font-bold">
-                        {v.rating.toFixed(2)} ★ ({v.reviewCount})
-                      </td>
-                      <td className="p-4 font-semibold">{v.followerCount}</td>
-                      <td className="p-4">
-                        <Badge variant={v.isVerified ? 'success' : 'warning'} size="sm">
-                          {v.isVerified ? 'VERIFIED' : 'PENDING AUDIT'}
-                        </Badge>
-                      </td>
-                      <td className="p-4 text-right">
-                        <button
-                          onClick={() => handleToggleVendorVerification(v.id)}
-                          className="font-bold text-xs text-blue-600 hover:underline"
-                        >
-                          {v.isVerified ? 'Revoke Badge' : 'Verify Store'}
-                        </button>
+                      <td className="p-4 max-w-sm">{application.storeDescription || 'No description supplied.'}</td>
+                      <td className="p-4"><Badge variant="warning" size="sm">{application.status}</Badge></td>
+                      <td className="p-4 text-right space-x-3">
+                        <button onClick={() => handleReviewVendorApplication(application.id, 'APPROVED')} className="font-bold text-xs text-emerald-600 hover:underline">Approve</button>
+                        <button onClick={() => handleReviewVendorApplication(application.id, 'REJECTED')} className="font-bold text-xs text-red-600 hover:underline">Reject</button>
                       </td>
                     </tr>
                   ))}
+                  {vendorsList.length === 0 && (
+                    <tr><td colSpan={5} className="p-8 text-center text-slate-400">No pending vendor applications.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>

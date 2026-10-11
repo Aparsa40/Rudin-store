@@ -7,6 +7,7 @@ export interface AuthUser {
   id: string;
   email: string;
   role: AppRole;
+  authVersion?: number;
 }
 declare global {
   namespace Express {
@@ -28,7 +29,7 @@ export function createAccessToken(user: AuthUser, expiresInSeconds = 60 * 60): s
   const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
   const now = Math.floor(Date.now() / 1000);
   const payload = Buffer.from(JSON.stringify({
-    sub: user.id, email: user.email, role: user.role, iat: now, exp: now + expiresInSeconds,
+    sub: user.id, email: user.email, role: user.role, authVersion: user.authVersion ?? 0, iat: now, exp: now + expiresInSeconds,
   })).toString("base64url");
   const data = `${header}.${payload}`;
   const signature = createHmac("sha256", tokenSecret()).update(data).digest("base64url");
@@ -44,11 +45,11 @@ function verifyAccessToken(token: string): AuthUser | null {
     const supplied = Buffer.from(parts[2], "base64url");
     if (expected.length !== supplied.length || !timingSafeEqual(expected, supplied)) return null;
     const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8")) as {
-      sub?: string; email?: string; role?: string; exp?: number;
+      sub?: string; email?: string; role?: string; authVersion?: number; exp?: number; iat?: number;
     };
     if (!payload.sub || !payload.email || !payload.exp || payload.exp <= Math.floor(Date.now() / 1000)) return null;
     if (!["CUSTOMER", "VENDOR", "ADMIN"].includes(payload.role ?? "")) return null;
-    return { id: payload.sub, email: payload.email, role: payload.role as AppRole };
+    return { id: payload.sub, email: payload.email, role: payload.role as AppRole, authVersion: Number.isInteger(payload.authVersion) ? payload.authVersion : 0 };
   } catch {
     return null;
   }
@@ -64,8 +65,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
   try {
     // Re-read current role/status so disabled accounts or demoted admins lose access immediately.
-    const user = await UserModel.findOne({ _id: tokenUser.id, status: "ACTIVE" }).select("_id email role");
-    if (!user || user.email !== tokenUser.email) {
+    const user = await UserModel.findOne({ _id: tokenUser.id, status: "ACTIVE" }).select("_id email role authVersion");
+    if (!user || user.email !== tokenUser.email || (user.authVersion ?? 0) !== (tokenUser.authVersion ?? 0)) {
       res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "Account is no longer active." } });
       return;
     }

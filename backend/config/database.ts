@@ -15,6 +15,15 @@ export async function connectDatabase(): Promise<void> {
     );
   }
 
+  if (process.env.RUN_MONGODB_INTEGRATION === "true") {
+    const databaseName = uri.split("://")[1]?.split("/")[1]?.split("?")[0];
+    if (databaseName !== "rudin_store_integration_test") {
+      throw new Error(
+        "MongoDB integration tests are restricted to the isolated rudin_store_integration_test database.",
+      );
+    }
+  }
+
   await mongoose.connect(uri);
 
   console.log("MongoDB connected successfully.");

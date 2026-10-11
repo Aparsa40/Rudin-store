@@ -1,6 +1,39 @@
 import { User, Role, Address } from '../../types';
 import { mockAddresses } from '../../data/mockData';
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/$/, '');
+
+interface ApiUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName?: string;
+  phone?: string;
+  role: Role;
+  createdAt?: string;
+}
+
+async function readApiResponse<T>(response: Response): Promise<T> {
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = payload?.error?.message || 'The request could not be completed.';
+    throw new Error(message);
+  }
+  return payload as T;
+}
+
+function mapApiUser(user: ApiUser): User {
+  return {
+    id: user.id,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName || '',
+    phone: user.phone,
+    role: user.role,
+    createdAt: user.createdAt || new Date().toISOString()
+  };
+}
+
 const getStoredUser = (): User | null => {
   try {
     const raw = localStorage.getItem('rudin-auth-storage');
@@ -30,33 +63,26 @@ export const authService = {
     return getStoredUser();
   },
 
-  login: async (email: string, _password: string, demoRole?: Role): Promise<User> => {
-    await new Promise(resolve => setTimeout(resolve, 200));
-    const user: User = {
-      id: 'u1',
-      email: email || 'alex.morgan@example.com',
-      firstName: email.split('@')[0] || 'Alex',
-      lastName: 'Morgan',
-      role: demoRole || 'CUSTOMER',
-      phone: '+1 (555) 234-5678',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200&h=200',
-      createdAt: '2023-01-10T12:00:00Z'
-    };
-    return user;
+  login: async (email: string, password: string): Promise<{ user: User; accessToken: string }> => {
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const payload = await readApiResponse<{ user: ApiUser; accessToken: string }>(response);
+    if (!payload.accessToken) throw new Error('The API did not return an access token.');
+    return { user: mapApiUser(payload.user), accessToken: payload.accessToken };
   },
 
-  register: async (data: { firstName: string; lastName: string; email: string; phone?: string; role?: Role }): Promise<User> => {
-    await new Promise(resolve => setTimeout(resolve, 250));
-    const newUser: User = {
-      id: `u_${Date.now()}`,
-      email: data.email,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      role: data.role || 'CUSTOMER',
-      phone: data.phone || '+1 (555) 000-0000',
-      createdAt: new Date().toISOString()
-    };
-    return newUser;
+  register: async (data: { firstName: string; lastName: string; email: string; password: string; phone?: string }): Promise<{ user: User; accessToken: string }> => {
+    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const payload = await readApiResponse<{ user: ApiUser; accessToken: string }>(response);
+    if (!payload.accessToken) throw new Error('The API did not return an access token.');
+    return { user: mapApiUser(payload.user), accessToken: payload.accessToken };
   },
 
   logout: async (): Promise<void> => {
