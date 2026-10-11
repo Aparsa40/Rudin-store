@@ -24,6 +24,8 @@ The browser-facing API base URL is `VITE_API_URL` (default `http://localhost:400
 
 Passwords are scrypt-hashed. Role checks are enforced by the backend, not by UI routing alone. Password-reset tokens are single-use, hashed, and expire. Email verification and refresh-token rotation are not implemented yet.
 
+Frontend wiring status (authentication): only the login and registration forms call these endpoints. The frontend session restore (`getCurrentUser`) reads the persisted local user state and never calls `GET /api/auth/me`; logout is browser-local (no server-side token-invalidation endpoint is called); profile updates and the address book are browser-local because no profile or address endpoints exist yet. The login UI is one shared `/login` page that redirects by role after login (`ADMIN`, `VENDOR`, or customer); there are no separate customer, vendor, administrator, or manager login portals, and the role set is exactly `CUSTOMER`, `VENDOR`, and `ADMIN` (no `MANAGER` role).
+
 ### Vendors and products
 - `POST /api/vendors/apply`
 - `GET /api/admin/vendors/applications`
@@ -66,13 +68,14 @@ Each integration suite clears only its own database collections (`users`, `produ
 These areas still need backend models/routes, service wiring, authorization and end-to-end tests before they can be considered real rather than mock-backed:
 - Cart persistence and server-authoritative inventory checks/reservation.
 - Frontend checkout wiring: connecting the browser-local `ordersService` and the checkout flow to the server-authoritative order API.
+- Frontend logout and server-verified session restore: `GET /api/auth/me` is implemented but never called by the frontend; profile updates and the address book are browser-local.
 - Order lifecycle beyond creation: status transitions, cancellation, and fulfillment workflows.
 - Payment-provider integration, verified webhooks, refunds and payment reconciliation. Orders remain `paymentStatus: PENDING` until a real provider confirms payment; payment success must never be assumed.
 - Customer address CRUD and ownership enforcement.
 - Coupon validation/redemption and usage limits.
 - Reviews and verified-purchase checks.
 - Contact inquiries and notifications.
-- Remaining seller/admin order, coupon, payout, and settings screens.
+- Seller/admin dashboard order, coupon, payout, and settings screens. Product management and vendor-application review inside those dashboards are API-backed, but the admin orders and coupons tabs render mock data (coupon actions are in-memory only), and the seller order-fulfillment, payouts, and settings tabs are presentation-only (in-memory status changes, toast-only actions, mock vendor profile).
 - Email verification and refresh-token rotation.
 
 Do not trust client-supplied prices, stock, discount calculations, role claims, or payment-success flags. Sensitive checkout and order operations must be recalculated and authorized by the backend.
