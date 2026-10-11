@@ -48,7 +48,7 @@ For manual storefront testing, set the local `.env` `MONGODB_URI` to the Atlas c
 
 ## Known coverage gaps
 
-These areas currently have no automated tests and are documented rather than invented: cart stock validation, coupon validation, `ProtectedRoute`, frontend services other than `ordersService`, and end-to-end flows. The `ordersService` unit test intentionally validates the current browser-local (localStorage) behavior; it does not verify server integration because the frontend is not yet connected to `/api/orders`.
+These areas currently have no automated tests and are documented rather than invented: cart stock validation, coupon validation, `ProtectedRoute`, frontend services other than `ordersService` (including the API-backed login/register wiring and the browser-local session-restore/logout/profile/address operations), admin/seller dashboard components, and end-to-end flows. The `ordersService` unit test intentionally validates the current browser-local (localStorage) behavior; it does not verify server integration because the frontend is not yet connected to `/api/orders`.
 
 ## Manual validation priorities
 
@@ -67,6 +67,7 @@ These areas currently have no automated tests and are documented rather than inv
 - Verify vendor application submission and administrator approval.
 - Verify seller product creation, editing, unpublishing, archiving, and image upload after Cloudinary credentials are configured.
 - Admin product management and vendor-application review use backend endpoints.
+- The admin orders and coupons tabs and the seller order-fulfillment, payouts, and settings tabs are mock or presentation-only; do not use them to validate backend behavior.
 
 ### Not yet fully backend-connected
-The frontend checkout and orders UI still runs on the browser-local `ordersService` (localStorage) and is not yet connected to the server-authoritative order API. Cart persistence, payment provider/webhooks, account addresses, coupons, reviews, email verification, refresh-token rotation, and remaining seller/admin order/payout/settings screens require their own backend contracts and end-to-end tests. Do not treat mock-backed UI in those domains as production-connected.
+The frontend checkout and orders UI still runs on the browser-local `ordersService` (localStorage) and is not yet connected to the server-authoritative order API. Session restore, logout, profile updates, and the address book are browser-local (`GET /api/auth/me` is never called). Cart persistence, payment provider/webhooks, account addresses, coupons, reviews, email verification, refresh-token rotation, and remaining seller/admin order/payout/settings screens require their own backend contracts and end-to-end tests. Do not treat mock-backed UI in those domains as production-connected.
