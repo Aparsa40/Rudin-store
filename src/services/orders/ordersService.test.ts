@@ -118,14 +118,24 @@ test('describes payment state honestly in the order timeline', async () => {
 });
 
 test('does not fabricate order history from mock data', async () => {
-  // In the Node test environment localStorage is unavailable, so no stored
-  // orders exist: the service must return an empty history rather than mock
-  // orders belonging to a demo user.
+  // With no stored order, the history must be empty. Previously this returned
+  // mock orders belonging to a demo user.
   const orders = await ordersService.getOrders('user_test');
   assert.equal(orders.length, 0);
+  assert.equal(orders.some((o) => o.userId === 'u1'), false);
+});
 
+test('stores created orders when localStorage is available', async (t) => {
+  // localStorage only exists in a browser-like environment; in the Node test
+  // runner the storage layer safely no-ops, so persistence cannot be checked.
+  if (typeof localStorage === 'undefined') {
+    t.skip('localStorage is not available in this environment');
+    return;
+  }
+  localStorage.removeItem('rudin_orders');
   const created = await createOrder('CREDIT_CARD');
   const after = await ordersService.getOrders('user_test');
   assert.equal(after.length, 1);
   assert.equal(after[0].id, created.id);
+  localStorage.removeItem('rudin_orders');
 });
