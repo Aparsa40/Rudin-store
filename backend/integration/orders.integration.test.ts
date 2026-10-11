@@ -41,13 +41,17 @@ async function registerUser(email: string) {
 }
 
 test("Server-authoritative order creation, pricing, stock and idempotency", { skip: !enabled }, async (t) => {
-  const uri = process.env.MONGODB_URI!;
-  const databaseName = uri.split("://")[1]?.split("/")[1]?.split("?")[0];
+  // The Node test runner executes test files in parallel. The security suite uses
+  // rudin_store_integration_test, so this suite derives its own dedicated database
+  // from the same cluster to avoid the two suites wiping each other's data.
+  const baseUri = process.env.MONGODB_URI!;
+  const databaseName = baseUri.split("://")[1]?.split("/")[1]?.split("?")[0];
   assert.equal(
     databaseName,
     "rudin_store_integration_test",
     "Integration tests may only run against the dedicated rudin_store_integration_test database.",
   );
+  const uri = baseUri.replace(databaseName, `${databaseName}_orders`);
   await mongoose.connect(uri);
   await Promise.all([
     UserModel.deleteMany({}),
