@@ -95,6 +95,13 @@ test("Server-authoritative order creation, pricing, stock and idempotency", { sk
       { _id: "prd_orders_b", vendorId: "vendor_orders", categoryId: "cat_orders", slug: "order-test-product-b", title: "Order Test B", description: "B", shortDescription: "B", price: 3, stock: 2, status: "PUBLISHED" },
       { _id: "prd_orders_draft", vendorId: "vendor_orders", categoryId: "cat_orders", slug: "order-test-draft", title: "Order Draft", description: "D", shortDescription: "D", price: 1, stock: 9, status: "DRAFT" },
       { _id: "prd_orders_variant", vendorId: "vendor_orders", categoryId: "cat_orders", slug: "order-test-variant", title: "Order Variant", description: "V", shortDescription: "V", price: 99, stock: 99, status: "PUBLISHED", variants: [{ id: "var_a", productId: "prd_orders_variant", sku: "SKU-A", name: "Small", price: 4.25, stockQuantity: 3 }] },
+      // var_high comes FIRST on purpose: with the historical non-elemMatch decrement the
+      // bare stock condition matched var_high, so the positional operator decremented the
+      // wrong variant when var_low (insufficient) was requested.
+      { _id: "prd_orders_variant2", vendorId: "vendor_orders", categoryId: "cat_orders", slug: "order-test-variant-2", title: "Order Variant Two", description: "V2", shortDescription: "V2", price: 99, stock: 99, status: "PUBLISHED", variants: [
+        { id: "var_high", productId: "prd_orders_variant2", sku: "SKU-HIGH", name: "High", price: 5, stockQuantity: 10 },
+        { id: "var_low", productId: "prd_orders_variant2", sku: "SKU-LOW", name: "Low", price: 2, stockQuantity: 1 },
+      ] },
     ]);
 
     await t.test("rejects unauthenticated access and invalid payloads", async () => {
@@ -158,7 +165,10 @@ test("Server-authoritative order creation, pricing, stock and idempotency", { sk
       assert.equal(order.tax, 0);
       assert.equal(order.total, 25.25);
       assert.equal(order.items.length, 2);
-      assert.ok(order.items.every((item: { orderId?: string }) => item.orderId === undefined || true));
+      assert.ok(
+        order.items.every((item: { orderId?: string }) => item.orderId === undefined),
+        "serialized order items must not leak an orderId field",
+      );
 
       const stock = await ProductModel.find({ _id: { $in: ["prd_orders_a", "prd_orders_variant"] } }).select("_id stock variants");
       const a = stock.find((p) => p._id === "prd_orders_a")!;
@@ -184,8 +194,8 @@ test("Server-authoritative order creation, pricing, stock and idempotency", { sk
       assert.equal(variantRequired.response.status, 400);
       assert.equal(variantRequired.body.error.code, "VARIANT_REQUIRED");
 
-      // prd_orders_a has stock 3, prd_orders_b has stock 2: the second line must fail
-      // and the first decrement must be compensated.
+      // prd_orders_a has stock 3, prd_orders_b has stock 2: the second decrement must
+      // fail and the transaction must roll the first decrement back.
       const outOfStock = await request("/api/orders", {
         method: "POST",
         headers: { authorization: `Bearer ${customerToken}` },
@@ -197,6 +207,37 @@ test("Server-authoritative order creation, pricing, stock and idempotency", { sk
       const after = await ProductModel.find({ _id: { $in: ["prd_orders_a", "prd_orders_b"] } }).select("_id stock");
       assert.equal(after.find((p) => p._id === "prd_orders_a")!.stock, 3, "failed orders must not consume stock");
       assert.equal(after.find((p) => p._id === "prd_orders_b")!.stock, 2);
+    });
+
+    await t.test("rejects variant orders when only another variant has enough stock", async () => {
+      const ordersBefore = await OrderModel.countDocuments({});
+
+      // var_low has 1 unit, var_high has 10. A non-elemMatch decrement would satisfy
+      // the bare stock condition through var_high and decrement the wrong variant;
+      // $elemMatch must reject the whole order instead.
+      const mismatch = await request("/api/orders", {
+        method: "POST",
+        headers: { authorization: `Bearer ${customerToken}` },
+        body: JSON.stringify({ items: [{ productId: "prd_orders_variant2", variantId: "var_low", quantity: 2 }], shippingAddress, paymentMethod: "CASH_ON_DELIVERY" }),
+      });
+      assert.equal(mismatch.response.status, 409);
+      assert.equal(mismatch.body.error.code, "OUT_OF_STOCK");
+
+      const afterMismatch = (await ProductModel.findById("prd_orders_variant2").select("variants"))!;
+      assert.equal(afterMismatch.variants!.find((v) => v.id === "var_low")!.stockQuantity, 1, "the insufficient variant must not be decremented");
+      assert.equal(afterMismatch.variants!.find((v) => v.id === "var_high")!.stockQuantity, 10, "another variant with sufficient stock must never absorb the decrement");
+      assert.equal(await OrderModel.countDocuments({}), ordersBefore, "a rejected variant order must not be persisted");
+
+      // The same product must remain orderable through the variant that does have stock.
+      const sufficient = await request("/api/orders", {
+        method: "POST",
+        headers: { authorization: `Bearer ${customerToken}` },
+        body: JSON.stringify({ items: [{ productId: "prd_orders_variant2", variantId: "var_high", quantity: 2 }], shippingAddress, paymentMethod: "CASH_ON_DELIVERY" }),
+      });
+      assert.equal(sufficient.response.status, 201);
+      const afterSufficient = (await ProductModel.findById("prd_orders_variant2").select("variants"))!;
+      assert.equal(afterSufficient.variants!.find((v) => v.id === "var_low")!.stockQuantity, 1, "the other variant must be untouched");
+      assert.equal(afterSufficient.variants!.find((v) => v.id === "var_high")!.stockQuantity, 8, "the ordered variant must be decremented exactly");
     });
 
     await t.test("replays idempotent requests without re-decrementing stock", async () => {
@@ -229,12 +270,65 @@ test("Server-authoritative order creation, pricing, stock and idempotency", { sk
       assert.equal(badKey.body.error.code, "INVALID_IDEMPOTENCY_KEY");
     });
 
+    await t.test("concurrent same-key requests produce one order and one decrement", async () => {
+      const key = "order-key-concurrent-4711";
+      const options: RequestInit = {
+        method: "POST",
+        headers: { authorization: `Bearer ${customerToken}`, "idempotency-key": key },
+        body: JSON.stringify({ items: [{ productId: "prd_orders_a", quantity: 1 }], shippingAddress, paymentMethod: "CASH_ON_DELIVERY" }),
+      };
+      const [first, second] = await Promise.all([
+        request("/api/orders", options),
+        request("/api/orders", options),
+      ]);
+
+      const statuses = [first.response.status, second.response.status].sort();
+      assert.deepEqual(statuses, [200, 201], "exactly one request must create the order and the other must replay it");
+      const created = first.response.status === 201 ? first : second;
+      const replayed = first.response.status === 201 ? second : first;
+      assert.equal(replayed.body.idempotentReplay, true);
+      assert.equal(replayed.body.order.id, created.body.order.id, "the replay must return the committed order");
+      assert.equal((await ProductModel.findById("prd_orders_a").select("stock"))!.stock, 2, "stock must be decremented exactly once despite the race");
+      assert.equal(await OrderModel.countDocuments({ idempotencyKey: key }), 1, "exactly one order must exist for the shared idempotency key");
+    });
+
+    await t.test("rolls back stock and persists nothing when order insertion fails", async () => {
+      const ordersBefore = await OrderModel.countDocuments({});
+
+      // Sabotage the orders collection so the INSERT fails after the stock decrements:
+      // the validator rejects every insert. The transaction must roll the decrement
+      // back, so stock is unchanged and no order is left behind.
+      await mongoose.connection.db!.command({
+        collMod: "orders",
+        validationLevel: "strict",
+        validationAction: "error",
+        validator: { $jsonSchema: { bsonType: "object", required: ["__forced_insert_failure__"] } },
+      });
+      try {
+        const failed = await request("/api/orders", {
+          method: "POST",
+          headers: { authorization: `Bearer ${customerToken}` },
+          body: JSON.stringify({ items: [{ productId: "prd_orders_b", quantity: 1 }], shippingAddress, paymentMethod: "CASH_ON_DELIVERY" }),
+        });
+        assert.equal(failed.response.status, 500);
+        assert.equal(failed.body.error.code, "INTERNAL_SERVER_ERROR");
+        assert.equal((await ProductModel.findById("prd_orders_b").select("stock"))!.stock, 1, "stock decremented before the failed insert must be rolled back");
+        assert.equal(await OrderModel.countDocuments({}), ordersBefore, "no order may be left behind after a failed insert");
+      } finally {
+        await mongoose.connection.db!.command({ collMod: "orders", validator: {} });
+      }
+    });
+
     await t.test("isolates order history between users", async () => {
       const list = await request("/api/orders", { headers: { authorization: `Bearer ${customerToken}` } });
       assert.equal(list.response.status, 200);
       const orders = list.body.orders as Array<{ id: string; userId: string }>;
       assert.ok(orders.length >= 2);
-      assert.ok(orders.every((order) => order.userId === undefined || true));
+      assert.ok(
+        orders.every((order) => typeof order.id === "string" && order.id.length > 0),
+        "every listed order must expose its id",
+      );
+      assert.equal(new Set(orders.map((order) => order.id)).size, orders.length, "listed order ids must be unique");
       for (const order of orders) {
         const fetched = await request(`/api/orders/${encodeURIComponent(order.id)}`, { headers: { authorization: `Bearer ${otherToken}` } });
         assert.equal(fetched.response.status, 404, "other users' orders must not be readable");
