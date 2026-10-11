@@ -35,7 +35,7 @@ The service layer is the integration boundary. UI components must not connect di
 
 | Frontend service | Backend integration |
 |---|---|
-| Auth — login and registration forms | Real API (`POST /api/auth/login`, `POST /api/auth/register`) |
+| Auth — role-specific portal logins and registration | Real API (`POST /api/auth/customer/login`, `POST /api/auth/vendor/login`, `POST /api/auth/admin/login`, `POST /api/auth/manager/login`, `POST /api/auth/register`; the generic `POST /api/auth/login` remains for backward compatibility) |
 | Auth — session restore (`getCurrentUser`), logout, profile updates | **Browser-local only**; `GET /api/auth/me` is implemented but never called by the frontend; logout performs no server call |
 | Address book | **Browser-local only** (`localStorage` with mock fallback); no backend address endpoints exist |
 | Public product catalog, search, filters, details | Real API |
@@ -49,7 +49,7 @@ The service layer is the integration boundary. UI components must not connect di
 
 The frontend `ordersService` persists orders in `localStorage` only. The server-authoritative order API (`POST /api/orders`, `GET /api/orders`, `GET /api/orders/:id`) exists, but the checkout UI does not call it yet, so a browser order is not a server order. See docs/server-authoritative-checkout.md and backend/README.md.
 
-Authentication UI: the frontend has one shared `/login` page (plus `/register` and `/reset-password`). After a successful API login it redirects by role — `ADMIN` to `/admin`, `VENDOR` to `/seller/dashboard`, and everyone else to `/account`. There are no separate customer, vendor, administrator, or manager login portals yet, and no `MANAGER` role exists; the backend role set is exactly `CUSTOMER`, `VENDOR`, and `ADMIN`. The dev-only demo-role buttons (`VITE_ENABLE_DEMO_AUTH=true`) create browser-local demo sessions that do not call the API and must never be treated as real authentication.
+Authentication UI: the frontend has independent login portals — `/login` (customer), `/vendor/login`, `/admin/login`, and `/manager/login` — plus `/register` and `/reset-password`. Each portal submits only to its own backend endpoint, which rejects credentials whose account role does not match the portal, and routes success to its own destination (`/account`, `/seller/dashboard`, `/admin`, and `/manager` respectively). The backend role set is `CUSTOMER`, `VENDOR`, `ADMIN`, and the least-privilege `MANAGER`; managers may only review vendor applications (see backend/README.md for the permission matrix) and are provisioned exclusively by administrators. The dev-only demo-role buttons (`VITE_ENABLE_DEMO_AUTH=true`, development builds only) create browser-local demo sessions that do not call the API and must never be treated as real authentication.
 
 ## Running locally
 
@@ -78,7 +78,7 @@ GitHub Actions CI (`.github/workflows/ci.yml`) runs on every pull request and pu
 
 - Backend unit tests: product validation, rate limiting, upload validation.
 - Frontend unit test: ordersService (browser-local behavior, honest payment states).
-- MongoDB integration suites (skipped unless `RUN_MONGODB_INTEGRATION=true`): security (auth, roles, bootstrap, vendor approval, product lifecycle) and orders (server-authoritative pricing, transactional stock rollback, concurrent idempotency, variant matching, cross-user isolation).
+- MongoDB integration suites (skipped unless `RUN_MONGODB_INTEGRATION=true`): security (auth, roles, bootstrap, vendor approval, product lifecycle), orders (server-authoritative pricing, transactional stock rollback, concurrent idempotency, variant matching, cross-user isolation), and login-portals (per-portal role matching, vendor-portal applicant restrictions, registration role-escalation prevention, the MANAGER permission matrix, disabled/expired credentials, password-reset revocation).
 
 See docs/testing.md for the database-isolation rules.
 
@@ -88,7 +88,7 @@ The production build emits a non-blocking warning because the main JavaScript ch
 
 ### Implemented on the backend (unreleased)
 
-Authentication with scrypt password hashing and bearer tokens; first-admin bootstrap and admin management with a transactional singleton guard; vendor applications and admin approval; product catalog, authoring, ownership, and archive; Cloudinary image uploads; password reset via Resend; server-authoritative order creation (transactional, idempotent) and owner-scoped order history.
+Authentication with scrypt password hashing and bearer tokens, including role-specific login portals for customer, vendor, administrator, and manager accounts; first-admin bootstrap and admin management with a transactional singleton guard; a least-privilege MANAGER role provisioned only by administrators and limited to vendor-application review; vendor applications and admin/manager approval; product catalog, authoring, ownership, and archive; Cloudinary image uploads; password reset via Resend; server-authoritative order creation (transactional, idempotent) and owner-scoped order history.
 
 ### Not implemented
 
@@ -127,6 +127,7 @@ See SECURITY.md, docs/security.md, docs/backend-integration.md, and backend/READ
 | Frontend auth session wiring (logout, profile, addresses, `/api/auth/me`) | Browser-local; `GET /api/auth/me` not called |
 | Admin orders/coupons and seller fulfillment/payout/settings screens | Mock / presentation-only |
 | Backend authentication/authorization (auth, admin, vendors, products, orders) | Implemented, unreleased |
+| Role-specific login portals and least-privilege manager workspace | Implemented, unreleased |
 | MongoDB backend + transactional inventory | Implemented, unreleased; replica set required |
 | Frontend checkout/order API wiring | Not implemented (browser-local orders) |
 | Payment gateway / verified callbacks | Not implemented |

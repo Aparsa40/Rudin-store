@@ -22,7 +22,8 @@ npm run build
 
 - Backend unit tests covering product validation, rate limiting, and the uploads routes.
 - A frontend unit test for the browser-local `ordersService`.
-- Two MongoDB-backed integration suites: `backend/integration/security.integration.test.ts` and `backend/integration/orders.integration.test.ts`.
+- A frontend unit test for the role-specific portal configuration (`src/config/authPortals.test.ts`): each portal's endpoint, required role, login route, and home route, plus protected-area portal resolution.
+- Three MongoDB-backed integration suites: `backend/integration/security.integration.test.ts`, `backend/integration/orders.integration.test.ts`, and `backend/integration/login-portals.integration.test.ts`.
 
 The integration suites are skipped unless `RUN_MONGODB_INTEGRATION=true` is set. CI runs `npm test` with that flag against an ephemeral MongoDB replica set, then runs the production build.
 
@@ -32,13 +33,15 @@ The security suite covers authentication, role enforcement, administrator bootst
 
 The orders suite covers server-authoritative pricing (client-supplied totals ignored), stock decrement, transaction rollback on order-persistence failure, concurrent requests with the same idempotency key, variant-specific inventory matching (insufficient requested variant, sufficient other variant), cross-user order isolation, and draft-product rejection.
 
+The login-portals suite covers per-portal role matching with generic non-enumerating errors, pending and rejected vendor applicants on the vendor portal, public-registration role-escalation prevention (no ADMIN or MANAGER), the least-privilege MANAGER permission matrix (vendor-application review allowed; admin, product, and manager-management operations denied), disabled-manager and expired-token rejection, and password-reset credential rotation with session revocation.
+
 All test files were audited for assertion quality: no tautological or unconditional-pass assertions (`|| true` patterns) exist in any test file.
 
 ## MongoDB integration-test safety
 
-The two integration suites run in parallel and use separate, derived databases:
+The three integration suites run in parallel and use separate, derived databases:
 - `rudin_store_integration_test` for the security suite.
-- `rudin_store_integration_test_orders` for the orders suite, derived automatically from the configured test URI so the parallel suites cannot wipe each other's data.
+- `rudin_store_integration_test_orders` for the orders suite, and `rudin_store_integration_test_portals` for the login-portals suite, each derived automatically from the configured test URI so the parallel suites cannot wipe each other's data.
 
 Each suite clears only its own database collections (`users`, `products`, `adminstates`, and for the orders suite also `orders`) at setup and teardown, kills its child server process, and closes the mongoose connection in a `finally` block. The backend connection guard and the test assertions reject database names outside the `rudin_store_integration_test*` family when `RUN_MONGODB_INTEGRATION=true`.
 
@@ -48,7 +51,7 @@ For manual storefront testing, set the local `.env` `MONGODB_URI` to the Atlas c
 
 ## Known coverage gaps
 
-These areas currently have no automated tests and are documented rather than invented: cart stock validation, coupon validation, `ProtectedRoute`, frontend services other than `ordersService` (including the API-backed login/register wiring and the browser-local session-restore/logout/profile/address operations), admin/seller dashboard components, and end-to-end flows. The `ordersService` unit test intentionally validates the current browser-local (localStorage) behavior; it does not verify server integration because the frontend is not yet connected to `/api/orders`.
+These areas currently have no automated tests and are documented rather than invented: cart stock validation, coupon validation, `ProtectedRoute` and the portal page components themselves (the portal routing configuration is unit-tested, but not the React components), frontend services other than `ordersService` and the portal configuration (including the browser-local session-restore/logout/profile/address operations), admin/seller/manager dashboard components, and end-to-end flows. The `ordersService` unit test intentionally validates the current browser-local (localStorage) behavior; it does not verify server integration because the frontend is not yet connected to `/api/orders`.
 
 ## Manual validation priorities
 

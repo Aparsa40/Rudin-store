@@ -17,6 +17,7 @@ The browser-facing API base URL is `VITE_API_URL` (default `http://localhost:400
 ### Authentication and account security
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `POST /api/auth/customer/login`, `POST /api/auth/vendor/login`, `POST /api/auth/admin/login`, `POST /api/auth/manager/login` (role-specific portals; the vendor portal additionally requires an approved vendor application)
 - `GET /api/auth/me`
 - `POST /api/auth/bootstrap-admin` (one-time setup)
 - `POST /api/auth/password-reset/request`
@@ -24,12 +25,13 @@ The browser-facing API base URL is `VITE_API_URL` (default `http://localhost:400
 
 Passwords are scrypt-hashed. Role checks are enforced by the backend, not by UI routing alone. Password-reset tokens are single-use, hashed, and expire. Email verification and refresh-token rotation are not implemented yet.
 
-Frontend wiring status (authentication): only the login and registration forms call these endpoints. The frontend session restore (`getCurrentUser`) reads the persisted local user state and never calls `GET /api/auth/me`; logout is browser-local (no server-side token-invalidation endpoint is called); profile updates and the address book are browser-local because no profile or address endpoints exist yet. The login UI is one shared `/login` page that redirects by role after login (`ADMIN`, `VENDOR`, or customer); there are no separate customer, vendor, administrator, or manager login portals, and the role set is exactly `CUSTOMER`, `VENDOR`, and `ADMIN` (no `MANAGER` role).
+Frontend wiring status (authentication): the four portal login pages (`/login`, `/vendor/login`, `/admin/login`, `/manager/login`) and the registration form call these endpoints; each portal submits only to its own role-specific endpoint. The frontend session restore (`getCurrentUser`) reads the persisted local user state and never calls `GET /api/auth/me`; logout is browser-local (no server-side token-invalidation endpoint is called); profile updates and the address book are browser-local because no profile or address endpoints exist yet. The role set is `CUSTOMER`, `VENDOR`, `ADMIN`, and the least-privilege `MANAGER` (vendor-application review only, provisioned exclusively by administrators); manager and administrator accounts can never be created through public registration.
 
 ### Vendors and products
 - `POST /api/vendors/apply`
-- `GET /api/admin/vendors/applications`
-- `PATCH /api/admin/vendors/applications/:id`
+- `GET /api/admin/vendors/applications` (ADMIN or MANAGER)
+- `PATCH /api/admin/vendors/applications/:id` (ADMIN or MANAGER)
+- `GET /api/admin/managers`, `POST /api/admin/managers`, `PATCH /api/admin/managers/:id/status` (admin-only provisioning and lifecycle for the least-privilege MANAGER role)
 - `GET /api/products`
 - `GET /api/products/:identifier`
 - `GET /api/products/mine`
@@ -59,9 +61,9 @@ Use explicit database names in the connection URI:
 - `rudin_store_dev` for local development.
 - `rudin_store_test` for manual storefront testing; this Atlas database is seeded with clearly named test products.
 - `rudin_store_integration_test` for the security integration suite only.
-- `rudin_store_integration_test_orders` for the orders integration suite. It is derived automatically from the configured test URI so the two parallel suites cannot delete each other's data.
+- `rudin_store_integration_test_orders` for the orders integration suite, and `rudin_store_integration_test_portals` for the login-portals integration suite. Each is derived automatically from the configured test URI so the parallel suites cannot delete each other's data.
 
-Each integration suite clears only its own database collections (`users`, `products`, `adminstates`, and for the orders suite also `orders`) at setup and teardown. A runtime guard and test assertion reject any database outside the `rudin_store_integration_test*` family when `RUN_MONGODB_INTEGRATION=true`. CI uses an ephemeral MongoDB replica set. Never run integration tests against the manual-test or production database.
+Each integration suite clears only its own database collections (`users`, `products`, `adminstates`, plus `orders` for the orders suite) at setup and teardown. A runtime guard and test assertion reject any database outside the `rudin_store_integration_test*` family when `RUN_MONGODB_INTEGRATION=true`. CI uses an ephemeral MongoDB replica set. Never run integration tests against the manual-test or production database.
 
 ## Domains not yet fully integrated
 
