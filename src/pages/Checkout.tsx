@@ -152,11 +152,11 @@ export const Checkout: React.FC = () => {
       clearCart();
       setIsProcessing(false);
       setStep(4);
-      addToast('Order successfully confirmed!', 'success');
+      addToast('Order placed successfully. Payment is pending confirmation.', 'success');
     } catch (err) {
       console.error(err);
       setIsProcessing(false);
-      addToast('An error occurred during payment verification.', 'error');
+      addToast('An error occurred while placing your order.', 'error');
     }
   };
 
@@ -183,16 +183,16 @@ export const Checkout: React.FC = () => {
             <CheckCircle2 className="w-8 h-8" />
           </div>
 
-          <Badge variant="success" size="md" className="mb-3">
-            Payment Verified & Escrow Established
+          <Badge variant="warning" size="md" className="mb-3">
+            Order Placed — Payment Pending
           </Badge>
 
           <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">
-            Order Confirmed!
+            Order Placed!
           </h1>
           <p className="text-sm text-slate-600 max-w-md mx-auto mb-8">
-            Thank you, {completedOrder.shippingAddress.fullName}. A confirmation email and tracking
-            link have been dispatched.
+            Thank you, {completedOrder.shippingAddress.fullName}. Your order has been recorded and
+            is awaiting payment confirmation. You can follow its status from your orders dashboard.
           </p>
 
           {/* Order Details Summary Box */}
@@ -203,12 +203,14 @@ export const Checkout: React.FC = () => {
                 {completedOrder.orderNumber}
               </span>
             </div>
-            <div className="flex justify-between items-center pb-3 border-b border-slate-200 text-xs">
-              <span className="text-slate-500 font-medium">Carrier & Tracking:</span>
-              <span className="font-mono font-bold text-blue-600">
-                {completedOrder.carrier} ({completedOrder.trackingNumber})
-              </span>
-            </div>
+            {completedOrder.trackingNumber && completedOrder.carrier && (
+              <div className="flex justify-between items-center pb-3 border-b border-slate-200 text-xs">
+                <span className="text-slate-500 font-medium">Carrier & Tracking:</span>
+                <span className="font-mono font-bold text-blue-600">
+                  {completedOrder.carrier} ({completedOrder.trackingNumber})
+                </span>
+              </div>
+            )}
             <div className="flex justify-between items-center pb-3 border-b border-slate-200 text-xs">
               <span className="text-slate-500 font-medium">Ship to Address:</span>
               <span className="text-slate-900 font-medium text-right max-w-xs">
@@ -217,7 +219,7 @@ export const Checkout: React.FC = () => {
               </span>
             </div>
             <div className="flex justify-between items-center text-sm font-bold text-slate-900 pt-1">
-              <span>Total Paid:</span>
+              <span>Order Total:</span>
               <span className="text-lg font-black">${completedOrder.total.toFixed(2)}</span>
             </div>
           </div>
