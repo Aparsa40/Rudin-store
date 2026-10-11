@@ -1,37 +1,33 @@
-import { CartItem, ResolvedCartItem, VendorCartGroup, Coupon, Product } from '../../types';
-import { mockProducts, mockVendors } from '../../data/mockData';
-
-const getStoredProducts = (): Product[] => {
-  try {
-    const data = localStorage.getItem('rudin_products');
-    if (data) return JSON.parse(data);
-  } catch (e) {
-    // Ignore
-  }
-  return mockProducts;
-};
+import { CartItem, ResolvedCartItem, VendorCartGroup, Coupon } from '../../types';
+import { productsService } from '../products/productsService';
+import { vendorsService } from '../vendors/vendorsService';
 
 export const cartService = {
-  getAvailableStock: (productId: string, variantId?: string): number => {
-    const products = getStoredProducts();
-    const product = products.find(p => p.id === productId);
-    if (!product) return 0;
-    if (variantId) {
-      const variant = product.variants.find(v => v.id === variantId);
-      if (variant) return Math.max(0, variant.stockQuantity);
+  // Stock is validated against the live catalog API so deleted, draft, archived,
+  // or unpublished products are never treated as available.
+  fetchAvailableStock: async (productId: string, variantId?: string): Promise<number> => {
+    try {
+      const product = await productsService.getProductById(productId);
+      if (!product) return 0;
+      if (variantId) {
+        const variant = product.variants.find((v) => v.id === variantId);
+        if (variant) return Math.max(0, variant.stockQuantity);
+      }
+      return Math.max(0, product.stock);
+    } catch {
+      return 0;
     }
-    return Math.max(0, product.stock);
   },
 
-  validateItemStock: (
+  validateItemStock: async (
     productId: string,
     variantId: string | undefined,
     quantity: number
-  ): { valid: boolean; availableStock: number; error?: string } => {
+  ): Promise<{ valid: boolean; availableStock: number; error?: string }> => {
     if (quantity < 1) {
       return { valid: false, availableStock: 0, error: 'Quantity must be at least 1 unit.' };
     }
-    const stock = cartService.getAvailableStock(productId, variantId);
+    const stock = await cartService.fetchAvailableStock(productId, variantId);
     if (stock <= 0) {
       return { valid: false, availableStock: 0, error: 'This item is currently out of stock.' };
     }
@@ -45,27 +41,25 @@ export const cartService = {
     return { valid: true, availableStock: stock };
   },
 
+  // Resolves cart entries against the live catalog and vendor APIs. The public
+  // catalog API returns 404 for unavailable products, so stale items are skipped
+  // instead of silently keeping outdated prices or stock.
   resolveCartItems: async (items: CartItem[]): Promise<ResolvedCartItem[]> => {
-    await new Promise(resolve => setTimeout(resolve, 60));
-    const products = getStoredProducts();
-    const resolved: ResolvedCartItem[] = [];
-
-    for (const item of items) {
-      const product = products.find(p => p.id === item.productId);
-      if (product) {
-        const vendor = mockVendors.find(v => v.id === product.vendorId);
-        const variant = item.variantId ? product.variants.find(v => v.id === item.variantId) : undefined;
-        if (vendor) {
-          resolved.push({
-            ...item,
-            product,
-            variant,
-            vendor
-          });
-        }
-      }
-    }
-    return resolved;
+    const settled = await Promise.allSettled(
+      items.map(async (item) => {
+        const product = await productsService.getProductById(item.productId);
+        if (!product) return null;
+        const vendor = await vendorsService.getVendorById(product.vendorId);
+        if (!vendor) return null;
+        const variant = item.variantId
+          ? product.variants.find((v) => v.id === item.variantId)
+          : undefined;
+        return { ...item, product, variant, vendor } as ResolvedCartItem;
+      })
+    );
+    return settled.flatMap((result) =>
+      result.status === 'fulfilled' && result.value ? [result.value] : []
+    );
   },
 
   groupItemsByVendor: (resolvedItems: ResolvedCartItem[]): VendorCartGroup[] => {

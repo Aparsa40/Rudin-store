@@ -22,7 +22,7 @@ import { productsService } from '../services/products/productsService';
 import { vendorsService } from '../services/vendors/vendorsService';
 import { reviewsService } from '../services/reviews/reviewsService';
 import { Product, Vendor, ProductVariant, Review, RatingBreakdown } from '../types';
-import { useCartStore } from '../store/cartStore';
+import { useCartStore, type CartActionResult } from '../store/cartStore';
 import { useWishlistStore } from '../store/wishlistStore';
 import { useUIStore } from '../store/uiStore';
 import { Button } from '../components/ui/Button';
@@ -159,22 +159,30 @@ export const ProductDetail: React.FC = () => {
   const inWishlist = isInWishlist(product.id);
   const stock = currentVariant ? currentVariant.stockQuantity : product.stock;
 
-  const handleAddToCart = () => {
-    addItem({
+  const handleAddToCart = async () => {
+    const result = await addItem({
       productId: product.id,
       variantId: currentVariant?.id,
       quantity,
     });
-    addToast(`Added ${quantity}x "${product.title}" to cart`, 'success');
+    if (result.success) {
+      addToast(`Added ${quantity}x "${product.title}" to cart`, 'success');
+    } else {
+      addToast(result.error || 'Could not add this item to cart.', 'error');
+    }
   };
 
-  const handleBuyNow = () => {
-    addItem({
+  const handleBuyNow = async () => {
+    const result = await addItem({
       productId: product.id,
       variantId: currentVariant?.id,
       quantity,
     });
-    navigate('/checkout');
+    if (result.success) {
+      navigate('/checkout');
+    } else {
+      addToast(result.error || 'Could not add this item to cart.', 'error');
+    }
   };
 
   const handleToggleWishlist = () => {
@@ -188,16 +196,25 @@ export const ProductDetail: React.FC = () => {
   };
 
   // Add bundled items to cart
-  const handleAddBundleToCart = () => {
+  const handleAddBundleToCart = async () => {
+    const results: CartActionResult[] = [];
     // Add current product
-    addItem({ productId: product.id, variantId: currentVariant?.id, quantity: 1 });
+    results.push(
+      await addItem({ productId: product.id, variantId: currentVariant?.id, quantity: 1 })
+    );
     // Add checked bundle products
-    frequentlyBought.forEach((b) => {
+    for (const b of frequentlyBought) {
       if (bundleChecked[b.id]) {
-        addItem({ productId: b.id, variantId: b.variants[0]?.id, quantity: 1 });
+        results.push(
+          await addItem({ productId: b.id, variantId: b.variants[0]?.id, quantity: 1 })
+        );
       }
-    });
-    addToast('Added selected bundle items to cart!', 'success');
+    }
+    if (results.every((r) => r.success)) {
+      addToast('Added selected bundle items to cart!', 'success');
+    } else {
+      addToast('Some selected items could not be added to cart.', 'error');
+    }
   };
 
   const bundleTotal =

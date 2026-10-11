@@ -273,7 +273,11 @@ export const Cart: React.FC = () => {
                             {/* Quantity */}
                             <div className="flex items-center border border-slate-200 rounded-xl h-10 px-2 bg-slate-50">
                               <button
-                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                onClick={() => {
+                                    void updateQuantity(item.id, item.quantity - 1).then((res) => {
+                                      if (!res.success) addToast(res.error || 'Could not update quantity.', 'error');
+                                    });
+                                  }}
                                 className="p-1 text-slate-500 hover:text-slate-900"
                               >
                                 <Minus className="w-3.5 h-3.5" />
@@ -282,7 +286,11 @@ export const Cart: React.FC = () => {
                                 {item.quantity}
                               </span>
                               <button
-                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                onClick={() => {
+                                    void updateQuantity(item.id, item.quantity + 1).then((res) => {
+                                      if (!res.success) addToast(res.error || 'Could not update quantity.', 'error');
+                                    });
+                                  }}
                                 className="p-1 text-slate-500 hover:text-slate-900"
                               >
                                 <Plus className="w-3.5 h-3.5" />
@@ -346,7 +354,11 @@ export const Cart: React.FC = () => {
                       </p>
                       <div className="flex items-center gap-3 text-xs">
                         <button
-                          onClick={() => moveToCartFromSaved(item.id)}
+                          onClick={() => {
+                                    void moveToCartFromSaved(item.id).then((res) => {
+                                      if (!res.success) addToast(res.error || 'Could not move this item to cart.', 'error');
+                                    });
+                                  }}
                           className="font-bold text-blue-600 hover:underline"
                         >
                           Move to cart

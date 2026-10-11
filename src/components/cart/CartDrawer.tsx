@@ -201,7 +201,11 @@ export const CartDrawer: React.FC = () => {
                             {/* Quantity Controls */}
                             <div className="flex items-center border border-slate-200 rounded-md bg-white">
                               <button
-                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                onClick={() => {
+                              void updateQuantity(item.id, item.quantity - 1).then((res) => {
+                                if (!res.success) addToast(res.error || 'Could not update quantity.', 'error');
+                              });
+                            }}
                                 className="p-1 hover:bg-slate-100 text-slate-600 rounded-l-md"
                               >
                                 <Minus className="w-3 h-3" />
@@ -210,7 +214,11 @@ export const CartDrawer: React.FC = () => {
                                 {item.quantity}
                               </span>
                               <button
-                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                onClick={() => {
+                              void updateQuantity(item.id, item.quantity + 1).then((res) => {
+                                if (!res.success) addToast(res.error || 'Could not update quantity.', 'error');
+                              });
+                            }}
                                 className="p-1 hover:bg-slate-100 text-slate-600 rounded-r-md"
                               >
                                 <Plus className="w-3 h-3" />

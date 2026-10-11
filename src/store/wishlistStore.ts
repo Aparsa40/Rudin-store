@@ -12,7 +12,7 @@ interface WishlistState {
 export const useWishlistStore = create<WishlistState>()(
   persist(
     (set, get) => ({
-      productIds: ['p1', 'p3'], // Default initial favorites
+      productIds: [], // Wishlist starts empty; IDs are added by user actions against real products
 
       toggleWishlist: (productId: string) => {
         const { productIds } = get();

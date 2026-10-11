@@ -297,6 +297,37 @@ test("MongoDB-backed auth, role boundaries, bootstrap and product lifecycle", { 
       });
       assert.equal(crossVendorEdit.response.status, 403);
 
+      // Public vendor directory must list approved vendors without private user fields.
+      const vendorDirectory = await request("/api/vendors");
+      assert.equal(vendorDirectory.response.status, 200);
+      const listedVendors = vendorDirectory.body.vendors as Array<Record<string, unknown>>;
+      const integrationVendor = listedVendors.find((v) => v.id === applicationId);
+      assert.ok(integrationVendor, "approved vendor should be listed publicly");
+      assert.equal(integrationVendor.storeName, "Integration Store");
+      assert.ok(!("email" in integrationVendor), "public vendor listing must not expose email");
+      assert.ok(!("phone" in integrationVendor), "public vendor listing must not expose phone");
+      assert.ok(!("passwordHash" in integrationVendor), "public vendor listing must not expose password data");
+
+      const vendorBySlug = await request(`/api/vendors?slug=${encodeURIComponent(String(integrationVendor.slug))}`);
+      assert.equal(vendorBySlug.response.status, 200);
+      assert.equal((vendorBySlug.body.vendors as Array<Record<string, unknown>>).length, 1);
+
+      const vendorProfile = await request(`/api/vendors/${encodeURIComponent(applicationId)}`);
+      assert.equal(vendorProfile.response.status, 200);
+      assert.equal(vendorProfile.body.vendor.storeName, "Integration Store");
+      assert.ok(!("email" in vendorProfile.body.vendor), "vendor profile must not expose email");
+
+      // Non-vendor accounts must not be reachable through the public vendor profile API.
+      const adminProfile = await request(`/api/vendors/${encodeURIComponent(winner.body.user.id as string)}`);
+      assert.equal(adminProfile.response.status, 404);
+
+      // Draft products must never appear in the public catalog.
+      const publicCatalog = await request("/api/products?limit=100");
+      assert.equal(publicCatalog.response.status, 200);
+      const publicProducts = publicCatalog.body.products as Array<{ id: string; status: string }>;
+      assert.ok(publicProducts.every((p) => p.status === "PUBLISHED"), "public catalog may only contain published products");
+      assert.ok(!publicProducts.some((p) => p.id === vendorProduct.body.product.id), "draft products must not be publicly listed");
+
       const created = await request("/api/products", {
         method: "POST",
         headers: { authorization: `Bearer ${adminToken}` },
