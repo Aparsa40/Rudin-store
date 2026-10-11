@@ -9,8 +9,9 @@ Implemented in this phase (provider-independent):
   - resolves every item against **published** products in the database;
   - computes unit prices, subtotals, and the order total **exclusively from database prices**;
   - ignores all client-supplied monetary fields;
-  - decrements product/variant stock **atomically** (`stock: { $gte: quantity }` filter) and compensates already-applied decrements when a later line fails;
-  - supports an optional `Idempotency-Key` header (8–128 chars): replays return the original order without re-decrementing stock;
+  - runs stock decrements and order persistence inside **one MongoDB transaction** (the integration database is a replica set, so transactions are available): any failure — insufficient stock, a duplicate idempotency key, or a persistence error — rolls back every decrement, so failed orders never consume inventory;
+  - matches variant stock with `$elemMatch`, so the variant identity and the sufficient-stock condition must hold on the **same array element** — one variant's stock can never satisfy another variant's order;
+  - supports an optional `Idempotency-Key` header (8–128 chars) guarded by a **unique partial index on `(userId, idempotencyKey)`**: replays return the original order without re-decrementing stock, and concurrent same-key requests resolve to exactly one order — the loser's transaction is rolled back and the committed order is replayed;
   - creates every order as `status: PENDING` and `paymentStatus: PENDING` — no payment gateway exists, so no order can be born `PAID`.
 - `GET /api/orders` — the authenticated user's own orders only.
 - `GET /api/orders/:id` — owner-scoped lookup; other users' orders return 404.
@@ -39,4 +40,4 @@ When a payment provider is chosen:
 1. Add a `PaymentAttempt` model storing provider, attempt id, and status — never raw card data.
 2. Create orders as `PENDING` and transition `paymentStatus` only from a **verified provider callback** (signature-validated webhook), never from client responses.
 3. Make order creation idempotent (already supported via `Idempotency-Key`).
-4. Consider multi-document transactions (the CI database is a replica set, so transactions are available) to replace compensation-based stock rollback.
+4. Order creation already uses a multi-document transaction (stock + order insert, on the replica-set integration database and transaction-capable production clusters such as MongoDB Atlas). Extend that same transaction to the payment attempt when a provider is chosen. Note: a standalone `mongod` (no replica set) cannot run transactions, so local development must use a replica set.
