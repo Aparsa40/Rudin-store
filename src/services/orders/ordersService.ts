@@ -1,7 +1,9 @@
 import { Order, OrderStatus, Address, PaymentMethod, ResolvedCartItem } from '../../types';
-import { mockOrders } from '../../data/mockData';
 
-// In-memory orders for the session with local storage backup
+// Orders are persisted locally in the browser only. There is no backend order
+// API yet, so nothing here may imply server-side or cross-device persistence,
+// and no order may ever be created in a paid or shipped state.
+
 const getStoredOrders = (): Order[] => {
   try {
     const data = localStorage.getItem('rudin_orders');
@@ -9,7 +11,7 @@ const getStoredOrders = (): Order[] => {
   } catch (e) {
     // Ignore
   }
-  return mockOrders;
+  return [];
 };
 
 const saveStoredOrders = (orders: Order[]) => {
@@ -51,15 +53,21 @@ export const ordersService = {
   }): Promise<Order> => {
     await new Promise((resolve) => setTimeout(resolve, 350));
 
+    // No payment gateway is integrated: an order must never be created as
+    // PAID. Online payment methods remain PENDING until an authoritative
+    // confirmation exists, and cash on delivery stays unpaid until settlement
+    // on delivery. No tracking number or carrier is fabricated here; they are
+    // assigned only when a shipment actually exists.
+    const orderId = `ord_${Date.now()}`;
     const orderNumber = `RD-${Math.floor(10000 + Math.random() * 90000)}`;
     const now = new Date().toISOString();
 
     const newOrder: Order = {
-      id: `ord_${Date.now()}`,
+      id: orderId,
       orderNumber,
       userId: params.userId,
-      status: 'PROCESSING',
-      paymentStatus: 'PAID',
+      status: 'PENDING',
+      paymentStatus: 'PENDING',
       paymentMethod: params.paymentMethod,
       shippingAddress: params.shippingAddress,
       billingAddress: params.billingAddress,
@@ -69,11 +77,9 @@ export const ordersService = {
       shippingCost: params.shippingCost,
       tax: params.tax,
       total: params.total,
-      trackingNumber: `TRK-${Math.floor(100000000 + Math.random() * 900000000)}`,
-      carrier: 'DHL Express',
       items: params.items.map((item) => ({
         id: `oi_${Math.random().toString(36).substring(2, 9)}`,
-        orderId: `ord_${Date.now()}`,
+        orderId,
         productId: item.product.id,
         productTitle: item.product.title,
         productImage: item.product.images[0]?.url || '',
@@ -88,7 +94,10 @@ export const ordersService = {
       timeline: [
         {
           title: 'Order Placed',
-          description: 'Your order was successfully placed and verified',
+          description:
+            params.paymentMethod === 'CASH_ON_DELIVERY'
+              ? 'Your order has been placed. Payment will be collected on delivery.'
+              : 'Your order has been placed and is awaiting payment confirmation.',
           date: 'Just now',
           completed: true,
           current: true,

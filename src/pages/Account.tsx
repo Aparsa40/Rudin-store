@@ -416,7 +416,9 @@ export const Account: React.FC = () => {
                       {/* Footer Actions */}
                       <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                         <span className="text-slate-500">
-                          Carrier: <strong>{order.carrier}</strong> ({order.trackingNumber})
+                          {order.carrier && order.trackingNumber
+                            ? `Carrier: ${order.carrier} (${order.trackingNumber})`
+                            : 'Tracking available once the order ships'}
                         </span>
                         <Button
                           size="sm"
@@ -424,7 +426,7 @@ export const Account: React.FC = () => {
                           onClick={() => setSelectedOrder(order)}
                           className="font-bold text-xs"
                         >
-                          View Tracking Timeline & Invoice
+                          View Order Timeline & Invoice
                         </Button>
                       </div>
                     </div>
@@ -465,7 +467,7 @@ export const Account: React.FC = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => addToast('Generating invoice PDF receipt...', 'info')}
+                    onClick={() => addToast('Invoice download is not available yet.', 'info')}
                     className="gap-1.5 text-xs font-bold"
                   >
                     <Download className="w-3.5 h-3.5" /> Invoice PDF
@@ -486,7 +488,7 @@ export const Account: React.FC = () => {
               {/* Status Timeline */}
               <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200">
                 <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
-                  <Truck className="w-4 h-4 text-blue-600" /> Carrier Shipment Progress
+                  <Truck className="w-4 h-4 text-blue-600" /> Order Progress
                 </h3>
                 <div className="space-y-4">
                   {selectedOrder.timeline.map((event, idx) => (
@@ -849,8 +851,8 @@ export const Account: React.FC = () => {
       >
         <div className="p-6 space-y-4 text-xs">
           <p className="text-slate-600 leading-relaxed">
-            Are you sure you want to cancel order <strong>{selectedOrder?.orderNumber}</strong>? Any
-            pre-authorized escrow payments will be released immediately.
+            Are you sure you want to cancel order <strong>{selectedOrder?.orderNumber}</strong>? The
+            order will be marked as cancelled.
           </p>
 
           <div>
