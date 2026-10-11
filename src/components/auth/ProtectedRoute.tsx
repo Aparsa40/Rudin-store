@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { Role } from '../../types';
+import { getHomeRouteForRole, getLoginRouteForRoles } from '../../config/authPortals';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -21,19 +22,13 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const location = useLocation();
 
   if (!isAuthenticated || !user) {
-    // Redirect unauthenticated visitors to login, preserving target location
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    // Redirect unauthenticated visitors to the portal for this area, preserving the target location
+    return <Navigate to={getLoginRouteForRoles(allowedRoles)} state={{ from: location }} replace />;
   }
 
   if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
-    // If authenticated user does not have permission for this section, redirect appropriately
-    if (user.role === 'VENDOR') {
-      return <Navigate to="/seller/dashboard" replace />;
-    }
-    if (user.role === 'ADMIN') {
-      return <Navigate to="/admin" replace />;
-    }
-    return <Navigate to="/account" replace />;
+    // Authenticated users with the wrong role are routed back to their own area
+    return <Navigate to={getHomeRouteForRole(user.role)} replace />;
   }
 
   return <>{children}</>;

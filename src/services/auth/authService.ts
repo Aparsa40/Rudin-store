@@ -1,4 +1,5 @@
 import { User, Role, Address } from '../../types';
+import { AUTH_PORTALS, type AuthPortal } from '../../config/authPortals';
 import { mockAddresses } from '../../data/mockData';
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/$/, '');
@@ -65,6 +66,19 @@ export const authService = {
 
   login: async (email: string, password: string): Promise<{ user: User; accessToken: string }> => {
     const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const payload = await readApiResponse<{ user: ApiUser; accessToken: string }>(response);
+    if (!payload.accessToken) throw new Error('The API did not return an access token.');
+    return { user: mapApiUser(payload.user), accessToken: payload.accessToken };
+  },
+
+  // Role-specific portal login: each portal submits only to its own backend
+  // endpoint, which rejects credentials whose account role does not match.
+  loginToPortal: async (portal: AuthPortal, email: string, password: string): Promise<{ user: User; accessToken: string }> => {
+    const response = await fetch(`${API_BASE_URL}${AUTH_PORTALS[portal].apiPath}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
