@@ -1,8 +1,64 @@
 import { Router } from "express";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { UserModel } from "../models/user.model.js";
+import { normalizeProductSlug } from "../lib/product-validation.js";
 
 const vendorsRouter = Router();
+
+interface PublicVendorRecord {
+  _id: string;
+  storeName: string;
+  storeDescription?: string | null;
+  createdAt?: Date;
+}
+
+/**
+ * Public vendor serialization. Never expose email, phone, or any other private user field.
+ * The slug is derived deterministically from the store name so catalog links stay stable.
+ */
+function publicVendor(user: PublicVendorRecord) {
+  const slug = normalizeProductSlug(undefined, user.storeName) || `vendor-${user._id}`;
+  return {
+    id: user._id,
+    userId: user._id,
+    storeName: user.storeName,
+    slug,
+    description: user.storeDescription ?? "",
+    createdAt: user.createdAt,
+  };
+}
+
+// Public directory of active vendors. Supports an exact slug filter for storefront links.
+vendorsRouter.get("/", async (req, res, next) => {
+  try {
+    const users = await UserModel.find({ role: "VENDOR", status: "ACTIVE" })
+      .select("_id storeName storeDescription createdAt")
+      .sort({ createdAt: -1 })
+      .lean<PublicVendorRecord[]>();
+    let vendors = users.map(publicVendor);
+    const slug = typeof req.query.slug === "string" ? req.query.slug.trim() : "";
+    if (slug) vendors = vendors.filter((vendor) => vendor.slug === slug);
+    res.status(200).json({ vendors });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Public profile of a single active vendor.
+vendorsRouter.get("/:id", async (req, res, next) => {
+  try {
+    const user = await UserModel.findOne({ _id: req.params.id, role: "VENDOR", status: "ACTIVE" })
+      .select("_id storeName storeDescription createdAt")
+      .lean<PublicVendorRecord | null>();
+    if (!user) {
+      res.status(404).json({ error: { code: "VENDOR_NOT_FOUND", message: "Vendor not found." } });
+      return;
+    }
+    res.status(200).json({ vendor: publicVendor(user) });
+  } catch (error) {
+    next(error);
+  }
+});
 
 vendorsRouter.post("/apply", requireAuth, requireRole("CUSTOMER"), async (req, res, next) => {
   try {
