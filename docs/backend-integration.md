@@ -40,21 +40,34 @@ The public catalog supports pagination, search, price/rating/stock/sale filters,
 
 Image uploads require server-side Cloudinary configuration. Password reset delivery requires Resend configuration.
 
+### Orders (server-authoritative)
+- `POST /api/orders`
+- `GET /api/orders`
+- `GET /api/orders/:id`
+
+`POST /api/orders` requires authentication. Only published products can be ordered; draft or missing products are rejected. All prices, discounts, and order totals are computed server-side from the database; client-supplied monetary fields are ignored. Stock is decremented atomically together with order creation inside a MongoDB transaction: any validation or persistence failure aborts the transaction and rolls back every stock change, so no partial state remains. Variant selection matches the variant id and sufficient stock on the same array element (`$elemMatch`); a request exceeding the available stock for the selected variant fails with `409 OUT_OF_STOCK` without changing stock. Duplicate lines for the same product/variant are merged. An optional `Idempotency-Key` header (8–128 characters) enables safe retries: a unique index on `(userId, idempotencyKey)` guarantees that only one order is created per key even under concurrent requests, and retries return the original order with `idempotentReplay: true`. New orders start as `status: PENDING` and `paymentStatus: PENDING`. Tax and shipping are currently computed as zero pending explicit product decisions. The route is rate-limited (30 requests per 15 minutes per IP). Because order creation uses MongoDB transactions, the MongoDB deployment must run as a replica set (CI uses an ephemeral replica set; local environments must configure one).
+
+`GET /api/orders` and `GET /api/orders/:id` are owner-scoped: users only see their own orders, and a request for another user's order returns `404`. Administrator or vendor order-management endpoints do not exist yet.
+
+The frontend `ordersService` remains browser-local (localStorage) and is not yet wired to these endpoints; the checkout UI does not yet create real server-side orders.
+
 ## MongoDB databases
 
 Use explicit database names in the connection URI:
 - `rudin_store_dev` for local development.
 - `rudin_store_test` for manual storefront testing; this Atlas database is seeded with clearly named test products.
-- `rudin_store_integration_test` for automated MongoDB integration tests only.
+- `rudin_store_integration_test` for the security integration suite only.
+- `rudin_store_integration_test_orders` for the orders integration suite. It is derived automatically from the configured test URI so the two parallel suites cannot delete each other's data.
 
-The integration test clears documents from `users`, `products`, and `adminstates`. A runtime guard and test assertion reject any other database when `RUN_MONGODB_INTEGRATION=true`. CI uses an ephemeral MongoDB replica set. Never run integration tests against the manual-test or production database.
+Each integration suite clears only its own database collections (`users`, `products`, `adminstates`, and for the orders suite also `orders`) at setup and teardown. A runtime guard and test assertion reject any database outside the `rudin_store_integration_test*` family when `RUN_MONGODB_INTEGRATION=true`. CI uses an ephemeral MongoDB replica set. Never run integration tests against the manual-test or production database.
 
 ## Domains not yet fully integrated
 
 These areas still need backend models/routes, service wiring, authorization and end-to-end tests before they can be considered real rather than mock-backed:
 - Cart persistence and server-authoritative inventory checks/reservation.
-- Checkout and order creation/history, order status, cancellation and fulfillment.
-- Payment-provider integration, verified webhooks, refunds and payment reconciliation.
+- Frontend checkout wiring: connecting the browser-local `ordersService` and the checkout flow to the server-authoritative order API.
+- Order lifecycle beyond creation: status transitions, cancellation, and fulfillment workflows.
+- Payment-provider integration, verified webhooks, refunds and payment reconciliation. Orders remain `paymentStatus: PENDING` until a real provider confirms payment; payment success must never be assumed.
 - Customer address CRUD and ownership enforcement.
 - Coupon validation/redemption and usage limits.
 - Reviews and verified-purchase checks.
@@ -66,9 +79,10 @@ Do not trust client-supplied prices, stock, discount calculations, role claims, 
 
 ## Recommended next implementation order
 
+Server-authoritative order creation, transactional inventory decrement, and idempotent order creation are already implemented (see Orders above). The remaining order of work is:
+
 1. Persist cart server-side and re-check current product price/stock on every checkout operation.
-2. Add order/order-item models and transactional inventory reservation.
-3. Add payment-provider intents and verified webhook handling before marking orders paid.
-4. Add addresses, coupons/redemptions, reviews, and contact inquiries.
-5. Wire seller/admin order, coupon, payout and settings screens to their APIs.
-6. Add end-to-end tests for ownership, concurrency, failed payments, stock conflicts, and order state transitions.
+2. Add payment-provider intents and verified webhook handling before marking orders paid.
+3. Add addresses, coupons/redemptions, reviews, and contact inquiries.
+4. Wire seller/admin order, coupon, payout and settings screens to their APIs.
+5. Add end-to-end tests for ownership, concurrency, failed payments, stock conflicts, and order state transitions.
