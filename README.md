@@ -35,14 +35,21 @@ The service layer is the integration boundary. UI components must not connect di
 
 | Frontend service | Backend integration |
 |---|---|
-| Auth (login, register, me) | Real API |
+| Auth — login and registration forms | Real API (`POST /api/auth/login`, `POST /api/auth/register`) |
+| Auth — session restore (`getCurrentUser`), logout, profile updates | **Browser-local only**; `GET /api/auth/me` is implemented but never called by the frontend; logout performs no server call |
+| Address book | **Browser-local only** (`localStorage` with mock fallback); no backend address endpoints exist |
 | Public product catalog, search, filters, details | Real API |
-| Seller/admin product management | Real API |
+| Seller product management (create, edit, status, archive, image upload) | Real API |
+| Admin catalog moderation (featured toggle) and vendor-application review | Real API |
+| Admin orders and coupons tabs | **Mock / presentation-only**; rendered from `mockOrders`/`mockCoupons`; coupon create/toggle is in-memory state only |
+| Seller order fulfillment, payouts, and store settings | **Mock / presentation-only**; in-memory order status, toast-only payout/settings actions, mock vendor profile |
 | Vendor application and admin approval | Real API |
 | Orders / checkout | **Browser-local only** (`localStorage`); not connected to `/api/orders` |
-| Cart, coupons, wishlist, reviews, addresses | Browser-local demo data |
+| Cart, coupons, wishlist, reviews | Browser-local demo data |
 
 The frontend `ordersService` persists orders in `localStorage` only. The server-authoritative order API (`POST /api/orders`, `GET /api/orders`, `GET /api/orders/:id`) exists, but the checkout UI does not call it yet, so a browser order is not a server order. See docs/server-authoritative-checkout.md and backend/README.md.
+
+Authentication UI: the frontend has one shared `/login` page (plus `/register` and `/reset-password`). After a successful API login it redirects by role — `ADMIN` to `/admin`, `VENDOR` to `/seller/dashboard`, and everyone else to `/account`. There are no separate customer, vendor, administrator, or manager login portals yet, and no `MANAGER` role exists; the backend role set is exactly `CUSTOMER`, `VENDOR`, and `ADMIN`. The dev-only demo-role buttons (`VITE_ENABLE_DEMO_AUTH=true`) create browser-local demo sessions that do not call the API and must never be treated as real authentication.
 
 ## Running locally
 
@@ -85,7 +92,7 @@ Authentication with scrypt password hashing and bearer tokens; first-admin boots
 
 ### Not implemented
 
-Payment-provider integration and verified callbacks; currency, tax, shipping, and coupon product decisions; order cancellation/refund/fulfillment; server-side cart persistence; customer address CRUD; reviews; contact backend/email; seller payouts; refresh-token rotation and email verification.
+Payment-provider integration and verified callbacks; currency, tax, shipping, and coupon product decisions; order cancellation/refund/fulfillment; server-side cart persistence; customer address CRUD; reviews; contact backend/email; seller payouts; refresh-token rotation and email verification; frontend wiring of `GET /api/auth/me`, server-side logout, profile updates, and the address book.
 
 ### Database
 
@@ -117,6 +124,8 @@ See SECURITY.md, docs/security.md, docs/backend-integration.md, and backend/READ
 | Frontend UI | Implemented |
 | Demo/local persistence architecture | Implemented |
 | Client route guards | Implemented (UX only) |
+| Frontend auth session wiring (logout, profile, addresses, `/api/auth/me`) | Browser-local; `GET /api/auth/me` not called |
+| Admin orders/coupons and seller fulfillment/payout/settings screens | Mock / presentation-only |
 | Backend authentication/authorization (auth, admin, vendors, products, orders) | Implemented, unreleased |
 | MongoDB backend + transactional inventory | Implemented, unreleased; replica set required |
 | Frontend checkout/order API wiring | Not implemented (browser-local orders) |
