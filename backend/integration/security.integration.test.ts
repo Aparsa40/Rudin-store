@@ -133,28 +133,82 @@ test("MongoDB-backed auth, role boundaries, bootstrap and product lifecycle", { 
     });
 
     await t.test("bootstraps only one administrator and protects product lifecycle", async () => {
-      const firstAdmin = await request("/api/auth/bootstrap-admin", {
+      // NOTE: the server rate-limits POST /api/auth/bootstrap-admin to 5 requests per
+      // 15-minute window per IP. Keep the total number of bootstrap requests in this
+      // subtest at or below 5; overlapping branches are intentionally merged.
+      // Missing bootstrap secret (the incorrect-secret branch returns the same 404).
+      const noSecret = await request("/api/auth/bootstrap-admin", {
         method: "POST",
-        headers: { "x-admin-bootstrap-secret": bootstrapSecret },
         body: JSON.stringify({
-          email: "admin.integration@example.test",
+          email: "no-secret.admin@example.test",
           password: "Admin-Password-123!",
-          firstName: "Integration Admin",
+          firstName: "No Secret",
         }),
       });
-      assert.equal(firstAdmin.response.status, 201);
-      const adminToken = firstAdmin.body.accessToken as string;
+      assert.equal(noSecret.response.status, 404);
 
-      const secondBootstrap = await request("/api/auth/bootstrap-admin", {
+      // Missing request fields (the short-password branch returns the same 400 INVALID_ADMIN).
+      const missingFields = await request("/api/auth/bootstrap-admin", {
+        method: "POST",
+        headers: { "x-admin-bootstrap-secret": bootstrapSecret },
+        body: JSON.stringify({}),
+      });
+      assert.equal(missingFields.response.status, 400);
+      assert.equal(missingFields.body.error.code, "INVALID_ADMIN");
+
+      // Regression: bootstrapping with an email that already belongs to an account must
+      // return the precise EMAIL_IN_USE error, not the generic DUPLICATE_RESOURCE error.
+      // Self-contained setup: this subtest registers its own dedicated account instead of
+      // relying on a user created by an earlier subtest.
+      const duplicateEmailOwner = await request("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+          email: "duplicate-email.bootstrap@example.test",
+          password: "Duplicate-Email-Password-123!",
+          firstName: "Duplicate Email",
+        }),
+      });
+      assert.equal(duplicateEmailOwner.response.status, 201);
+      const emailInUse = await request("/api/auth/bootstrap-admin", {
         method: "POST",
         headers: { "x-admin-bootstrap-secret": bootstrapSecret },
         body: JSON.stringify({
-          email: "second-admin.integration@example.test",
-          password: "Admin-Password-456!",
-          firstName: "Second Admin",
+          email: "duplicate-email.bootstrap@example.test",
+          password: "Admin-Password-123!",
+          firstName: "Email In Use",
         }),
       });
-      assert.equal(secondBootstrap.response.status, 409);
+      assert.equal(emailInUse.response.status, 409);
+      assert.equal(emailInUse.body.error.code, "EMAIL_IN_USE");
+
+      // Concurrent bootstrap attempts: the admin-state transaction must allow exactly one
+      // administrator; the loser reports BOOTSTRAP_CLOSED.
+      const concurrent = await Promise.all([
+        request("/api/auth/bootstrap-admin", {
+          method: "POST",
+          headers: { "x-admin-bootstrap-secret": bootstrapSecret },
+          body: JSON.stringify({
+            email: "admin.integration@example.test",
+            password: "Admin-Password-123!",
+            firstName: "Integration Admin",
+          }),
+        }),
+        request("/api/auth/bootstrap-admin", {
+          method: "POST",
+          headers: { "x-admin-bootstrap-secret": bootstrapSecret },
+          body: JSON.stringify({
+            email: "second-admin.integration@example.test",
+            password: "Admin-Password-456!",
+            firstName: "Second Admin",
+          }),
+        }),
+      ]);
+      const concurrentStatuses = concurrent.map((result) => result.response.status).sort((a, b) => a - b);
+      assert.deepEqual(concurrentStatuses, [201, 409]);
+      const winner = concurrent.find((result) => result.response.status === 201)!;
+      const loser = concurrent.find((result) => result.response.status === 409)!;
+      assert.equal(loser.body.error.code, "BOOTSTRAP_CLOSED");
+      const adminToken = winner.body.accessToken as string;
 
       const customerLogin = await request("/api/auth/login", {
         method: "POST",
