@@ -158,11 +158,22 @@ test("MongoDB-backed auth, role boundaries, bootstrap and product lifecycle", { 
 
       // Regression: bootstrapping with an email that already belongs to an account must
       // return the precise EMAIL_IN_USE error, not the generic DUPLICATE_RESOURCE error.
+      // Self-contained setup: this subtest registers its own dedicated account instead of
+      // relying on a user created by an earlier subtest.
+      const duplicateEmailOwner = await request("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+          email: "duplicate-email.bootstrap@example.test",
+          password: "Duplicate-Email-Password-123!",
+          firstName: "Duplicate Email",
+        }),
+      });
+      assert.equal(duplicateEmailOwner.response.status, 201);
       const emailInUse = await request("/api/auth/bootstrap-admin", {
         method: "POST",
         headers: { "x-admin-bootstrap-secret": bootstrapSecret },
         body: JSON.stringify({
-          email: "customer.integration@example.test",
+          email: "duplicate-email.bootstrap@example.test",
           password: "Admin-Password-123!",
           firstName: "Email In Use",
         }),
