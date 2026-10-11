@@ -36,7 +36,7 @@ All routes under `/api/admin` require an active administrator bearer token.
 - `PATCH /api/products/:id`: updates a product with validation and owner checks. Only administrators can publish/archive products or change featured status.
 - `DELETE /api/products/:id`: archives a product after an owner/admin authorization check.
 
-Product CRUD/archive, vendor onboarding/ownership checks, Cloudinary image upload, rate limiting, and password-reset API are implemented. Login/Register and the seller/admin product-management flows use the API. The public storefront catalog service reads published products from the API, including search, price/rating/stock/sale filters, vendor/category filters, featured/bestseller/new-arrival/flash-deal lists, and product details.
+Product CRUD/archive, vendor onboarding/ownership checks, Cloudinary image upload, rate limiting, and password-reset API are implemented. The frontend login and registration forms and the seller/admin product-management flows call the API. The public storefront catalog service reads published products from the API, including search, price/rating/stock/sale filters, vendor/category filters, featured/bestseller/new-arrival/flash-deal lists, and product details. Within the dashboards, only product management and vendor-application review are API-backed: the admin orders and coupons tabs render mock data (coupon creation/toggling is in-memory state only), and the seller order-fulfillment, payouts, and settings tabs are presentation-only.
 
 ## Orders (server-authoritative)
 
@@ -59,7 +59,11 @@ There is no payment-provider integration, no verified payment callbacks, no coup
 
 ## Frontend authentication
 
-The Vite client uses `VITE_API_URL` (default `http://localhost:4000`) for login and customer registration. The access token is held in memory and is not written to localStorage. A page refresh therefore requires signing in again until a refresh-token/session endpoint is implemented. Set `VITE_ENABLE_DEMO_AUTH=true` only for local development to reveal demo-role buttons; these sessions do not carry API credentials and must never be treated as real authentication.
+The Vite client uses `VITE_API_URL` (default `http://localhost:4000`) for the login and registration forms (`POST /api/auth/login`, `POST /api/auth/register`). The access token is held in memory and is not written to localStorage; only the user object is persisted locally, and a rehydrated user is not treated as authenticated. A page refresh therefore requires signing in again until a refresh-token/session endpoint is implemented.
+
+Only the login and registration forms call the API. The frontend session restore (`authService.getCurrentUser`) reads the persisted local user object and never calls `GET /api/auth/me`; `logout` is a local-only operation that clears browser state without invalidating the token server-side (the one-hour token expires on its own); `updateProfile` updates only the local user object; and the address book is browser-local (`localStorage` with mock fallback) because no profile or address endpoints exist yet.
+
+The login UI is a single shared `/login` page that redirects by role after login (`ADMIN` to `/admin`, `VENDOR` to `/seller/dashboard`, customers to `/account`). There are no separate customer, vendor, administrator, or manager login portals, and no `MANAGER` role exists: the backend role set is exactly `CUSTOMER`, `VENDOR`, and `ADMIN`. Set `VITE_ENABLE_DEMO_AUTH=true` only for local development to reveal demo-role buttons; these sessions do not carry API credentials and must never be treated as real authentication.
 
 Public registration always creates a `CUSTOMER`. Seller registration submits a vendor application; an administrator must approve it before the account receives the `VENDOR` role. Applications are available under `/api/admin/vendors/applications`.
 
