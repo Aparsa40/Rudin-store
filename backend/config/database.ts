@@ -17,9 +17,15 @@ export async function connectDatabase(): Promise<void> {
 
   if (process.env.RUN_MONGODB_INTEGRATION === "true") {
     const databaseName = uri.split("://")[1]?.split("/")[1]?.split("?")[0];
-    if (databaseName !== "rudin_store_integration_test") {
+    // Integration suites may use the shared database or a dedicated derivation of it
+    // (for example rudin_store_integration_test_orders) so parallel suites cannot wipe
+    // each other's data. Any other database remains forbidden in integration mode.
+    const isIntegrationDatabase =
+      databaseName === "rudin_store_integration_test" ||
+      (databaseName ?? "").startsWith("rudin_store_integration_test_");
+    if (!isIntegrationDatabase) {
       throw new Error(
-        "MongoDB integration tests are restricted to the isolated rudin_store_integration_test database.",
+        "MongoDB integration tests are restricted to the isolated rudin_store_integration_test database (or a dedicated derivation of it).",
       );
     }
   }
