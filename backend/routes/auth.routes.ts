@@ -55,9 +55,15 @@ authRouter.post("/bootstrap-admin", async (req, res, next) => {
     }
     const normalizedEmail = email.trim().toLowerCase();
     const passwordHash = await hashPassword(password);
-    const user = await withAdminStateLock(async (session) => {
-      const existingAdmin = await UserModel.exists({ role: "ADMIN" }).session(session);
-      if (existingAdmin) return null;
+    // Both the "admin already exists" and "email already in use" checks run inside the
+    // serialized admin-state transaction so concurrent bootstraps cannot slip through.
+    const outcome = await withAdminStateLock(async (session) => {
+      if (await UserModel.exists({ role: "ADMIN" }).session(session)) {
+        return { kind: "closed" } as const;
+      }
+      if (await UserModel.exists({ email: normalizedEmail }).session(session)) {
+        return { kind: "email-in-use" } as const;
+      }
       const [createdUser] = await UserModel.create([{
         _id: `usr_${randomBytes(12).toString("hex")}`,
         email: normalizedEmail,
@@ -67,18 +73,29 @@ authRouter.post("/bootstrap-admin", async (req, res, next) => {
         role: "ADMIN",
         status: "ACTIVE",
       }], { session });
-      return createdUser;
+      return { kind: "created", user: createdUser } as const;
     });
-    if (!user) {
+    if (outcome.kind === "closed") {
       res.status(409).json({ error: { code: "BOOTSTRAP_CLOSED", message: "An administrator already exists." } });
       return;
     }
+    if (outcome.kind === "email-in-use") {
+      res.status(409).json({ error: { code: "EMAIL_IN_USE", message: "An account with this email already exists." } });
+      return;
+    }
     res.status(201).json({
-      user: publicUser(user),
-      accessToken: createAccessToken({ id: user._id, email: user.email, role: "ADMIN" }),
+      user: publicUser(outcome.user),
+      accessToken: createAccessToken({ id: outcome.user._id, email: outcome.user.email, role: "ADMIN" }),
       note: "Remove ADMIN_BOOTSTRAP_SECRET from the environment after the first administrator is created.",
     });
   } catch (error) {
+    // Safety net: a concurrent registration could still win the unique-email race and
+    // surface MongoDB error 11000; map it to the same precise response instead of the
+    // generic DUPLICATE_RESOURCE error.
+    if ((error as { code?: number } | null)?.code === 11000) {
+      res.status(409).json({ error: { code: "EMAIL_IN_USE", message: "An account with this email already exists." } });
+      return;
+    }
     next(error);
   }
 });
