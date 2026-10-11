@@ -40,6 +40,7 @@ Backend, test, and documentation work merged to the default branch after the v2.
 - `backend/README.md`: API reference including the server-authoritative orders section and test guidance.
 - `docs/server-authoritative-checkout.md`: order API design, deliberate non-goals, and the open product decisions (payment provider, currency, tax, shipping, coupons, multi-vendor splitting, order lifecycle).
 - Root README, docs index, backend-integration contract, and testing guide updated to match the implemented system (Phase D documentation accuracy pass): the frontend `ordersService` is documented as browser-local and not connected to the order API, and unimplemented domains are explicitly listed.
+- Frontend integration status correction pass: only the login and registration forms call the auth API (session restore reads local state and never calls `GET /api/auth/me`; logout, profile updates, and the address book are browser-local); admin orders/coupons and seller order-fulfillment/payout/settings screens are documented as mock or presentation-only; the shared role-redirecting `/login` page and the `CUSTOMER`/`VENDOR`/`ADMIN` role set are documented as the current authentication UI (no separate role portals, no `MANAGER` role).
 
 ### Validation
 
@@ -49,6 +50,7 @@ Verified through GitHub Actions CI on pull requests to the main branch (TypeScri
 
 - No payment provider, verified payment callbacks, currency/tax/shipping/coupon rules, order lifecycle workflows, or seller payouts; orders can only be created PENDING and never become PAID.
 - The frontend checkout/order flow still uses browser-local storage and does not call the order API.
+- Frontend session restore, logout, profile updates, and the address book are browser-local; the frontend never calls `GET /api/auth/me`, and the admin/seller dashboard order, coupon, payout, and settings tabs are mock or presentation-only.
 - MongoDB transactions require a replica-set or sharded deployment; a standalone `mongod` cannot serve order or admin-critical operations.
 
 ---
