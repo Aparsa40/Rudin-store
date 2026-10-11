@@ -42,6 +42,12 @@ app.use((req, res, next) => {
 
 app.use("/api/health", healthRouter);
 app.use("/api/auth/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
+// Role-specific portal logins receive the same brute-force protection as the
+// generic login endpoint; each portal path has its own request bucket.
+app.use("/api/auth/customer/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
+app.use("/api/auth/vendor/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
+app.use("/api/auth/admin/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
+app.use("/api/auth/manager/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
 app.use("/api/auth/register", createRateLimiter({ windowMs: 60 * 60 * 1000, maxRequests: 8, message: "Too many registration attempts. Please try again later." }));
 app.use("/api/auth/bootstrap-admin", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 5, message: "Too many bootstrap attempts. Please try again later." }));
 app.use("/api/auth/password-reset", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 5, message: "Too many password reset attempts. Please try again later." }));

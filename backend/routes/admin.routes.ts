@@ -98,4 +98,25 @@ adminRouter.patch("/admins/:id/status", async (req, res, next) => {
   }
 });
 
-export default adminRouter;
+adminRouter.get("/managers", async (_req, res, next) => {
+  try {
+    const managers = await UserModel.find({ role: "MANAGER" }).select("_id email firstName lastName status createdAt createdBy").sort({ createdAt: -1 }).lean();
+    res.status(200).json({ managers: managers.map((manager) => ({
+      id: manager._id, email: manager.email, firstName: manager.firstName, lastName: manager.lastName,
+      status: manager.status, createdAt: manager.createdAt, createdBy: manager.createdBy,
+    })) });
+  } catch (error) { next(error); }
+});
+
+// Managers hold the least-privilege MANAGER role: vendor application review onlKËÈ^H\HÝ\Ú[ÛY^Û\Ú][HH[]][XØ]YYZ[\Ý]Ü\NÂËÈXXÈYÚ\Ý][ÛØ[]\\ÜÚYÛ\ÈÛKYZ[Ý]\ÜÝ
+ÛX[YÙ\È\Þ[È
+\K\Ë^
+HOÂHÂÛÛÝÈ[XZ[\ÜÝÛÜ\Ý[YK\Ý[YHHH\KÙHÏÈßNÂY
+\[Ù[XZ[OOHÝ[ÈK××ÐJÐ×ÐJ××ÐJÉË\Ý
+[XZ[[J
+JH\[Ù\ÜÝÛÜOOHÝ[È\ÜÝÛÜ[ÝL\ÜÝÛÜ[ÝL\[Ù\Ý[YHOOHÝ[ÈY\Ý[YK[J
+H\Ý[YK[J
+K[Ý
+\Ý[YHOOH[Y[Y	
+\[Ù\Ý[YHOOHÝ[È\Ý[YK[Ý
+JJH
