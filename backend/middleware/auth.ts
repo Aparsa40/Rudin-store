@@ -1,9 +1,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
 import { UserModel } from "../models/user.model.js";
+import type { AdminPermission } from "../lib/admin-permissions.js";
 
-// Single source of truth for account roles. MANAGER is a least-privilege role:
-// it may only review vendor applications and never inherits ADMIN capabilities.
+// Single source of truth for account roles. MANAGER is the primary platform
+// owner: it appoints ADMIN accounts and passes every permission check. ADMIN
+// accounts hold only the granular permissions their manager granted.
 export const APP_ROLES = ["CUSTOMER", "VENDOR", "ADMIN", "MANAGER"] as const;
 export type AppRole = (typeof APP_ROLES)[number];
 export interface AuthUser {
@@ -11,6 +13,7 @@ export interface AuthUser {
   email: string;
   role: AppRole;
   authVersion?: number;
+  adminPermissions: AdminPermission[];
 }
 declare global {
   namespace Express {
@@ -68,7 +71,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
   try {
     // Re-read current role/status so disabled accounts or demoted admins lose access immediately.
-    const user = await UserModel.findOne({ _id: tokenUser.id, status: "ACTIVE" }).select("_id email role authVersion");
+    const user = await UserModel.findOne({ _id: tokenUser.id, status: "ACTIVE" }).select("_id email role authVersion adminPermissions");
     if (!user || user.email !== tokenUser.email || (user.authVersion ?? 0) !== (tokenUser.authVersion ?? 0)) {
       res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "Account is no longer active." } });
       return;
@@ -77,7 +80,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "Account role is invalid." } });
       return;
     }
-    req.authUser = { id: user._id, email: user.email, role: user.role as AppRole };
+    req.authUser = { id: user._id, email: user.email, role: user.role as AppRole, adminPermissions: [...(user.adminPermissions ?? [])] };
     next();
   } catch (error) {
     next(error);
@@ -96,4 +99,43 @@ export function requireRole(...roles: AppRole[]) {
     }
     next();
   };
+}
+
+// Permission checks for the manager/admin hierarchy. MANAGER passes every
+// permission check; ADMIN passes only with the permission granted by its
+// manager; every other role is rejected.
+export function requirePermission(permission: AdminPermission) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.authUser) {
+      res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "Authentication is required." } });
+      return;
+    }
+    if (req.authUser.role === "MANAGER" || (req.authUser.role === "ADMIN" && req.authUser.adminPermissions.includes(permission))) {
+      next();
+      return;
+    }
+    res.status(403).json({ error: { code: "FORBIDDEN", message: "You do not have permission to perform this action." } });
+  };
+}
+
+// Vendors reach their own resources; the given permission lets the primary
+// manager and authorized admins act on the whole area instead.
+export function requireVendorOrPermission(permission: AdminPermission) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.authUser) {
+      res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "Authentication is required." } });
+      return;
+    }
+    if (req.authUser.role === "VENDOR") {
+      next();
+      return;
+    }
+    requirePermission(permission)(req, res, next);
+  };
+}
+
+// Whole-catalog management: the primary manager or an admin holding the
+// products:manage permission. Everyone else is limited to their own resources.
+export function canManageWholeCatalog(user: AuthUser): boolean {
+  return user.role === "MANAGER" || (user.role === "ADMIN" && user.adminPermissions.includes("products:manage"));
 }

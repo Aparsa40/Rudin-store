@@ -11,6 +11,9 @@ const userSchema = new Schema(
     role: { type: String, enum: ["CUSTOMER", "VENDOR", "ADMIN", "MANAGER"], required: true, default: "CUSTOMER", index: true },
     status: { type: String, enum: ["ACTIVE", "DISABLED"], required: true, default: "ACTIVE", index: true },
     createdBy: { type: String },
+    // Effective granular permissions the MANAGER granted to an ADMIN account.
+    // Written only by server-side permission resolution, never from client input.
+    adminPermissions: { type: [String], default: [] },
     storeName: { type: String, trim: true, maxlength: 120 },
     storeDescription: { type: String, trim: true, maxlength: 2000 },
     vendorApplicationStatus: { type: String, enum: ["NONE", "PENDING", "APPROVED", "REJECTED"], default: "NONE", index: true },
