@@ -86,7 +86,7 @@ test("MongoDB-backed coupons and admin orders inside the manager-owned permissio
     // public registration 8 per hour, the admin portal login 10 per 15 minutes,
     // /api/orders and /api/coupons 30 per 15 minutes, and /api/admin/orders 60 per 15
     // minutes. This suite performs 1 bootstrap, 2 registrations, 3 admin-portal
-    // logins, 3 order requests, 25 coupon requests, and 11 admin-order requests,
+    // logins, 4 order requests, 26 coupon requests, and 11 admin-order requests,
     // staying within every budget across all subtests.
     const bootstrap = await request("/api/auth/bootstrap-manager", {
       method: "POST",
@@ -336,14 +336,19 @@ test("MongoDB-backed coupons and admin orders inside the manager-owned permissio
       assert.equal(redeemed.body.orderSubtotal, 49, "the discount base must be the database order subtotal");
       assert.equal(redeemed.body.discountAmount, 4);
       assert.equal(redeemed.body.discountedTotal, 45);
+      assert.equal(redeemed.body.alreadyRedeemed, false);
       assert.equal((await CouponModel.findOne({ code: "TENPCT" }).lean())?.usedCount, 1);
 
-      const exhausted = await request("/api/coupons/redeem", {
+      // Replaying the same redemption for the same order is idempotent: the
+      // recorded claim is returned without consuming the usage limit again.
+      const replayed = await request("/api/coupons/redeem", {
         method: "POST",
         headers: { authorization: `Bearer ${customerAToken}` },
         body: JSON.stringify({ code: "TENPCT", orderId }),
       });
-      assert.equal(exhausted.response.status, 404);
+      assert.equal(replayed.response.status, 200);
+      assert.equal(replayed.body.alreadyRedeemed, true);
+      assert.equal(replayed.body.discountAmount, 4);
       assert.equal((await CouponModel.findOne({ code: "TENPCT" }).lean())?.usedCount, 1);
 
       // A redemption against a missing order fails without consuming anything.
@@ -356,14 +361,43 @@ test("MongoDB-backed coupons and admin orders inside the manager-owned permissio
       assert.equal(failedRedeem.body.error.code, "ORDER_NOT_FOUND");
       assert.equal((await CouponModel.findOne({ code: "SAVE5" }).lean())?.usedCount, 0);
 
-      const saveFive = await request("/api/coupons/redeem", {
+      // A second, different coupon cannot be redeemed for the same order: the
+      // recorded claim reserves the order for exactly one coupon.
+      const secondCoupon = await request("/api/coupons/redeem", {
         method: "POST",
         headers: { authorization: `Bearer ${customerAToken}` },
         body: JSON.stringify({ code: "SAVE5", orderId }),
       });
+      assert.equal(secondCoupon.response.status, 409);
+      assert.equal(secondCoupon.body.error.code, "COUPON_ALREADY_REDEEMED");
+      assert.equal((await CouponModel.findOne({ code: "SAVE5" }).lean())?.usedCount, 0);
+
+      // A different order can still redeem the coupon.
+      const secondOrder = await request("/api/orders", {
+        method: "POST",
+        headers: { authorization: `Bearer ${customerAToken}` },
+        body: JSON.stringify({
+          items: [{ productId, quantity: 2 }],
+          shippingAddress: {
+            fullName: "Customer A", phone: "+15550100", street1: "1 Test Street",
+            city: "Testville", state: "Test State", postalCode: "12345", country: "Testland",
+          },
+          paymentMethod: "CASH_ON_DELIVERY",
+        }),
+      });
+      assert.equal(secondOrder.response.status, 201);
+      assert.equal(secondOrder.body.order.subtotal, 49);
+      const secondOrderId = secondOrder.body.order.id as string;
+
+      const saveFive = await request("/api/coupons/redeem", {
+        method: "POST",
+        headers: { authorization: `Bearer ${customerAToken}` },
+        body: JSON.stringify({ code: "SAVE5", orderId: secondOrderId }),
+      });
       assert.equal(saveFive.response.status, 200);
       assert.equal(saveFive.body.discountAmount, 5);
       assert.equal(saveFive.body.discountedTotal, 44);
+      assert.equal(saveFive.body.alreadyRedeemed, false);
     });
 
     await t.test("inactive, expired, and below-minimum coupons are rejected", async () => {
@@ -424,9 +458,10 @@ test("MongoDB-backed coupons and admin orders inside the manager-owned permissio
         headers: { authorization: `Bearer ${ordersAdminToken}` },
       });
       assert.equal(ordersAdminListing.response.status, 200);
-      assert.equal(ordersAdminListing.body.pagination.total, 1);
-      const [summary] = ordersAdminListing.body.orders as Array<Record<string, unknown>>;
-      assert.equal(summary.id, orderId);
+      assert.equal(ordersAdminListing.body.pagination.total, 2, "both customer orders are visible to the orders admin");
+      const summaries = ordersAdminListing.body.orders as Array<Record<string, unknown>>;
+      const summary = summaries.find((entry) => entry.id === orderId);
+      assert.ok(summary, "the first order must be listed");
       assert.equal("shippingAddress" in summary, false, "listings must omit the customer's shipping address");
       assert.equal("idempotencyKey" in summary, false, "listings must omit idempotency keys");
 

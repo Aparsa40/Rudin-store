@@ -27,6 +27,19 @@ const orderItemSchema = new Schema(
   { _id: false },
 );
 
+// One coupon per order: the redemption claim written by the coupon router inside
+// the redemption transaction. It is the durable proof that a coupon was consumed
+// for this order, so repeated redemption attempts cannot consume it twice.
+const couponRedemptionSchema = new Schema(
+  {
+    couponId: { type: String, required: true },
+    code: { type: String, required: true },
+    discount: { type: Number, required: true, min: 0 },
+    redeemedAt: { type: Date, required: true },
+  },
+  { _id: false },
+);
+
 const orderSchema = new Schema(
   {
     _id: { type: String, required: true },
@@ -47,6 +60,7 @@ const orderSchema = new Schema(
     total: { type: Number, required: true, min: 0 },
     // Idempotency: one order per (user, key). Optional; requests without a key are always processed.
     idempotencyKey: { type: String, trim: true },
+    couponRedemption: { type: couponRedemptionSchema },
   },
   { timestamps: true, versionKey: false },
 );

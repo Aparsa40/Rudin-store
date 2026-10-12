@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { randomBytes } from "node:crypto";
+import mongoose from "mongoose";
 import { requireAuth, requirePermission } from "../middleware/auth.js";
 import { CouponModel } from "../models/coupon.model.js";
 import { OrderModel } from "../models/order.model.js";
@@ -87,6 +88,25 @@ async function findUsableCoupon(code: string) {
   if (coupon.validUntil.getTime() <= now.getTime()) return null;
   if (coupon.usageLimit !== undefined && coupon.usageLimit !== null && coupon.usedCount >= coupon.usageLimit) return null;
   return coupon;
+}
+
+/**
+ * In-band errors for the redemption transaction. Aborting the transaction rolls
+ * the redemption claim and the usage-counter increment back together, and the
+ * error is mapped to a precise response outside the transaction.
+ */
+class RedemptionConflictError extends Error {
+  constructor() {
+    super("This order has already redeemed a coupon.");
+    this.name = "RedemptionConflictError";
+  }
+}
+
+class CouponUnusableError extends Error {
+  constructor() {
+    super("This coupon code is not valid.");
+    this.name = "CouponUnusableError";
+  }
 }
 
 // Management listing: gated by coupons:manage (the manager always passes).
@@ -357,10 +377,14 @@ couponsRouter.post("/validate", async (req, res, next) => {
 /**
  * Redemption. The discount base is the caller's OWN order subtotal read from the
  * database (ownership enforced by the userId filter); client totals are ignored.
- * The usage-limit, validity-window, and active-state conditions are part of the
- * atomic findOneAndUpdate filter, so concurrent redeems can never exceed the cap.
- * Redemption does NOT mutate the order: order totals change only through future
- * checkout integration once payment rules are defined.
+ * Exactly one coupon may be redeemed per order: the per-order claim and the
+ * usage-counter increment are written together in ONE MongoDB transaction (the
+ * same replica-set deployment the order-creation transaction requires).
+ * Repeated or concurrent requests for the same order and coupon are idempotent
+ * replays of the recorded redemption; a different coupon on an already-redeemed
+ * order is refused with 409 COUPON_ALREADY_REDEEMED. Redemption does NOT mutate
+ * order totals: totals change only through future checkout integration once
+ * payment rules are defined.
  */
 couponsRouter.post("/redeem", requireAuth, async (req, res, next) => {
   try {
@@ -369,42 +393,101 @@ couponsRouter.post("/redeem", requireAuth, async (req, res, next) => {
       res.status(400).json({ error: { code: "INVALID_COUPON_REQUEST", message: "Provide a coupon code and an order id." } });
       return;
     }
-    const coupon = await findUsableCoupon(code.trim());
-    if (!coupon) {
-      res.status(404).json({ error: { code: "COUPON_NOT_FOUND", message: "This coupon code is not valid." } });
-      return;
-    }
+    const trimmedCode = code.trim();
     const order = await OrderModel.findOne({ _id: orderId.trim(), userId: req.authUser!.id }).lean();
     if (!order) {
       res.status(404).json({ error: { code: "ORDER_NOT_FOUND", message: "Order not found." } });
+      return;
+    }
+    // Idempotent replay: the recorded claim is the durable proof that this coupon
+    // was already redeemed for this order, so replays return the stored discount
+    // without touching the usage counter again.
+    const existingClaim = order.couponRedemption;
+    if (existingClaim) {
+      if (existingClaim.code === trimmedCode.toUpperCase()) {
+        res.status(200).json({
+          coupon: { id: existingClaim.couponId, code: existingClaim.code },
+          discountAmount: existingClaim.discount,
+          orderSubtotal: order.subtotal,
+          discountedTotal: round2(order.subtotal - existingClaim.discount),
+          alreadyRedeemed: true,
+        });
+        return;
+      }
+      res.status(409).json({ error: { code: "COUPON_ALREADY_REDEEMED", message: "This order has already redeemed a coupon." } });
+      return;
+    }
+    const coupon = await findUsableCoupon(trimmedCode);
+    if (!coupon) {
+      res.status(404).json({ error: { code: "COUPON_NOT_FOUND", message: "This coupon code is not valid." } });
       return;
     }
     if (coupon.minPurchaseAmount && order.subtotal < coupon.minPurchaseAmount) {
       res.status(404).json({ error: { code: "COUPON_NOT_FOUND", message: "This coupon code is not valid." } });
       return;
     }
-    const now = new Date();
-    // Atomic consumption: every usability condition is re-checked inside the update
-    // filter, so concurrent redeems race safely and the cap can never be exceeded.
-    const filter: Record<string, unknown> = {
-      _id: coupon._id,
-      isActive: true,
-      validUntil: { $gt: now },
-      ...(coupon.validFrom ? { validFrom: { $lte: now } } : {}),
-      ...(coupon.usageLimit !== undefined && coupon.usageLimit !== null ? { usedCount: { $lt: coupon.usageLimit } } : {}),
-    };
-    const consumed = await CouponModel.findOneAndUpdate(filter, { $inc: { usedCount: 1 } }, { new: true }).lean();
-    if (!consumed) {
-      res.status(404).json({ error: { code: "COUPON_NOT_FOUND", message: "This coupon code is not valid." } });
-      return;
-    }
     const discountAmount = computeDiscount(coupon, order.subtotal);
-    res.status(200).json({
-      coupon: serializeCoupon(consumed as unknown as Record<string, unknown>),
-      discountAmount,
-      orderSubtotal: order.subtotal,
-      discountedTotal: round2(order.subtotal - discountAmount),
-    });
+    const now = new Date();
+    const session = await mongoose.startSession();
+    try {
+      let consumed: Record<string, unknown> | undefined;
+      await session.withTransaction(async () => {
+        // Claim: exactly one concurrent request per order can win this update.
+        const claimed = await OrderModel.findOneAndUpdate(
+          { _id: order._id, userId: req.authUser!.id, couponRedemption: { $exists: false } },
+          { $set: { couponRedemption: { couponId: coupon._id, code: coupon.code, discount: discountAmount, redeemedAt: now } } },
+          { session },
+        );
+        if (!claimed) throw new RedemptionConflictError();
+        // Consume: every usability condition is re-checked inside the atomic update
+        // filter, so concurrent redeems race safely and the cap can never be exceeded.
+        const filter: Record<string, unknown> = {
+          _id: coupon._id,
+          isActive: true,
+          validUntil: { $gt: now },
+          ...(coupon.validFrom ? { validFrom: { $lte: now } } : {}),
+          ...(coupon.usageLimit !== undefined && coupon.usageLimit !== null ? { usedCount: { $lt: coupon.usageLimit } } : {}),
+        };
+        const updated = await CouponModel.findOneAndUpdate(filter, { $inc: { usedCount: 1 } }, { new: true, session }).lean();
+        if (!updated) throw new CouponUnusableError();
+        consumed = updated as unknown as Record<string, unknown>;
+      });
+      res.status(200).json({
+        coupon: serializeCoupon(consumed!),
+        discountAmount,
+        orderSubtotal: order.subtotal,
+        discountedTotal: round2(order.subtotal - discountAmount),
+        alreadyRedeemed: false,
+      });
+    } catch (error) {
+      // The claim was lost to a concurrent request on the same order: either the
+      // same coupon won (idempotent replay) or another coupon did (refuse it).
+      if (error instanceof RedemptionConflictError) {
+        const current = await OrderModel.findOne({ _id: order._id, userId: req.authUser!.id }).lean();
+        const claim = current?.couponRedemption;
+        if (claim && claim.code === coupon.code) {
+          res.status(200).json({
+            coupon: { id: claim.couponId, code: claim.code },
+            discountAmount: claim.discount,
+            orderSubtotal: current!.subtotal,
+            discountedTotal: round2(current!.subtotal - claim.discount),
+            alreadyRedeemed: true,
+          });
+          return;
+        }
+        res.status(409).json({ error: { code: "COUPON_ALREADY_REDEEMED", message: "This order has already redeemed a coupon." } });
+        return;
+      }
+      // The coupon was exhausted, deactivated, or expired concurrently: the aborted
+      // transaction rolled the claim back, so nothing was consumed.
+      if (error instanceof CouponUnusableError) {
+        res.status(404).json({ error: { code: "COUPON_NOT_FOUND", message: "This coupon code is not valid." } });
+        return;
+      }
+      throw error;
+    } finally {
+      await session.endSession();
+    }
   } catch (error) { next(error); }
 });
 
