@@ -26,10 +26,11 @@ async function request(path: string, options: RequestInit = {}) {
  * Verifies the role-specific login portals end to end:
  * every portal accepts only its own role, pending/rejected vendor applicants
  * cannot enter the vendor portal, public registration can never assign
- * ADMIN or MANAGER, and the MANAGER role stays limited to the documented
- * permission matrix (vendor application review only).
+ * ADMIN or MANAGER, and the manager-owned hierarchy keeps governance with
+ * the primary MANAGER while appointed admins stay inside their granted
+ * permissions.
  */
-test("MongoDB-backed role-specific login portals and least-privilege manager role", { skip: !enabled }, async (t) => {
+test("MongoDB-backed role-specific login portals and manager-owned hierarchy", { skip: !enabled }, async (t) => {
   const baseUri = process.env.MONGODB_URI!;
   const databaseName = baseUri.split("://")[1]?.split("/")[1]?.split("?")[0];
   assert.equal(
@@ -53,7 +54,7 @@ test("MongoDB-backed role-specific login portals and least-privilege manager rol
         PORT: String(port),
         MONGODB_URI: uri,
         AUTH_TOKEN_SECRET: tokenSecret,
-        ADMIN_BOOTSTRAP_SECRET: bootstrapSecret,
+        MANAGER_BOOTSTRAP_SECRET: bootstrapSecret,
         WEB_URL: "http://localhost:3000",
         NODE_ENV: "test",
       },
@@ -75,19 +76,44 @@ test("MongoDB-backed role-specific login portals and least-privilege manager rol
 
     // NOTE on rate-limit budgets (per IP): each portal login path allows 10 requests
     // per 15 minutes, public registration allows 8 per hour, and bootstrap allows 5
-    // per 15 minutes. This suite performs 1 bootstrap, 6 registrations, and stays
+    // per 15 minutes. This suite performs 2 bootstraps, 7 registrations, and stays
     // within every portal budget counted across all subtests.
-    const bootstrap = await request("/api/auth/bootstrap-admin", {
+    const bootstrap = await request("/api/auth/bootstrap-manager", {
       method: "POST",
-      headers: { "x-admin-bootstrap-secret": bootstrapSecret },
+      headers: { "x-manager-bootstrap-secret": bootstrapSecret },
+      body: JSON.stringify({
+        email: "manager.portals@example.test",
+        password: "Portal-Manager-Password-123!",
+        firstName: "Portal Manager",
+      }),
+    });
+    assert.equal(bootstrap.response.status, 201);
+    assert.equal(bootstrap.body.user.role, "MANAGER");
+    const managerToken = bootstrap.body.accessToken as string;
+    const managerId = bootstrap.body.user.id as string;
+
+    // Admins are appointed exclusively by the primary manager; the vendor-support
+    // preset grants vendor application review only.
+    const appointedAdmin = await request("/api/admin/admins", {
+      method: "POST",
+      headers: { authorization: `Bearer ${managerToken}` },
       body: JSON.stringify({
         email: "admin.portals@example.test",
         password: "Portal-Admin-Password-123!",
         firstName: "Portal Admin",
+        permission: { presets: ["vendor-support"] },
       }),
     });
-    assert.equal(bootstrap.response.status, 201);
-    const adminToken = bootstrap.body.accessToken as string;
+    assert.equal(appointedAdmin.response.status, 201);
+    assert.deepEqual(appointedAdmin.body.admin.permissions, ["vendors:review"]);
+    const adminId = appointedAdmin.body.admin.id as string;
+    const adminPortalLogin = await request("/api/auth/admin/login", {
+      method: "POST",
+      body: JSON.stringify({ email: "admin.portals@example.test", password: "Portal-Admin-Password-123!" }),
+    });
+    assert.equal(adminPortalLogin.response.status, 200);
+    assert.equal(adminPortalLogin.body.user.role, "ADMIN");
+    const adminToken = adminPortalLogin.body.accessToken as string;
 
     const registeredCustomer = await request("/api/auth/register", {
       method: "POST",
@@ -188,26 +214,25 @@ test("MongoDB-backed role-specific login portals and least-privilege manager rol
     assert.equal(escalationManager.response.status, 201);
     assert.equal(escalationManager.body.user.role, "CUSTOMER", "public registration must never assign MANAGER");
 
-    // Managers are provisioned exclusively by an authenticated administrator.
-    const managerCreated = await request("/api/admin/managers", {
+    // An additional pending application gives the vendor-support admin a review
+    // target that the primary manager has not already acted on.
+    const adminReviewVendor = await request("/api/auth/register", {
       method: "POST",
-      headers: { authorization: `Bearer ${adminToken}` },
       body: JSON.stringify({
-        email: "manager.portals@example.test",
-        password: "Portal-Manager-Password-123!",
-        firstName: "Portal Manager",
+        email: "admin-review.portals@example.test",
+        password: "Portal-AdminReview-Password-123!",
+        firstName: "Admin Review",
       }),
     });
-    assert.equal(managerCreated.response.status, 201);
-    assert.equal(managerCreated.body.manager.status, "ACTIVE");
-    const managerLogin = await request("/api/auth/manager/login", {
+    assert.equal(adminReviewVendor.response.status, 201);
+    const adminReviewToken = adminReviewVendor.body.accessToken as string;
+    const adminReviewApplication = await request("/api/vendors/apply", {
       method: "POST",
-      body: JSON.stringify({ email: "manager.portals@example.test", password: "Portal-Manager-Password-123!" }),
+      headers: { authorization: `Bearer ${adminReviewToken}` },
+      body: JSON.stringify({ storeName: "Admin Review Store" }),
     });
-    assert.equal(managerLogin.response.status, 200);
-    assert.equal(managerLogin.body.user.role, "MANAGER");
-    const managerToken = managerLogin.body.accessToken as string;
-    const managerId = managerCreated.body.manager.id as string;
+    assert.equal(adminReviewApplication.response.status, 201);
+    assert.equal(adminReviewApplication.body.application.status, "PENDING");
 
     await t.test("vendor portal admits only approved vendor accounts", async () => {
       const pendingOnVendorPortal = await request("/api/auth/vendor/login", {
@@ -366,35 +391,54 @@ test("MongoDB-backed role-specific login portals and least-privilege manager rol
         headers: { authorization: `Bearer ${escalationToken}` },
       });
       assert.equal(adminDenied.response.status, 403);
-      const managerListDenied = await request("/api/admin/managers", {
-        headers: { authorization: `Bearer ${escalationToken}` },
-      });
-      assert.equal(managerListDenied.response.status, 403);
       const applicationsDenied = await request("/api/admin/vendors/applications", {
         headers: { authorization: `Bearer ${escalationToken}` },
       });
       assert.equal(applicationsDenied.response.status, 403);
-      const managerCreationDenied = await request("/api/admin/managers", {
+      const productDenied = await request("/api/products", {
+        method: "POST",
+        headers: { authorization: `Bearer ${escalationToken}` },
+        body: JSON.stringify({
+          categoryId: "test-category",
+          title: "Escalated customer product",
+          description: "Customers may not create products.",
+          shortDescription: "Forbidden",
+          price: 10,
+          stock: 1,
+        }),
+      });
+      assert.equal(productDenied.response.status, 403);
+      const adminCreationDenied = await request("/api/admin/admins", {
         method: "POST",
         headers: { authorization: `Bearer ${customerToken}` },
         body: JSON.stringify({
-          email: "unauthorized-manager.portals@example.test",
-          password: "Portal-Manager-Password-123!",
+          email: "unauthorized-admin.portals@example.test",
+          password: "Portal-Admin-Password-123!",
           firstName: "Unauthorized",
         }),
       });
-      assert.equal(managerCreationDenied.response.status, 403);
+      assert.equal(adminCreationDenied.response.status, 403);
     });
 
-    await t.test("manager permissions stay limited to the permission matrix", async () => {
-      // Allowed: listing and reviewing vendor applications.
+    await t.test("manager owns governance and admins stay inside their granted permissions", async () => {
+      // The manager sees the admins it appointed, including their effective permissions.
+      const adminList = await request("/api/admin/admins", {
+        headers: { authorization: `Bearer ${managerToken}` },
+      });
+      assert.equal(adminList.response.status, 200);
+      const admins = adminList.body.admins as Array<{ id: string; email: string; permissions: string[] }>;
+      assert.equal(admins.length, 1);
+      assert.equal(admins[0].id, adminId);
+      assert.equal(admins[0].email, "admin.portals@example.test");
+      assert.deepEqual(admins[0].permissions, ["vendors:review"]);
+
+      // The primary manager passes every permission check: vendor review and catalog.
       const applications = await request("/api/admin/vendors/applications?status=ALL", {
         headers: { authorization: `Bearer ${managerToken}` },
       });
       assert.equal(applications.response.status, 200);
       const listed = applications.body.applications as Array<{ id: string; status: string }>;
       assert.ok(listed.some((a) => a.id === reviewApplication.body.application.id && a.status === "PENDING"));
-
       const managerApproval = await request(
         `/api/admin/vendors/applications/${encodeURIComponent(reviewApplication.body.application.id as string)}`,
         {
@@ -405,84 +449,122 @@ test("MongoDB-backed role-specific login portals and least-privilege manager rol
       );
       assert.equal(managerApproval.response.status, 200);
       assert.equal(managerApproval.body.application.role, "VENDOR");
-
-      // Denied: every administrative capability outside the permission matrix.
-      const adminListDenied = await request("/api/admin/admins", {
-        headers: { authorization: `Bearer ${managerToken}` },
-      });
-      assert.equal(adminListDenied.response.status, 403);
-      const managerListDenied = await request("/api/admin/managers", {
-        headers: { authorization: `Bearer ${managerToken}` },
-      });
-      assert.equal(managerListDenied.response.status, 403);
-      const managerCreationDenied = await request("/api/admin/managers", {
-        method: "POST",
-        headers: { authorization: `Bearer ${managerToken}` },
-        body: JSON.stringify({
-          email: "manager-created-manager.portals@example.test",
-          password: "Portal-Manager-Password-123!",
-          firstName: "Must Not Exist",
-        }),
-      });
-      assert.equal(managerCreationDenied.response.status, 403);
-      const productDenied = await request("/api/products", {
+      const managerProduct = await request("/api/products", {
         method: "POST",
         headers: { authorization: `Bearer ${managerToken}` },
         body: JSON.stringify({
           categoryId: "test-category",
-          title: "Forbidden manager product",
-          description: "Managers may not create products.",
+          title: "Manager Owned Lamp",
+          description: "The primary manager may manage the whole catalog.",
+          shortDescription: "Manager lamp",
+          price: 14.99,
+          stock: 4,
+          status: "PUBLISHED",
+          images: [],
+        }),
+      });
+      assert.equal(managerProduct.response.status, 201);
+      assert.equal(managerProduct.body.product.status, "PUBLISHED");
+
+      // The vendor-support admin may review the remaining application...
+      const adminReviews = await request("/api/admin/vendors/applications?status=PENDING", {
+        headers: { authorization: `Bearer ${adminToken}` },
+      });
+      assert.equal(adminReviews.response.status, 200);
+      const adminApproval = await request(
+        `/api/admin/vendors/applications/${encodeURIComponent(adminReviewApplication.body.application.id as string)}`,
+        {
+          method: "PATCH",
+          headers: { authorization: `Bearer ${adminToken}` },
+          body: JSON.stringify({ decision: "APPROVED" }),
+        },
+      );
+      assert.equal(adminApproval.response.status, 200);
+      assert.equal(adminApproval.body.application.role, "VENDOR");
+
+      // ...but cannot manage products, govern admins or grant itself permissions.
+      const adminProductDenied = await request("/api/products", {
+        method: "POST",
+        headers: { authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({
+          categoryId: "test-category",
+          title: "Vendor support product",
+          description: "Admins without products:manage may not create products.",
           shortDescription: "Forbidden",
           price: 10,
           stock: 1,
         }),
       });
-      assert.equal(productDenied.response.status, 403);
-
-      // Administrators keep full manager administration.
-      const adminManagerList = await request("/api/admin/managers", {
+      assert.equal(adminProductDenied.response.status, 403);
+      const adminGovernanceDenied = await request("/api/admin/admins", {
         headers: { authorization: `Bearer ${adminToken}` },
       });
-      assert.equal(adminManagerList.response.status, 200);
-      const managers = adminManagerList.body.managers as Array<{ id: string; email: string }>;
-      assert.equal(managers.length, 1);
-      assert.equal(managers[0].id, managerId);
-      assert.equal(managers[0].email, "manager.portals@example.test");
+      assert.equal(adminGovernanceDenied.response.status, 403);
+      const adminCreationDenied = await request("/api/admin/admins", {
+        method: "POST",
+        headers: { authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({
+          email: "self-appointed.portals@example.test",
+          password: "Portal-Admin-Password-123!",
+          firstName: "Must Not Exist",
+        }),
+      });
+      assert.equal(adminCreationDenied.response.status, 403);
+      const selfEscalationDenied = await request(`/api/admin/admins/${encodeURIComponent(adminId)}/permissions`, {
+        method: "PATCH",
+        headers: { authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ allow: ["products:manage"] }),
+      });
+      assert.equal(selfEscalationDenied.response.status, 403);
+
+      // The single-manager invariant holds: bootstrap closes forever after the
+      // primary manager exists.
+      const secondBootstrap = await request("/api/auth/bootstrap-manager", {
+        method: "POST",
+        headers: { "x-manager-bootstrap-secret": bootstrapSecret },
+        body: JSON.stringify({
+          email: "second-manager.portals@example.test",
+          password: "Portal-Manager-Password-123!",
+          firstName: "Second Manager",
+        }),
+      });
+      assert.equal(secondBootstrap.response.status, 409);
+      assert.equal(secondBootstrap.body.error.code, "BOOTSTRAP_CLOSED");
     });
 
-    await t.test("expired tokens and disabled managers are rejected", async () => {
+    await t.test("expired tokens and disabled admins are rejected", async () => {
       process.env.AUTH_TOKEN_SECRET = tokenSecret;
-      const expiredManagerToken = createAccessToken(
-        { id: managerId, email: "manager.portals@example.test", role: "MANAGER" },
+      const expiredAdminToken = createAccessToken(
+        { id: adminId, email: "admin.portals@example.test", role: "ADMIN" },
         -1,
       );
       const expiredAccess = await request("/api/auth/me", {
-        headers: { authorization: `Bearer ${expiredManagerToken}` },
+        headers: { authorization: `Bearer ${expiredAdminToken}` },
       });
       assert.equal(expiredAccess.response.status, 401);
 
-      const managerMe = await request("/api/auth/me", {
-        headers: { authorization: `Bearer ${managerToken}` },
-      });
-      assert.equal(managerMe.response.status, 200);
-      assert.equal(managerMe.body.user.role, "MANAGER");
-
-      const disabled = await request(`/api/admin/managers/${encodeURIComponent(managerId)}/status`, {
-        method: "PATCH",
+      const adminMe = await request("/api/auth/me", {
         headers: { authorization: `Bearer ${adminToken}` },
+      });
+      assert.equal(adminMe.response.status, 200);
+      assert.equal(adminMe.body.user.role, "ADMIN");
+
+      const disabled = await request(`/api/admin/admins/${encodeURIComponent(adminId)}/status`, {
+        method: "PATCH",
+        headers: { authorization: `Bearer ${managerToken}` },
         body: JSON.stringify({ status: "DISABLED" }),
       });
       assert.equal(disabled.response.status, 200);
-      assert.equal(disabled.body.manager.status, "DISABLED");
+      assert.equal(disabled.body.admin.status, "DISABLED");
 
-      const disabledManagerLogin = await request("/api/auth/manager/login", {
+      const disabledAdminLogin = await request("/api/auth/admin/login", {
         method: "POST",
-        body: JSON.stringify({ email: "manager.portals@example.test", password: "Portal-Manager-Password-123!" }),
+        body: JSON.stringify({ email: "admin.portals@example.test", password: "Portal-Admin-Password-123!" }),
       });
-      assert.equal(disabledManagerLogin.response.status, 401);
+      assert.equal(disabledAdminLogin.response.status, 401);
 
       const revokedAccess = await request("/api/auth/me", {
-        headers: { authorization: `Bearer ${managerToken}` },
+        headers: { authorization: `Bearer ${adminToken}` },
       });
       assert.equal(revokedAccess.response.status, 401);
     });

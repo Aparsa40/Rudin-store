@@ -45,7 +45,7 @@ test("MongoDB-backed auth, role boundaries, bootstrap and product lifecycle", { 
         PORT: String(port),
         MONGODB_URI: uri,
         AUTH_TOKEN_SECRET: tokenSecret,
-        ADMIN_BOOTSTRAP_SECRET: bootstrapSecret,
+        MANAGER_BOOTSTRAP_SECRET: bootstrapSecret,
         WEB_URL: "http://localhost:3000",
         NODE_ENV: "test",
       },
@@ -132,12 +132,12 @@ test("MongoDB-backed auth, role boundaries, bootstrap and product lifecycle", { 
       assert.equal(productDenied.response.status, 403);
     });
 
-    await t.test("bootstraps only one administrator and protects product lifecycle", async () => {
-      // NOTE: the server rate-limits POST /api/auth/bootstrap-admin to 5 requests per
+    await t.test("bootstraps only one manager, appoints admins and protects product lifecycle", async () => {
+      // NOTE: the server rate-limits POST /api/auth/bootstrap-manager to 5 requests per
       // 15-minute window per IP. Keep the total number of bootstrap requests in this
       // subtest at or below 5; overlapping branches are intentionally merged.
       // Missing bootstrap secret (the incorrect-secret branch returns the same 404).
-      const noSecret = await request("/api/auth/bootstrap-admin", {
+      const noSecret = await request("/api/auth/bootstrap-manager", {
         method: "POST",
         body: JSON.stringify({
           email: "no-secret.admin@example.test",
@@ -147,14 +147,14 @@ test("MongoDB-backed auth, role boundaries, bootstrap and product lifecycle", { 
       });
       assert.equal(noSecret.response.status, 404);
 
-      // Missing request fields (the short-password branch returns the same 400 INVALID_ADMIN).
-      const missingFields = await request("/api/auth/bootstrap-admin", {
+      // Missing request fields (the short-password branch returns the same 400 INVALID_MANAGER).
+      const missingFields = await request("/api/auth/bootstrap-manager", {
         method: "POST",
-        headers: { "x-admin-bootstrap-secret": bootstrapSecret },
+        headers: { "x-manager-bootstrap-secret": bootstrapSecret },
         body: JSON.stringify({}),
       });
       assert.equal(missingFields.response.status, 400);
-      assert.equal(missingFields.body.error.code, "INVALID_ADMIN");
+      assert.equal(missingFields.body.error.code, "INVALID_MANAGER");
 
       // Regression: bootstrapping with an email that already belongs to an account must
       // return the precise EMAIL_IN_USE error, not the generic DUPLICATE_RESOURCE error.
@@ -169,9 +169,9 @@ test("MongoDB-backed auth, role boundaries, bootstrap and product lifecycle", { 
         }),
       });
       assert.equal(duplicateEmailOwner.response.status, 201);
-      const emailInUse = await request("/api/auth/bootstrap-admin", {
+      const emailInUse = await request("/api/auth/bootstrap-manager", {
         method: "POST",
-        headers: { "x-admin-bootstrap-secret": bootstrapSecret },
+        headers: { "x-manager-bootstrap-secret": bootstrapSecret },
         body: JSON.stringify({
           email: "duplicate-email.bootstrap@example.test",
           password: "Admin-Password-123!",
@@ -182,24 +182,24 @@ test("MongoDB-backed auth, role boundaries, bootstrap and product lifecycle", { 
       assert.equal(emailInUse.body.error.code, "EMAIL_IN_USE");
 
       // Concurrent bootstrap attempts: the admin-state transaction must allow exactly one
-      // administrator; the loser reports BOOTSTRAP_CLOSED.
+      // manager; the loser reports BOOTSTRAP_CLOSED.
       const concurrent = await Promise.all([
-        request("/api/auth/bootstrap-admin", {
+        request("/api/auth/bootstrap-manager", {
           method: "POST",
-          headers: { "x-admin-bootstrap-secret": bootstrapSecret },
+          headers: { "x-manager-bootstrap-secret": bootstrapSecret },
           body: JSON.stringify({
-            email: "admin.integration@example.test",
-            password: "Admin-Password-123!",
-            firstName: "Integration Admin",
+            email: "manager.integration@example.test",
+            password: "Manager-Password-123!",
+            firstName: "Integration Manager",
           }),
         }),
-        request("/api/auth/bootstrap-admin", {
+        request("/api/auth/bootstrap-manager", {
           method: "POST",
-          headers: { "x-admin-bootstrap-secret": bootstrapSecret },
+          headers: { "x-manager-bootstrap-secret": bootstrapSecret },
           body: JSON.stringify({
-            email: "second-admin.integration@example.test",
-            password: "Admin-Password-456!",
-            firstName: "Second Admin",
+            email: "second-manager.integration@example.test",
+            password: "Manager-Password-456!",
+            firstName: "Second Manager",
           }),
         }),
       ]);
@@ -208,7 +208,68 @@ test("MongoDB-backed auth, role boundaries, bootstrap and product lifecycle", { 
       const winner = concurrent.find((result) => result.response.status === 201)!;
       const loser = concurrent.find((result) => result.response.status === 409)!;
       assert.equal(loser.body.error.code, "BOOTSTRAP_CLOSED");
-      const adminToken = winner.body.accessToken as string;
+      assert.equal(winner.body.user.role, "MANAGER");
+      const managerToken = winner.body.accessToken as string;
+
+      // The primary manager appoints an admin with the catalog-curator preset; the
+      // server resolves the preset and stores the effective permission list on the
+      // account instead of trusting client-supplied permission strings.
+      const appointedAdmin = await request("/api/admin/admins", {
+        method: "POST",
+        headers: { authorization: `Bearer ${managerToken}` },
+        body: JSON.stringify({
+          email: "admin.integration@example.test",
+          password: "Admin-Password-123!",
+          firstName: "Integration Admin",
+          permission: { presets: ["catalog-curator"] },
+        }),
+      });
+      assert.equal(appointedAdmin.response.status, 201);
+      assert.deepEqual(appointedAdmin.body.admin.permissions, ["products:manage", "vendors:review"]);
+      const adminId = appointedAdmin.body.admin.id as string;
+
+      const invalidPermission = await request("/api/admin/admins", {
+        method: "POST",
+        headers: { authorization: `Bearer ${managerToken}` },
+        body: JSON.stringify({
+          email: "invalid-permission.integration@example.test",
+          password: "Admin-Password-123!",
+          firstName: "Invalid Permission",
+          permission: { allow: ["not-a-permission"] },
+        }),
+      });
+      assert.equal(invalidPermission.response.status, 400);
+      assert.equal(invalidPermission.body.error.code, "INVALID_PERMISSIONS");
+
+      const adminLogin = await request("/api/auth/admin/login", {
+        method: "POST",
+        body: JSON.stringify({ email: "admin.integration@example.test", password: "Admin-Password-123!" }),
+      });
+      assert.equal(adminLogin.response.status, 200);
+      assert.equal(adminLogin.body.user.role, "ADMIN");
+      const adminToken = adminLogin.body.accessToken as string;
+
+      // Appointed admins cannot reach manager-only governance, even with permissions.
+      const adminGovernanceDenied = await request("/api/admin/admins", {
+        headers: { authorization: `Bearer ${adminToken}` },
+      });
+      assert.equal(adminGovernanceDenied.response.status, 403);
+      const adminCreationDenied = await request("/api/admin/admins", {
+        method: "POST",
+        headers: { authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({
+          email: "self-appointed.integration@example.test",
+          password: "Admin-Password-456!",
+          firstName: "Self Appointed",
+        }),
+      });
+      assert.equal(adminCreationDenied.response.status, 403);
+      const selfEscalationDenied = await request(`/api/admin/admins/${encodeURIComponent(adminId)}/permissions`, {
+        method: "PATCH",
+        headers: { authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ allow: ["products:manage"] }),
+      });
+      assert.equal(selfEscalationDenied.response.status, 403);
 
       const customerLogin = await request("/api/auth/login", {
         method: "POST",
@@ -363,6 +424,36 @@ test("MongoDB-backed auth, role boundaries, bootstrap and product lifecycle", { 
 
       const publicLookup = await request(`/api/products/${encodeURIComponent(productId)}`);
       assert.equal(publicLookup.response.status, 404);
+
+      // Only the manager can revoke or re-grant an admin's permission, and the
+      // change applies immediately because requireAuth re-reads adminPermissions.
+      const revoked = await request(`/api/admin/admins/${encodeURIComponent(adminId)}/permissions`, {
+        method: "PATCH",
+        headers: { authorization: `Bearer ${managerToken}` },
+        body: JSON.stringify({ presets: ["catalog-curator"], deny: ["products:manage"] }),
+      });
+      assert.equal(revoked.response.status, 200);
+      assert.deepEqual(revoked.body.admin.permissions, ["vendors:review"]);
+      const publishDenied = await request("/api/products", {
+        method: "POST",
+        headers: { authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({
+          categoryId: "test-category",
+          title: "Forbidden after revocation",
+          description: "Admins without products:manage may not manage the catalog.",
+          shortDescription: "Forbidden",
+          price: 9.99,
+          stock: 1,
+        }),
+      });
+      assert.equal(publishDenied.response.status, 403);
+      const regranted = await request(`/api/admin/admins/${encodeURIComponent(adminId)}/permissions`, {
+        method: "PATCH",
+        headers: { authorization: `Bearer ${managerToken}` },
+        body: JSON.stringify({ presets: ["catalog-curator"] }),
+      });
+      assert.equal(regranted.response.status, 200);
+      assert.deepEqual(regranted.body.admin.permissions, ["products:manage", "vendors:review"]);
     });
   } finally {
     if (serverProcess && serverProcess.exitCode === null) {
