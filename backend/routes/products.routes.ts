@@ -292,7 +292,7 @@ productsRouter.delete("/:id", requireAuth, requireVendorOrPermission("products:m
       res.status(404).json({ error: { code: "PRODUCT_NOT_FOUND", message: "Product not found." } });
       return;
     }
-    if (req.authUser!.role !== "ADMIN" && product.vendorId !== req.authUser!.id) {
+    if (!canManageWholeCatalog(req.authUser!) && product.vendorId !== req.authUser!.id) {
       res.status(403).json({ error: { code: "FORBIDDEN", message: "You can only manage products owned by your account." } });
       return;
     }
