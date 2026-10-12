@@ -1,11 +1,11 @@
 import { Router } from "express";
-import { requireAuth, requireRole } from "../middleware/auth.js";
+import { requireAuth, requirePermission } from "../middleware/auth.js";
 import { UserModel } from "../models/user.model.js";
 
 const adminVendorsRouter = Router();
-// Permission matrix: vendor application review is the only administrative
-// capability shared with the least-privilege MANAGER role.
-adminVendorsRouter.use(requireAuth, requireRole("ADMIN", "MANAGER"));
+// Vendor application review is gated by the SELLER_MANAGEMENT permission: the
+// platform MANAGER always passes; an ADMIN passes only when the manager granted it.
+adminVendorsRouter.use(requireAuth, requirePermission("SELLER_MANAGEMENT"));
 
 adminVendorsRouter.get("/applications", async (req, res, next) => {
   try {

@@ -1,15 +1,19 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
 import { UserModel } from "../models/user.model.js";
+import type { AdminPermission } from "../lib/permissions.js";
 
-// Single source of truth for account roles. MANAGER is a least-privilege role:
-// it may only review vendor applications and never inherits ADMIN capabilities.
+// Single source of truth for account roles. MANAGER is the platform owner: it holds
+// every capability and is the only role allowed to appoint and configure admins.
 export const APP_ROLES = ["CUSTOMER", "VENDOR", "ADMIN", "MANAGER"] as const;
 export type AppRole = (typeof APP_ROLES)[number];
 export interface AuthUser {
   id: string;
   email: string;
   role: AppRole;
+  // Module-level capabilities, re-read from the database on every request.
+  // Populated by requireAuth; never trusted from the client or the token.
+  permissions?: readonly string[];
   authVersion?: number;
 }
 declare global {
@@ -68,7 +72,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
   try {
     // Re-read current role/status so disabled accounts or demoted admins lose access immediately.
-    const user = await UserModel.findOne({ _id: tokenUser.id, status: "ACTIVE" }).select("_id email role authVersion");
+    const user = await UserModel.findOne({ _id: tokenUser.id, status: "ACTIVE" }).select("_id email role authVersion permissions");
     if (!user || user.email !== tokenUser.email || (user.authVersion ?? 0) !== (tokenUser.authVersion ?? 0)) {
       res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "Account is no longer active." } });
       return;
@@ -77,7 +81,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "Account role is invalid." } });
       return;
     }
-    req.authUser = { id: user._id, email: user.email, role: user.role as AppRole };
+    req.authUser = { id: user._id, email: user.email, role: user.role as AppRole, permissions: Array.from(user.permissions ?? []) };
     next();
   } catch (error) {
     next(error);
@@ -95,5 +99,25 @@ export function requireRole(...roles: AppRole[]) {
       return;
     }
     next();
+  };
+}
+
+/**
+ * Module-level authorization. The MANAGER (platform owner) always passes; an ADMIN
+ * passes only when the manager granted it this permission; every other role is
+ * rejected. Routes that also serve vendors or customers compose this guard with
+ * their own role and ownership checks.
+ */
+export function requirePermission(permission: AdminPermission) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.authUser) {
+      res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "Authentication is required." } });
+      return;
+    }
+    if (req.authUser.role === "MANAGER" || (req.authUser.role === "ADMIN" && (req.authUser.permissions ?? []).includes(permission))) {
+      next();
+      return;
+    }
+    res.status(403).json({ error: { code: "FORBIDDEN", message: "You do not have permission to perform this action." } });
   };
 }

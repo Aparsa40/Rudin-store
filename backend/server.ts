@@ -32,7 +32,7 @@ app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", webUrl);
   res.header("Vary", "Origin");
   res.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Admin-Bootstrap-Secret, Idempotency-Key");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Manager-Bootstrap-Secret, Idempotency-Key");
   if (req.method === "OPTIONS") {
     res.sendStatus(204);
     return;
@@ -49,14 +49,14 @@ app.use("/api/auth/vendor/login", createRateLimiter({ windowMs: 15 * 60 * 1000, 
 app.use("/api/auth/admin/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
 app.use("/api/auth/manager/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
 app.use("/api/auth/register", createRateLimiter({ windowMs: 60 * 60 * 1000, maxRequests: 8, message: "Too many registration attempts. Please try again later." }));
-app.use("/api/auth/bootstrap-admin", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 5, message: "Too many bootstrap attempts. Please try again later." }));
+app.use("/api/auth/bootstrap-manager", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 5, message: "Too many bootstrap attempts. Please try again later." }));
 app.use("/api/auth/password-reset", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 5, message: "Too many password reset attempts. Please try again later." }));
 app.use("/api/uploads/images", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 20, message: "Too many image uploads. Please try again later." }));
 app.use("/api/auth", authRouter);
 app.use("/api/auth/password-reset", passwordResetRouter);
-// The vendor-application review router is shared with the least-privilege MANAGER role,
-// so it must be mounted before the ADMIN-only /api/admin router; otherwise the admin
-// router's requireRole("ADMIN") guard rejects managers on every /api/admin/vendors/* path.
+// The vendor-application review router is gated by the SELLER_MANAGEMENT permission
+// (the manager always passes; an admin passes only when granted). Mount order relative
+// to the /api/admin router is preserved for consistency.
 app.use("/api/admin/vendors", adminVendorsRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/uploads", uploadsRouter);
