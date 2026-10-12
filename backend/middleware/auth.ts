@@ -2,7 +2,10 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
 import { UserModel } from "../models/user.model.js";
 
-export type AppRole = "CUSTOMER" | "VENDOR" | "ADMIN";
+// Single source of truth for account roles. MANAGER is a least-privilege role:
+// it may only review vendor applications and never inherits ADMIN capabilities.
+export const APP_ROLES = ["CUSTOMER", "VENDOR", "ADMIN", "MANAGER"] as const;
+export type AppRole = (typeof APP_ROLES)[number];
 export interface AuthUser {
   id: string;
   email: string;
@@ -48,7 +51,7 @@ function verifyAccessToken(token: string): AuthUser | null {
       sub?: string; email?: string; role?: string; authVersion?: number; exp?: number; iat?: number;
     };
     if (!payload.sub || !payload.email || !payload.exp || payload.exp <= Math.floor(Date.now() / 1000)) return null;
-    if (!["CUSTOMER", "VENDOR", "ADMIN"].includes(payload.role ?? "")) return null;
+    if (!(APP_ROLES as readonly string[]).includes(payload.role ?? "")) return null;
     return { id: payload.sub, email: payload.email, role: payload.role as AppRole, authVersion: Number.isInteger(payload.authVersion) ? payload.authVersion : 0 };
   } catch {
     return null;
@@ -70,7 +73,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "Account is no longer active." } });
       return;
     }
-    if (!["CUSTOMER", "VENDOR", "ADMIN"].includes(user.role)) {
+    if (!(APP_ROLES as readonly string[]).includes(user.role)) {
       res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "Account role is invalid." } });
       return;
     }

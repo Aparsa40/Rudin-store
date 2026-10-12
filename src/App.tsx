@@ -14,6 +14,10 @@ import { VendorsList } from './pages/VendorsList';
 import { VendorDetail } from './pages/VendorDetail';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { SellerDashboard } from './pages/SellerDashboard';
+import { VendorLogin } from './pages/VendorLogin';
+import { AdminLogin } from './pages/AdminLogin';
+import { ManagerLogin } from './pages/ManagerLogin';
+import { ManagerDashboard } from './pages/ManagerDashboard';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { Button } from './components/ui/Button';
 
@@ -45,6 +49,9 @@ export const App: React.FC = () => {
           <Route path="cart" element={<Cart />} />
           <Route path="checkout" element={<Checkout />} />
           <Route path="login" element={<Login />} />
+          <Route path="vendor/login" element={<VendorLogin />} />
+          <Route path="admin/login" element={<AdminLogin />} />
+          <Route path="manager/login" element={<ManagerLogin />} />
           <Route path="register" element={<Register />} />
           <Route path="reset-password" element={<ResetPassword />} />
           <Route path="account/*" element={<ProtectedRoute><Account /></ProtectedRoute>} />
@@ -53,6 +60,7 @@ export const App: React.FC = () => {
           <Route path="seller/dashboard" element={<ProtectedRoute allowedRoles={['VENDOR', 'ADMIN']}><SellerDashboard /></ProtectedRoute>} />
           <Route path="seller/join" element={<Register />} />
           <Route path="admin" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminDashboard /></ProtectedRoute>} />
+          <Route path="manager" element={<ProtectedRoute allowedRoles={['MANAGER']}><ManagerDashboard /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

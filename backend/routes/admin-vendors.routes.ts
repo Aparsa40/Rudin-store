@@ -3,7 +3,9 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { UserModel } from "../models/user.model.js";
 
 const adminVendorsRouter = Router();
-adminVendorsRouter.use(requireAuth, requireRole("ADMIN"));
+// Permission matrix: vendor application review is the only administrative
+// capability shared with the least-privilege MANAGER role.
+adminVendorsRouter.use(requireAuth, requireRole("ADMIN", "MANAGER"));
 
 adminVendorsRouter.get("/applications", async (req, res, next) => {
   try {

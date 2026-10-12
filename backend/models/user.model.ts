@@ -8,7 +8,7 @@ const userSchema = new Schema(
     firstName: { type: String, required: true, trim: true, maxlength: 80 },
     lastName: { type: String, trim: true, maxlength: 80, default: "" },
     phone: { type: String, trim: true, maxlength: 32 },
-    role: { type: String, enum: ["CUSTOMER", "VENDOR", "ADMIN"], required: true, default: "CUSTOMER", index: true },
+    role: { type: String, enum: ["CUSTOMER", "VENDOR", "ADMIN", "MANAGER"], required: true, default: "CUSTOMER", index: true },
     status: { type: String, enum: ["ACTIVE", "DISABLED"], required: true, default: "ACTIVE", index: true },
     createdBy: { type: String },
     storeName: { type: String, trim: true, maxlength: 120 },

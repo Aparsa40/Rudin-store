@@ -1,8 +1,8 @@
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { Router } from "express";
-import { UserModel } from "../models/user.model.js";
-import { createAccessToken, requireAuth } from "../middleware/auth.js";
+import type { NextFunction, Request, Response } from "express";import { UserModel } from "../models/user.model.js";
+import { createAccessToken, requireAuth, type AppRole } from "../middleware/auth.js";
 import { withAdminStateLock } from "../lib/admin-state.js";
 
 const scrypt = promisify(scryptCallback);
@@ -129,6 +129,43 @@ authRouter.post("/register", async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+// Role-specific portal logins share one credential-verification path. A portal
+// rejects otherwise valid credentials whenever the account role does not match,
+// with the same generic INVALID_CREDENTIALS response used for unknown accounts,
+// so portal visitors cannot enumerate privileged accounts.
+async function handlePortalLogin(expectedRole: AppRole, req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { email, password } = req.body ?? {};
+    if (typeof email !== "string" || typeof password !== "string" || password.length > 128) {
+      res.status(400).json({ error: { code: "INVALID_CREDENTIALS", message: "Email and password are required." } });
+      return;
+    }
+    const user = await UserModel.findOne({ email: email.trim().toLowerCase(), status: "ACTIVE" }).select("+passwordHash");
+    if (!user || !(await verifyPassword(password, user.passwordHash)) || user.role !== expectedRole) {
+      res.status(401).json({ error: { code: "INVALID_CREDENTIALS", message: "Email or password is incorrect." } });
+      return;
+    }
+    // Defense in depth: the vendor portal is limited to approved vendor accounts,
+    // so customers with pending or rejected applications cannot sign in there.
+    if (expectedRole === "VENDOR" && user.vendorApplicationStatus !== "APPROVED") {
+      res.status(401).json({ error: { code: "INVALID_CREDENTIALS", message: "Email or password is incorrect." } });
+      return;
+    }
+    user.lastLoginAt = new Date();
+    await user.save();
+    res.status(200).json({
+      user: publicUser(user),
+      accessToken: createAccessToken({ id: user._id, email: user.email, role: user.role as AppRole, authVersion: user.authVersion ?? 0 }),
+    });
+  } catch (error) { next(error); }
+}
+
+authRouter.post("/customer/login", (req, res, next) => handlePortalLogin("CUSTOMER", req, res, next));
+authRouter.post("/vendor/login", (req, res, next) => handlePortalLogin("VENDOR", req, res, next));
+authRouter.post("/admin/login", (req, res, next) => handlePortalLogin("ADMIN", req, res, next));
+authRouter.post("/manager/login", (req, res, next) => handlePortalLogin("MANAGER", req, res, next));
+
+// Generic login kept for backward compatibility; it accepts every active role.
 authRouter.post("/login", async (req, res, next) => {
   try {
     const { email, password } = req.body ?? {};

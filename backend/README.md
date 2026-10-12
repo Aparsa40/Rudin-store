@@ -3,7 +3,8 @@
 ## Authentication
 
 - `POST /api/auth/register`: creates a customer account. Public registration cannot choose an elevated role.
-- `POST /api/auth/login`: validates credentials against MongoDB and returns a one-hour bearer access token.
+- `POST /api/auth/login`: validates credentials against MongoDB and returns a one-hour bearer access token. Accepts every active role; kept for backward compatibility.
+- `POST /api/auth/customer/login`, `POST /api/auth/vendor/login`, `POST /api/auth/admin/login`, `POST /api/auth/manager/login`: role-specific portal logins sharing one credential-verification path. Each portal rejects otherwise valid credentials when the account role does not match, and answers unknown accounts, wrong passwords, and wrong roles with the same generic error so portal visitors cannot enumerate privileged accounts. The vendor portal additionally requires an `APPROVED` vendor application, so pending or rejected applicants cannot sign in there.
 - `GET /api/auth/me`: returns the currently authenticated account.
 - `POST /api/auth/password-reset/request`: sends a single-use reset link through Resend. Configure server-side `RESEND_API_KEY` and `EMAIL_FROM`.
 - `POST /api/auth/password-reset/confirm`: validates the reset token, changes the password, and invalidates existing access tokens.
@@ -26,6 +27,14 @@ All routes under `/api/admin` require an active administrator bearer token.
 - `GET /api/admin/admins`: list administrator accounts (never returns password hashes).
 - `POST /api/admin/admins`: create another admin account.
 - `PATCH /api/admin/admins/:id/status`: activate or disable an admin. The current admin cannot disable itself, and the last active admin cannot be disabled.
+
+## Manager role and provisioning
+
+The `MANAGER` role is least-privilege by design and is not an alias for `ADMIN`. Permission matrix: a manager may only list vendor applications (`GET /api/admin/vendors/applications`) and approve or reject pending applications (`PATCH /api/admin/vendors/applications/:id`). Every other administrative capability — admin/manager account management, product, order, and upload operations — is denied to managers and enforced server-side by role checks.
+
+- `GET /api/admin/managers`: list manager accounts (admin only).
+- `POST /api/admin/managers`: provision a manager account (admin only). Manager accounts are created exclusively here; public registration can never assign the role.
+- `PATCH /api/admin/managers/:id/status`: activate or disable a manager (admin only). Disabled managers lose access immediately because the middleware re-reads account status on every request.
 
 ## Product catalog and authoring
 
@@ -59,11 +68,11 @@ There is no payment-provider integration, no verified payment callbacks, no coup
 
 ## Frontend authentication
 
-The Vite client uses `VITE_API_URL` (default `http://localhost:4000`) for the login and registration forms (`POST /api/auth/login`, `POST /api/auth/register`). The access token is held in memory and is not written to localStorage; only the user object is persisted locally, and a rehydrated user is not treated as authenticated. A page refresh therefore requires signing in again until a refresh-token/session endpoint is implemented.
+The Vite client uses `VITE_API_URL` (default `http://localhost:4000`) for the portal login pages and the registration form. The access token is held in memory and is not written to localStorage; only the user object is persisted locally, and a rehydrated user is not treated as authenticated. A page refresh therefore requires signing in again until a refresh-token/session endpoint is implemented.
 
-Only the login and registration forms call the API. The frontend session restore (`authService.getCurrentUser`) reads the persisted local user object and never calls `GET /api/auth/me`; `logout` is a local-only operation that clears browser state without invalidating the token server-side (the one-hour token expires on its own); `updateProfile` updates only the local user object; and the address book is browser-local (`localStorage` with mock fallback) because no profile or address endpoints exist yet.
+Only the portal login pages and the registration form call the auth API. The frontend session restore (`authService.getCurrentUser`) reads the persisted local user object and never calls `GET /api/auth/me`; `logout` is a local-only operation that clears browser state without invalidating the token server-side (the one-hour token expires on its own); `updateProfile` updates only the local user object; and the address book is browser-local (`localStorage` with mock fallback) because no profile or address endpoints exist yet.
 
-The login UI is a single shared `/login` page that redirects by role after login (`ADMIN` to `/admin`, `VENDOR` to `/seller/dashboard`, customers to `/account`). There are no separate customer, vendor, administrator, or manager login portals, and no `MANAGER` role exists: the backend role set is exactly `CUSTOMER`, `VENDOR`, and `ADMIN`. Set `VITE_ENABLE_DEMO_AUTH=true` only for local development to reveal demo-role buttons; these sessions do not carry API credentials and must never be treated as real authentication.
+The login UI provides independent portals — `/login` (customer), `/vendor/login`, `/admin/login`, and `/manager/login` — each with its own branding, copy, and post-login destination (`/account`, `/seller/dashboard`, `/admin`, and `/manager`). Each page submits only to its own role-specific endpoint; unauthenticated visitors to a protected area are redirected to the portal for that area with their destination preserved, and authenticated users with the wrong role are routed to their own home area. The backend role set is `CUSTOMER`, `VENDOR`, `ADMIN`, and the least-privilege `MANAGER`. Set `VITE_ENABLE_DEMO_AUTH=true` only for local development to reveal demo-role buttons; these sessions do not carry API credentials and must never be treated as real authentication.
 
 Public registration always creates a `CUSTOMER`. Seller registration submits a vendor application; an administrator must approve it before the account receives the `VENDOR` role. Applications are available under `/api/admin/vendors/applications`.
 
@@ -82,8 +91,9 @@ npm test
 - MongoDB integration suites (skipped unless `RUN_MONGODB_INTEGRATION=true`):
   - the security suite on `rudin_store_integration_test` covers authentication, disabled/revoked tokens, role boundaries, concurrent first-admin bootstrap, vendor approval, product lifecycle, cross-vendor ownership, and PUBLISHED-only public catalog;
   - the orders suite runs on a dedicated derived database (`rudin_store_integration_test_orders`) on its own port, because the Node test runner executes test files in parallel; it covers server-computed pricing, out-of-stock and persistence-failure transaction rollback, variant mismatch, sequential and concurrent idempotent replays, and cross-user order isolation.
+  - the login-portals suite runs on a dedicated derived database (`rudin_store_integration_test_portals`) on port 4319; it covers per-portal role matching with generic errors, pending/rejected vendor applicants on the vendor portal, public-registration role-escalation prevention, the MANAGER permission matrix, disabled-manager and expired-token rejection, and password-reset credential rotation.
 
-Both integration suites assert that their URI targets only the isolated integration database(s), delete their collections' documents at setup and teardown, terminate their spawned API child processes, and close their Mongoose connections in a `finally` block. The backend connection guard refuses any other database when `RUN_MONGODB_INTEGRATION=true`. CI uses an ephemeral MongoDB replica set. Never point `RUN_MONGODB_INTEGRATION=true` at a development, manual-test, or production database. Run `npm run lint`, `npm test`, and `npm run build` before merging.
+Every integration suite asserts that its URI targets only the isolated integration database(s), deletes its collections' documents at setup and teardown, terminates its spawned API child process, and closes its Mongoose connection in a `finally` block. The backend connection guard refuses any other database when `RUN_MONGODB_INTEGRATION=true`. CI uses an ephemeral MongoDB replica set. Never point `RUN_MONGODB_INTEGRATION=true` at a development, manual-test, or production database. Run `npm run lint`, `npm test`, and `npm run build` before merging.
 
 ## Administrator concurrency safety
 

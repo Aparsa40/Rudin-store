@@ -42,14 +42,23 @@ app.use((req, res, next) => {
 
 app.use("/api/health", healthRouter);
 app.use("/api/auth/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
+// Role-specific portal logins receive the same brute-force protection as the
+// generic login endpoint; each portal path has its own request bucket.
+app.use("/api/auth/customer/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
+app.use("/api/auth/vendor/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
+app.use("/api/auth/admin/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
+app.use("/api/auth/manager/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
 app.use("/api/auth/register", createRateLimiter({ windowMs: 60 * 60 * 1000, maxRequests: 8, message: "Too many registration attempts. Please try again later." }));
 app.use("/api/auth/bootstrap-admin", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 5, message: "Too many bootstrap attempts. Please try again later." }));
 app.use("/api/auth/password-reset", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 5, message: "Too many password reset attempts. Please try again later." }));
 app.use("/api/uploads/images", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 20, message: "Too many image uploads. Please try again later." }));
 app.use("/api/auth", authRouter);
 app.use("/api/auth/password-reset", passwordResetRouter);
-app.use("/api/admin", adminRouter);
+// The vendor-application review router is shared with the least-privilege MANAGER role,
+// so it must be mounted before the ADMIN-only /api/admin router; otherwise the admin
+// router's requireRole("ADMIN") guard rejects managers on every /api/admin/vendors/* path.
 app.use("/api/admin/vendors", adminVendorsRouter);
+app.use("/api/admin", adminRouter);
 app.use("/api/uploads", uploadsRouter);
 app.use("/api/vendors", vendorsRouter);
 app.use("/api/products", productsRouter);
