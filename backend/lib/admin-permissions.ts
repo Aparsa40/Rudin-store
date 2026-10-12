@@ -2,16 +2,18 @@
 // An admin only ever holds the permissions the manager explicitly granted,
 // so administrative work can be delegated without handing over the platform.
 
-export const ADMIN_PERMISSIONS = ["vendors:review", "products:manage"] as const;
+export const ADMIN_PERMISSIONS = ["vendors:review", "products:manage", "coupons:manage", "orders:manage"] as const;
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
 
 // Server-defined presets give managers a safe shorthand; allow/deny entries
 // fine-tune a preset without inventing new permissions. The catalog-curator
 // preset intentionally includes vendors:review so a single admin can run the
-// full vendor onboarding workflow.
+// full vendor onboarding workflow. The operations preset pairs the coupon and
+// order capabilities so an operations admin can be appointed in one step.
 export const ADMIN_PRESETS: Record<string, readonly AdminPermission[]> = {
   "vendor-support": ["vendors:review"],
   "catalog-curator": ["vendors:review", "products:manage"],
+  "operations": ["coupons:manage", "orders:manage"],
 };
 
 function toStringArray(value: unknown): string[] | null {

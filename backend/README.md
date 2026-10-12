@@ -31,16 +31,18 @@ All routes under `/api/admin` require the active primary `MANAGER` bearer token.
 
 ## Manager ownership and admin permissions
 
-The `MANAGER` role is the single primary platform owner and is not an alias for `ADMIN`. The manager appoints admin accounts, exclusively controls their permissions, and passes every permission check. Admin accounts hold only the granular permissions the manager explicitly granted; they cannot grant themselves permissions, cannot appoint other admins, and cannot touch the manager's authority. The permission set is currently `vendors:review` (list and decide vendor applications) and `products:manage` (whole-catalog product authoring, publishing/archiving, and image uploads). Permission matrix, enforced server-side on every request:
+The `MANAGER` role is the single primary platform owner and is not an alias for `ADMIN`. The manager appoints admin accounts, exclusively controls their permissions, and passes every permission check. Admin accounts hold only the granular permissions the manager explicitly granted; they cannot grant themselves permissions, cannot appoint other admins, and cannot touch the manager's authority. The permission set is currently `vendors:review` (list and decide vendor applications), `products:manage` (whole-catalog product authoring, publishing/archiving, and image uploads), `coupons:manage` (coupon creation, management listing, and updates), and `orders:manage` (read-only administrative order listing and detail). Permission matrix, enforced server-side on every request:
 
 | Capability | MANAGER | ADMIN | VENDOR | CUSTOMER |
 |---|---|---|---|---|
 | Appoint/permit/disable admins (`/api/admin/admins`) | Yes | No (403) | No (403) | No (403) |
 | Review vendor applications (`/api/admin/vendors/applications`) | Yes | Only with `vendors:review` | No (403) | No (403) |
 | Create/publish/archive any product; upload images | Yes | Only with `products:manage` | Own products only (drafts) | No (403) |
+| Manage coupons (`/api/coupons` management routes) | Yes | Only with `coupons:manage` | No (403) | No (403) |
+| View all orders (`/api/admin/orders`, read-only) | Yes | Only with `orders:manage` | No (403) | No (403) |
 | Create an ADMIN or MANAGER through public registration | Not possible | Not possible | Via approved application | Yes (always CUSTOMER) |
 
-Server-defined presets give the manager a safe shorthand: `vendor-support` (`vendors:review`) and `catalog-curator` (`vendors:review` + `products:manage`). The resolved list is stored on the account, so future preset redefinitions never silently re-grant permissions to existing admins. Manager and admin accounts can never be created through public registration; the manager exists only via the controlled bootstrap.
+Server-defined presets give the manager a safe shorthand: `vendor-support` (`vendors:review`), `catalog-curator` (`vendors:review` + `products:manage`), and `operations` (`coupons:manage` + `orders:manage`). The resolved list is stored on the account, so future preset redefinitions never silently re-grant permissions to existing admins. Manager and admin accounts can never be created through public registration; the manager exists only via the controlled bootstrap.
 
 ## Product catalog and authoring
 
@@ -51,7 +53,7 @@ Server-defined presets give the manager a safe shorthand: `vendor-support` (`ven
 - `PATCH /api/products/:id`: updates a product with validation and owner checks. Only the manager or an admin holding `products:manage` can publish/archive products or change featured status.
 - `DELETE /api/products/:id`: archives a product after an ownership or catalog-management authorization check.
 
-Product CRUD/archive, vendor onboarding/ownership checks, Cloudinary image upload, rate limiting, and password-reset API are implemented. The frontend login and registration forms and the seller/admin product-management flows call the API. The public storefront catalog service reads published products from the API, including search, price/rating/stock/sale filters, vendor/category filters, featured/bestseller/new-arrival/flash-deal lists, and product details. Within the dashboards, product management, vendor-application review, and the manager console's administrator governance are API-backed: the admin orders and coupons tabs render mock data (coupon creation/toggling is in-memory state only), and the seller order-fulfillment, payouts, and settings tabs are presentation-only.
+Product CRUD/archive, vendor onboarding/ownership checks, Cloudinary image upload, rate limiting, and password-reset API are implemented. The frontend login and registration forms and the seller/admin product-management flows call the API. The public storefront catalog service reads published products from the API, including search, price/rating/stock/sale filters, vendor/category filters, featured/bestseller/new-arrival/flash-deal lists, and product details. Within the dashboards, product management, vendor-application review, and the manager console's administrator governance are API-backed: the admin orders and coupons tabs still render mock data (coupon creation/toggling is in-memory state only and does not call the coupon API), and the seller order-fulfillment, payouts, and settings tabs are presentation-only. The backend coupon and administrative order APIs exist (see the Coupons and Administrative order visibility sections); the frontend tabs are not wired to them yet.
 
 ## Orders (server-authoritative)
 
@@ -68,9 +70,25 @@ Product CRUD/archive, vendor onboarding/ownership checks, Cloudinary image uploa
 
 Order creation uses MongoDB multi-document transactions, so the database must be a replica set (MongoDB Atlas or a local replica set); a standalone `mongod` cannot serve `POST /api/orders`. Tax and shipping are computed as zero until the corresponding product decisions are made (see `docs/server-authoritative-checkout.md`). The frontend checkout flow does **not** call these endpoints yet; the frontend `ordersService` remains browser-local.
 
+## Coupons (server-authoritative)
+
+- `POST /api/coupons` (manager, or an admin holding `coupons:manage`): creates a coupon. Codes are 3-40 characters of letters, digits, hyphens, or underscores and are stored uppercase; a duplicate code returns 409 `COUPON_CODE_IN_USE`. `type` is `PERCENTAGE` (value 1-100, optional positive `maxDiscount` cap), `FIXED` (positive value), or `FREE_SHIPPING` (value forced to 0). `minPurchaseAmount`, `description` (at most 200 characters), `validFrom`, a future `validUntil`, an optional integer `usageLimit` of at least 1, and `isActive` are validated server-side, and the cross-field shape rules are re-checked on every update.
+- `GET /api/coupons` (manager, or an admin holding `coupons:manage`): management listing, newest first.
+- `PATCH /api/coupons/:id` (manager, or an admin holding `coupons:manage`): updates the mutable fields; coupon codes are immutable (400), and the merged coupon shape is re-validated.
+- `POST /api/coupons/validate` (unauthenticated preview): returns the coupon and the server-computed `discountAmount` for a preview cart amount, or a generic 404 for unknown, inactive, not-yet-started, expired, exhausted, or below-minimum codes.
+- `POST /api/coupons/redeem` (authentication required): redeems a coupon against the caller's own order. The discount base is the order subtotal read from the database (ownership enforced by the `userId` filter; other users' orders are indistinguishable from missing ones). The active state, validity window, and usage limit are re-checked atomically inside the `findOneAndUpdate` filter, so concurrent redemptions can never exceed `usageLimit`, and failed redemptions consume nothing. Redemption does not mutate the order: order totals change only through a future checkout integration once payment rules are defined.
+- Rate limiting: 30 requests per 15 minutes per IP on `/api/coupons`.
+
+## Administrative order visibility (read-only)
+
+- `GET /api/admin/orders` (manager, or an admin holding `orders:manage`): paginated, filterable order listing (`status`, `paymentStatus`, `userId`, `from`/`to` date range, `orderNumber` regex). Listing responses omit each customer's full shipping address and the idempotency key; invalid filters return 400 `INVALID_QUERY`.
+- `GET /api/admin/orders/:id` (manager, or an admin holding `orders:manage`): full order detail including the shipping address, for order operations.
+- No route here mutates orders: payment and fulfillment transitions remain future scope by design. Customers keep owner-scoped access through `/api/orders` only, and sellers have no administrative order access.
+- Rate limiting: 60 requests per 15 minutes per IP on `/api/admin/orders`.
+
 ## Not implemented
 
-There is no payment-provider integration, no verified payment callbacks, no coupon engine, no cancellation/refund/fulfillment endpoints, no per-vendor order splitting, no server-side cart persistence, no customer address CRUD, and no reviews endpoint. Email verification and refresh-token rotation are also not implemented. Do not treat those domains as backend-connected or production-ready until their API contracts and tests exist.
+There is no payment-provider integration, no verified payment callbacks, no checkout integration that applies a redeemed coupon to stored order totals, no cancellation/refund/fulfillment endpoints, no per-vendor order splitting, no server-side cart persistence, no customer address CRUD, and no reviews endpoint. (A coupon engine and read-only administrative order visibility now exist — see the Coupons and Administrative order visibility sections — but the frontend admin coupon and order tabs do not call these APIs yet.) Email verification and refresh-token rotation are also not implemented. Do not treat those domains as backend-connected or production-ready until their API contracts and tests exist.
 
 ## Frontend authentication
 
@@ -98,6 +116,7 @@ npm test
   - the security suite on `rudin_store_integration_test` covers authentication, disabled/revoked tokens, role boundaries, concurrent manager bootstrap (exactly one manager can be created), manager-appointed administrators with server-resolved permission presets, vendor approval, product lifecycle, cross-vendor ownership, and PUBLISHED-only public catalog;
   - the orders suite runs on a dedicated derived database (`rudin_store_integration_test_orders`) on its own port, because the Node test runner executes test files in parallel; it covers server-computed pricing, out-of-stock and persistence-failure transaction rollback, variant mismatch, sequential and concurrent idempotent replays, and cross-user order isolation.
   - the login-portals suite runs on a dedicated derived database (`rudin_store_integration_test_portals`) on port 4319; it covers per-portal role matching with generic errors, pending/rejected vendor applicants on the vendor portal, public-registration role-escalation prevention, manager-owned governance (the manager manages the catalog while appointed admins stay inside their granted permissions and cannot self-escalate), disabled-admin and expired-token rejection, and password-reset credential rotation.
+  - the coupons-orders suite runs on a dedicated derived database (`rudin_store_integration_test_coupons`) on port 4320; it covers the `coupons:manage` and `orders:manage` permission boundaries (including the `operations` preset and cross-permission denial), coupon code immutability and duplicate-code rejection, inactive/expired/below-minimum coupon rejection, atomic usage-limit consumption with failed redemptions consuming nothing, ownership-scoped redemption, read-only administrative order listing/detail with address-safe summaries and invalid-filter rejection, and cross-customer order isolation.
 
 Every integration suite asserts that its URI targets only the isolated integration database(s), deletes its collections' documents at setup and teardown, terminates its spawned API child process, and closes its Mongoose connection in a `finally` block. The backend connection guard refuses any other database when `RUN_MONGODB_INTEGRATION=true`. CI uses an ephemeral MongoDB replica set. Never point `RUN_MONGODB_INTEGRATION=true` at a development, manual-test, or production database. Run `npm run lint`, `npm test`, and `npm run build` before merging.
 

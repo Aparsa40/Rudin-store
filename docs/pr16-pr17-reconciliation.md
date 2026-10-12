@@ -30,6 +30,18 @@ Add PR #17 coupon/order tests alongside those tests; do not replace the existing
 
 Neither original PR should be merged until a reconciled branch passes TypeScript checks, all unit and MongoDB integration tests (with integration tests actually enabled in CI), production build, and a review of the final diff. A locally passing test run with MongoDB suites skipped is not sufficient evidence for the integration behavior.
 
+## Implemented reconciliation (this branch)
+
+The valid PR #17 coupon and order capabilities have been integrated into the canonical PR #16 authorization model:
+
+- Permission vocabulary extended from `vendors:review` and `products:manage` with `coupons:manage` (coupon management) and `orders:manage` (read-only administrative order listing and detail). A new server-defined preset `operations` grants `coupons:manage` + `orders:manage`. The deny-wins server-side resolution and the `User.adminPermissions` storage are unchanged; no second permission field was introduced.
+- `backend/models/coupon.model.ts` and `backend/routes/coupons.routes.ts` ported from PR #17 with `COUPON_MANAGEMENT` replaced by `coupons:manage`. Coupon codes are immutable after creation, discount math is computed server-side, redemption is atomic against the usage limit, and redemption is restricted to the caller's own order read from the database.
+- `backend/routes/admin-orders.routes.ts` ported from PR #17 with `ORDER_MANAGEMENT` replaced by `orders:manage`; `serializeOrder` is now exported from `backend/routes/orders.routes.ts` for reuse. The admin order routes remain read-only by design; payment and fulfillment transitions stay future scope.
+- Both routers are mounted in `backend/server.ts` with dedicated rate-limit buckets (`/api/coupons` 30 requests, `/api/admin/orders` 60 requests, per 15 minutes per IP). `/api/admin/orders` is mounted before the MANAGER-only `/api/admin` router so authorized admins are not rejected by its `requireRole("MANAGER")` guard.
+- The partial unique index on `role: "MANAGER"` from PR #17 was adopted in `backend/models/user.model.ts` as a database-level single-manager invariant; the transactional bootstrap guard remains the primary application-level control.
+- Rejected from PR #17: the competing `backend/lib/permissions.ts` symbolic permission system (`SELLER_MANAGEMENT`, `COUPON_MANAGEMENT`, ...), the separate `User.permissions` field, and the rewritten integration test suites, because adopting them would replace the canonical authorization model and weaken the existing security coverage. The PR #16 suites are preserved unchanged.
+- New suite `backend/integration/coupons-orders.integration.test.ts` (dedicated `rudin_store_integration_test_coupons` database, port 4320) covers the `coupons:manage` and `orders:manage` permission boundaries (including the `operations` preset and cross-permission denial), coupon code immutability and duplicate-code rejection, inactive/expired/below-minimum coupon rejection, atomic usage-limit consumption, ownership-scoped redemption, read-only administrative order visibility with address-safe listings, and cross-customer order isolation.
+
 ## Current status
 
-This document records the reconciliation contract. It does not claim that coupon/order routes have already been ported or that CI has passed on the reconciliation branch.
+The reconciliation implementation above is complete on this branch. It has not yet been verified by CI or by a local test run: the TypeScript check, the unit and MongoDB integration suites (including the new coupons-orders suite), and the production build must actually be executed before the merge gate below is satisfied. This document does not claim passing checks for the reconciled changes.

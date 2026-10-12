@@ -13,6 +13,8 @@ import adminVendorsRouter from "./routes/admin-vendors.routes.js";
 import passwordResetRouter from "./routes/password-reset.routes.js";
 import uploadsRouter from "./routes/uploads.routes.js";
 import ordersRouter from "./routes/orders.routes.js";
+import couponsRouter from "./routes/coupons.routes.js";
+import adminOrdersRouter from "./routes/admin-orders.routes.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
@@ -54,6 +56,11 @@ app.use("/api/auth/password-reset", createRateLimiter({ windowMs: 15 * 60 * 1000
 app.use("/api/uploads/images", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 20, message: "Too many image uploads. Please try again later." }));
 app.use("/api/auth", authRouter);
 app.use("/api/auth/password-reset", passwordResetRouter);
+// The read-only administrative order router admits the primary MANAGER and admins
+// holding orders:manage, so it must be mounted before the MANAGER-only /api/admin
+// router for the same reason as the vendor-application router below.
+app.use("/api/admin/orders", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 60, message: "Too many admin order requests. Please try again later." }));
+app.use("/api/admin/orders", adminOrdersRouter);
 // The vendor-application review router admits the primary MANAGER and admins holding
 // the vendors:review permission, so it must be mounted before the MANAGER-only
 // /api/admin router; otherwise the admin router's requireRole("MANAGER") guard
@@ -65,6 +72,8 @@ app.use("/api/vendors", vendorsRouter);
 app.use("/api/products", productsRouter);
 app.use("/api/orders", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 30, message: "Too many order requests. Please try again later." }));
 app.use("/api/orders", ordersRouter);
+app.use("/api/coupons", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 30, message: "Too many coupon requests. Please try again later." }));
+app.use("/api/coupons", couponsRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);
 

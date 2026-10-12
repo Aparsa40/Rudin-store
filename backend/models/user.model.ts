@@ -25,4 +25,9 @@ const userSchema = new Schema(
   { timestamps: true, versionKey: false },
 );
 
+// Single-MANAGER invariant at the database level: at most one account may hold the
+// platform-owner role. This backs up the serialized bootstrap check against races
+// and out-of-band writes.
+userSchema.index({ role: 1 }, { unique: true, partialFilterExpression: { role: "MANAGER" } });
+
 export const UserModel = model("User", userSchema);
