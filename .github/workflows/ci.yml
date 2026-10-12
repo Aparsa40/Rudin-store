@@ -37,13 +37,19 @@ jobs:
 
       - name: Start MongoDB replica set
         run: |
-          docker run -d --name rudin-mongodb -p 27017:27017 public.ecr.aws/docker/library/mongo:7 mongod --replSet rs0 --bind_ip_all
+          # Use the official Docker Hub image instead of public ECR, which has
+          # been returning anonymous-pull rate-limit errors in GitHub Actions.
+          docker pull mongo:7
+          docker run -d --name rudin-mongodb -p 27017:27017 mongo:7 mongod --replSet rs0 --bind_ip_all
           for attempt in {1..30}; do
             if docker exec rudin-mongodb mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' | grep -q 1; then
-              break
+              exit 0
             fi
             sleep 1
           done
+          echo "MongoDB did not become reachable in time" >&2
+          docker logs rudin-mongodb >&2
+          exit 1
 
       - name: Initialize MongoDB replica set
         run: |
