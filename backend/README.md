@@ -16,36 +16,42 @@
   ```
   Put it in the ignored local `.env` as `AUTH_TOKEN_SECRET`. Do not commit or share it.
 
-## First administrator bootstrap
+## First manager bootstrap
 
-The first admin must be created once using `POST /api/auth/bootstrap-admin`. Before starting the API, put a separate random value of at least 32 characters in local `.env` as `ADMIN_BOOTSTRAP_SECRET`. Send it in the `X-Admin-Bootstrap-Secret` header with a JSON body containing `email`, `password` (12–128 characters), and `firstName` (optional `lastName`). The route only works while no admin account exists. After success, remove `ADMIN_BOOTSTRAP_SECRET` from `.env` and restart the API. Never expose the bootstrap secret in a browser app or commit it.
+The single primary `MANAGER` account must be created once using `POST /api/auth/bootstrap-manager`. Before starting the API, put a separate random value of at least 32 characters in local `.env` as `MANAGER_BOOTSTRAP_SECRET`. Send it in the `X-Manager-Bootstrap-Secret` header with a JSON body containing `email`, `password` (12–128 characters), and `firstName` (optional `lastName`). The route only works while no manager account exists: the existence and email checks plus the insert run inside the transactional singleton guard, concurrent attempts are serialized, and late arrivals receive `409 BOOTSTRAP_CLOSED`. A missing or incorrect secret receives an indistinguishable `404`. After success, remove `MANAGER_BOOTSTRAP_SECRET` from `.env` and restart the API. Never expose the bootstrap secret in a browser app or commit it.
 
-## Administrator management
+## Administrator governance (manager-appointed)
 
-All routes under `/api/admin` require an active administrator bearer token.
+All routes under `/api/admin` require the active primary `MANAGER` bearer token. Admin accounts can never reach this governance area, even when the manager granted them permissions.
 
 - `GET /api/admin/admins`: list administrator accounts (never returns password hashes).
-- `POST /api/admin/admins`: create another admin account.
-- `PATCH /api/admin/admins/:id/status`: activate or disable an admin. The current admin cannot disable itself, and the last active admin cannot be disabled.
+- `POST /api/admin/admins`: appoint an admin account. The optional `permission` object is resolved server-side from `presets`, `allow`, and `deny` arrays; client-supplied permission lists are never stored directly, and unknown presets or permissions are rejected with `400 INVALID_PERMISSIONS`.
+- `PATCH /api/admin/admins/:id/permissions`: replace the admin's effective permissions wholesale from a server-side resolution. `deny` always wins over `presets` and `allow`, so revocation is explicit. Because the whole router is manager-only, admins cannot edit their own or anyone else's permissions.
+- `PATCH /api/admin/admins/:id/status`: activate or disable an admin. Disabled admins lose access immediately because the middleware re-reads account status on every request.
 
-## Manager role and provisioning
+## Manager ownership and admin permissions
 
-The `MANAGER` role is least-privilege by design and is not an alias for `ADMIN`. Permission matrix: a manager may only list vendor applications (`GET /api/admin/vendors/applications`) and approve or reject pending applications (`PATCH /api/admin/vendors/applications/:id`). Every other administrative capability — admin/manager account management, product, order, and upload operations — is denied to managers and enforced server-side by role checks.
+The `MANAGER` role is the single primary platform owner and is not an alias for `ADMIN`. The manager appoints admin accounts, exclusively controls their permissions, and passes every permission check. Admin accounts hold only the granular permissions the manager explicitly granted; they cannot grant themselves permissions, cannot appoint other admins, and cannot touch the manager's authority. The permission set is currently `vendors:review` (list and decide vendor applications) and `products:manage` (whole-catalog product authoring, publishing/archiving, and image uploads). Permission matrix, enforced server-side on every request:
 
-- `GET /api/admin/managers`: list manager accounts (admin only).
-- `POST /api/admin/managers`: provision a manager account (admin only). Manager accounts are created exclusively here; public registration can never assign the role.
-- `PATCH /api/admin/managers/:id/status`: activate or disable a manager (admin only). Disabled managers lose access immediately because the middleware re-reads account status on every request.
+| Capability | MANAGER | ADMIN | VENDOR | CUSTOMER |
+|---|---|---|---|---|
+| Appoint/permit/disable admins (`/api/admin/admins`) | Yes | No (403) | No (403) | No (403) |
+| Review vendor applications (`/api/admin/vendors/applications`) | Yes | Only with `vendors:review` | No (403) | No (403) |
+| Create/publish/archive any product; upload images | Yes | Only with `products:manage` | Own products only (drafts) | No (403) |
+| Create an ADMIN or MANAGER through public registration | Not possible | Not possible | Via approved application | Yes (always CUSTOMER) |
+
+Server-defined presets give the manager a safe shorthand: `vendor-support` (`vendors:review`) and `catalog-curator` (`vendors:review` + `products:manage`). The resolved list is stored on the account, so future preset redefinitions never silently re-grant permissions to existing admins. Manager and admin accounts can never be created through public registration; the manager exists only via the controlled bootstrap.
 
 ## Product catalog and authoring
 
 - `GET /api/products`: published catalog with filters, sorting, and pagination.
 - `GET /api/products/:identifier`: published product by ID or slug.
-- `GET /api/products/mine`: returns all products for the current vendor, or all products for an administrator.
-- `POST /api/products`: requires an active ADMIN or VENDOR bearer token. Admins can publish a product; vendor-created products are forced to DRAFT. Public requests cannot create or publish products.
-- `PATCH /api/products/:id`: updates a product with validation and owner checks. Only administrators can publish/archive products or change featured status.
-- `DELETE /api/products/:id`: archives a product after an owner/admin authorization check.
+- `GET /api/products/mine`: returns all products for the current vendor, or the whole catalog for the manager or an admin holding `products:manage`.
+- `POST /api/products`: requires the manager, an admin holding `products:manage`, or an active vendor. Catalog managers can publish a product and attribute it to a vendor; vendor-created products are forced to DRAFT. Public requests cannot create or publish products.
+- `PATCH /api/products/:id`: updates a product with validation and owner checks. Only the manager or an admin holding `products:manage` can publish/archive products or change featured status.
+- `DELETE /api/products/:id`: archives a product after an ownership or catalog-management authorization check.
 
-Product CRUD/archive, vendor onboarding/ownership checks, Cloudinary image upload, rate limiting, and password-reset API are implemented. The frontend login and registration forms and the seller/admin product-management flows call the API. The public storefront catalog service reads published products from the API, including search, price/rating/stock/sale filters, vendor/category filters, featured/bestseller/new-arrival/flash-deal lists, and product details. Within the dashboards, only product management and vendor-application review are API-backed: the admin orders and coupons tabs render mock data (coupon creation/toggling is in-memory state only), and the seller order-fulfillment, payouts, and settings tabs are presentation-only.
+Product CRUD/archive, vendor onboarding/ownership checks, Cloudinary image upload, rate limiting, and password-reset API are implemented. The frontend login and registration forms and the seller/admin product-management flows call the API. The public storefront catalog service reads published products from the API, including search, price/rating/stock/sale filters, vendor/category filters, featured/bestseller/new-arrival/flash-deal lists, and product details. Within the dashboards, product management, vendor-application review, and the manager console's administrator governance are API-backed: the admin orders and coupons tabs render mock data (coupon creation/toggling is in-memory state only), and the seller order-fulfillment, payouts, and settings tabs are presentation-only.
 
 ## Orders (server-authoritative)
 
@@ -72,9 +78,9 @@ The Vite client uses `VITE_API_URL` (default `http://localhost:4000`) for the po
 
 Only the portal login pages and the registration form call the auth API. The frontend session restore (`authService.getCurrentUser`) reads the persisted local user object and never calls `GET /api/auth/me`; `logout` is a local-only operation that clears browser state without invalidating the token server-side (the one-hour token expires on its own); `updateProfile` updates only the local user object; and the address book is browser-local (`localStorage` with mock fallback) because no profile or address endpoints exist yet.
 
-The login UI provides independent portals — `/login` (customer), `/vendor/login`, `/admin/login`, and `/manager/login` — each with its own branding, copy, and post-login destination (`/account`, `/seller/dashboard`, `/admin`, and `/manager`). Each page submits only to its own role-specific endpoint; unauthenticated visitors to a protected area are redirected to the portal for that area with their destination preserved, and authenticated users with the wrong role are routed to their own home area. The backend role set is `CUSTOMER`, `VENDOR`, `ADMIN`, and the least-privilege `MANAGER`. Set `VITE_ENABLE_DEMO_AUTH=true` only for local development to reveal demo-role buttons; these sessions do not carry API credentials and must never be treated as real authentication.
+The login UI provides independent portals — `/login` (customer), `/vendor/login`, `/admin/login`, and `/manager/login` — each with its own branding, copy, and post-login destination (`/account`, `/seller/dashboard`, `/admin`, and `/manager`). Each page submits only to its own role-specific endpoint; unauthenticated visitors to a protected area are redirected to the portal for that area with their destination preserved, and authenticated users with the wrong role are routed to their own home area. The backend role set is `CUSTOMER`, `VENDOR`, `ADMIN`, and `MANAGER`: the manager is the single primary platform owner (bootstrap-only) and appoints admins with granular permission presets. The production header account menu links to the real portal sign-in pages instead of switching simulated roles. Set `VITE_ENABLE_DEMO_AUTH=true` only for local development to reveal demo-role buttons; these sessions do not carry API credentials and must never be treated as real authentication.
 
-Public registration always creates a `CUSTOMER`. Seller registration submits a vendor application; an administrator must approve it before the account receives the `VENDOR` role. Applications are available under `/api/admin/vendors/applications`.
+Public registration always creates a `CUSTOMER`. Seller registration submits a vendor application; the manager or an admin holding `vendors:review` must approve it before the account receives the `VENDOR` role. Applications are available under `/api/admin/vendors/applications`.
 
 ## Validation and tests
 
@@ -89,12 +95,12 @@ npm test
 - Backend unit tests: product-input validation, rate-limiter behavior, upload image decoding.
 - Frontend unit test: the browser-local `ordersService` (orders start PENDING/unpaid, no fabricated tracking data).
 - MongoDB integration suites (skipped unless `RUN_MONGODB_INTEGRATION=true`):
-  - the security suite on `rudin_store_integration_test` covers authentication, disabled/revoked tokens, role boundaries, concurrent first-admin bootstrap, vendor approval, product lifecycle, cross-vendor ownership, and PUBLISHED-only public catalog;
+  - the security suite on `rudin_store_integration_test` covers authentication, disabled/revoked tokens, role boundaries, concurrent manager bootstrap (exactly one manager can be created), manager-appointed administrators with server-resolved permission presets, vendor approval, product lifecycle, cross-vendor ownership, and PUBLISHED-only public catalog;
   - the orders suite runs on a dedicated derived database (`rudin_store_integration_test_orders`) on its own port, because the Node test runner executes test files in parallel; it covers server-computed pricing, out-of-stock and persistence-failure transaction rollback, variant mismatch, sequential and concurrent idempotent replays, and cross-user order isolation.
-  - the login-portals suite runs on a dedicated derived database (`rudin_store_integration_test_portals`) on port 4319; it covers per-portal role matching with generic errors, pending/rejected vendor applicants on the vendor portal, public-registration role-escalation prevention, the MANAGER permission matrix, disabled-manager and expired-token rejection, and password-reset credential rotation.
+  - the login-portals suite runs on a dedicated derived database (`rudin_store_integration_test_portals`) on port 4319; it covers per-portal role matching with generic errors, pending/rejected vendor applicants on the vendor portal, public-registration role-escalation prevention, manager-owned governance (the manager manages the catalog while appointed admins stay inside their granted permissions and cannot self-escalate), disabled-admin and expired-token rejection, and password-reset credential rotation.
 
 Every integration suite asserts that its URI targets only the isolated integration database(s), deletes its collections' documents at setup and teardown, terminates its spawned API child process, and closes its Mongoose connection in a `finally` block. The backend connection guard refuses any other database when `RUN_MONGODB_INTEGRATION=true`. CI uses an ephemeral MongoDB replica set. Never point `RUN_MONGODB_INTEGRATION=true` at a development, manual-test, or production database. Run `npm run lint`, `npm test`, and `npm run build` before merging.
 
-## Administrator concurrency safety
+## Manager bootstrap concurrency safety
 
-The first-admin bootstrap and admin status-change operations share a transactional singleton guard. This serializes competing admin-critical transactions and prevents concurrent requests from bypassing the first-admin or final-active-admin checks. This mechanism requires MongoDB transactions, so use MongoDB Atlas or another replica-set/sharded deployment; a standalone MongoDB server does not support these transactions. Integration tests against the configured MongoDB deployment are still required before production use.
+The manager bootstrap's existence checks ("a manager already exists" and "email already in use") and the account insert run inside a shared transactional singleton guard. This serializes competing bootstrap transactions and guarantees that exactly one manager account can ever be created, even under concurrent requests. This mechanism requires MongoDB transactions, so use MongoDB Atlas or another replica-set/sharded deployment; a standalone MongoDB server does not support these transactions. Integration tests against the configured MongoDB deployment are still required before production use.

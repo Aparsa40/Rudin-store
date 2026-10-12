@@ -29,11 +29,11 @@ The integration suites are skipped unless `RUN_MONGODB_INTEGRATION=true` is set.
 
 ## Integration suite scope
 
-The security suite covers authentication, role enforcement, administrator bootstrap (including concurrent bootstrap attempts), vendor application approval, product ownership, and published-only catalog visibility.
+The security suite covers authentication, role enforcement, manager bootstrap (including concurrent bootstrap attempts, where exactly one manager is created), manager-appointed administrators with permission presets, vendor application approval, product ownership, and published-only catalog visibility.
 
 The orders suite covers server-authoritative pricing (client-supplied totals ignored), stock decrement, transaction rollback on order-persistence failure, concurrent requests with the same idempotency key, variant-specific inventory matching (insufficient requested variant, sufficient other variant), cross-user order isolation, and draft-product rejection.
 
-The login-portals suite covers per-portal role matching with generic non-enumerating errors, pending and rejected vendor applicants on the vendor portal, public-registration role-escalation prevention (no ADMIN or MANAGER), the least-privilege MANAGER permission matrix (vendor-application review allowed; admin, product, and manager-management operations denied), disabled-manager and expired-token rejection, and password-reset credential rotation with session revocation.
+The login-portals suite covers per-portal role matching with generic non-enumerating errors, pending and rejected vendor applicants on the vendor portal, public-registration role-escalation prevention (no ADMIN or MANAGER), manager-owned governance (the manager manages the catalog while appointed admins stay inside their granted permissions and cannot self-escalate), disabled-admin and expired-token rejection, and password-reset credential rotation with session revocation.
 
 All test files were audited for assertion quality: no tautological or unconditional-pass assertions (`|| true` patterns) exist in any test file.
 
@@ -70,6 +70,7 @@ These areas currently have no automated tests and are documented rather than inv
 - Verify vendor application submission and administrator approval.
 - Verify seller product creation, editing, unpublishing, archiving, and image upload after Cloudinary credentials are configured.
 - Admin product management and vendor-application review use backend endpoints.
+- Manager console: bootstrap the primary manager, appoint an administrator with a permission preset, verify the appointed admin can exercise only the granted capabilities, and verify permission revocation applies immediately.
 - The admin orders and coupons tabs and the seller order-fulfillment, payouts, and settings tabs are mock or presentation-only; do not use them to validate backend behavior.
 
 ### Not yet fully backend-connected

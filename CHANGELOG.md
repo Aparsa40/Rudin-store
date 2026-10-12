@@ -13,7 +13,7 @@ Backend, test, and documentation work merged to the default branch after the v2.
 ### Added — Backend (Node.js/Express/MongoDB)
 
 - Authentication API: registration (always CUSTOMER), login, `GET /api/auth/me`, scrypt password hashing, one-hour bearer tokens, token invalidation on password change and account status/authVersion changes.
-- First-admin bootstrap (`POST /api/auth/bootstrap-admin`, secret-header, one-time) and admin management endpoints with a transactional singleton guard against concurrent bootstrap/disable bypasses.
+- One-time manager bootstrap (`POST /api/auth/bootstrap-manager`, `X-Manager-Bootstrap-Secret` header, `MANAGER_BOOTSTRAP_SECRET`) creating the single primary platform owner, with a transactional singleton guard so concurrent attempts cannot create a second manager.
 - Password reset request/confirm with single-use hashed expiring tokens (delivery via Resend).
 - Vendor applications and administrator approval with role escalation to VENDOR.
 - Product catalog with pagination, search, price/rating/stock/sale, category/vendor/brand, featured/bestseller/new-arrival/flash-deal filters; product authoring with ownership and role enforcement; vendor-created products forced to DRAFT; publish/archive restricted to administrators; public catalog restricted to PUBLISHED products.
@@ -24,13 +24,14 @@ Backend, test, and documentation work merged to the default branch after the v2.
   - Rate limiting: 30 requests per 15 minutes per IP on `/api/orders`.
 - Health endpoint and per-endpoint rate limiting on sensitive auth/bootstrap/upload routes.
 - Role-specific login portals (`POST /api/auth/customer/login`, `/vendor/login`, `/admin/login`, `/manager/login`) sharing one credential-verification path: wrong-role accounts receive the same generic error as unknown accounts (no privileged-account enumeration), the vendor portal additionally requires an approved vendor application, and each portal path has its own rate-limit bucket.
-- Least-privilege `MANAGER` role with an explicit permission matrix (vendor-application review only, never an ADMIN alias): admin-only provisioning and lifecycle (`GET /api/admin/managers`, `POST /api/admin/managers`, `PATCH /api/admin/managers/:id/status`), and `/api/admin/vendors` application review now requires ADMIN or MANAGER while every other administrative area stays admin-only.
+- Manager-owned role hierarchy: the `MANAGER` is the primary platform owner (bootstrap-only) and exclusively appoints and controls `ADMIN` accounts through MANAGER-only governance endpoints (`GET /api/admin/admins`, `POST /api/admin/admins`, `PATCH /api/admin/admins/:id/permissions`, `PATCH /api/admin/admins/:id/status`). Admins hold only server-resolved granular permissions (`vendors:review`, `products:manage`; presets `vendor-support` and `catalog-curator`; deny-wins resolution), cannot self-escalate, and cannot reach the governance area. Vendor-application review requires the manager or an admin holding `vendors:review`; whole-catalog product management and image uploads require the manager or an admin holding `products:manage`.
+- Role-hierarchy revision of the earlier least-privilege design (still unreleased): the manager was elevated to primary platform owner, admins became manager-appointed with granular permissions, `POST /api/auth/bootstrap-admin` and the `/api/admin/managers` endpoints were removed, and admin status changes no longer carry a last-active-admin guard because only the manager — who cannot be disabled through the API — governs admin accounts.
 
 ### Added — Frontend
 
 - Independent login portals `/login` (customer), `/vendor/login`, `/admin/login`, `/manager/login`, each with its own branding, copy, validation, and post-login destination, built on one shared accessible `LoginForm` component and a central portal configuration.
 - Role-aware `ProtectedRoute`: unauthenticated visitors are redirected to the correct portal with their destination preserved; authenticated users with the wrong role are routed to their own home area.
-- Manager workspace at `/manager`, limited to vendor-application review through the real API; no mock data. Demo-role buttons remain development-only (`VITE_ENABLE_DEMO_AUTH=true`).
+- Manager Console at `/manager`: administrator governance (appoint admins with permission presets, apply presets, enable/disable accounts) and vendor-application review through the real API; no mock data. The header account menu links to the real portal sign-in pages (`/login`, `/vendor/login`, `/admin/login`, `/manager/login`) and role-aware dashboard shortcuts instead of switching simulated roles; the demo-role switcher remains development-only (`VITE_ENABLE_DEMO_AUTH=true` and development builds).
 
 ### Added — Tests and CI
 
@@ -38,9 +39,9 @@ Backend, test, and documentation work merged to the default branch after the v2.
 - Backend unit tests: product validation, rate limiter behavior, image upload decoding.
 - Frontend unit test for the browser-local `ordersService` (honest PENDING/payment states, no fabricated tracking, empty history by default).
 - MongoDB integration suites, skipped unless `RUN_MONGODB_INTEGRATION=true`:
-  - security suite (`rudin_store_integration_test`): authentication, disabled/revoked token rejection, role boundaries, concurrent first-admin bootstrap, vendor approval, product lifecycle and cross-vendor ownership, public catalog PUBLISHED-only.
+  - security suite (`rudin_store_integration_test`): authentication, disabled/revoked token rejection, role boundaries, concurrent manager bootstrap (exactly one manager), manager-appointed administrators with permission presets, vendor approval, product lifecycle and cross-vendor ownership, public catalog PUBLISHED-only.
   - orders suite (dedicated `rudin_store_integration_test_orders` database, port 4318): unauthenticated/invalid payload rejection, server-computed totals with client totals ignored, DRAFT rejection, out-of-stock rollback, variant mismatch (`$elemMatch`), sequential and concurrent idempotent replay, persistence-failure rollback, cross-user isolation.
-  - login-portals suite (dedicated `rudin_store_integration_test_portals` database, port 4319): per-portal role matching with generic errors, pending/rejected vendor applicants on the vendor portal, public-registration role-escalation prevention, MANAGER permission-matrix enforcement, disabled-manager and expired-token rejection, password-reset credential rotation.
+  - login-portals suite (dedicated `rudin_store_integration_test_portals` database, port 4319): per-portal role matching with generic errors, pending/rejected vendor applicants on the vendor portal, public-registration role-escalation prevention, manager-owned governance with admin permission-preset enforcement (including self-escalation denial), disabled-admin and expired-token rejection, password-reset credential rotation.
 - Frontend unit test for the role-specific portal configuration (`src/config/authPortals.test.ts`).
 - Runtime database guard: integration mode refuses any database other than `rudin_store_integration_test` (or a dedicated `rudin_store_integration_test_*` derivation used by a parallel suite).
 - GitHub Actions CI: TypeScript check (tsc + full test suite against an ephemeral MongoDB replica set) and production build on pull requests and pushes to the main branch.

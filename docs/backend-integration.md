@@ -19,19 +19,19 @@ The browser-facing API base URL is `VITE_API_URL` (default `http://localhost:400
 - `POST /api/auth/login`
 - `POST /api/auth/customer/login`, `POST /api/auth/vendor/login`, `POST /api/auth/admin/login`, `POST /api/auth/manager/login` (role-specific portals; the vendor portal additionally requires an approved vendor application)
 - `GET /api/auth/me`
-- `POST /api/auth/bootstrap-admin` (one-time setup)
+- `POST /api/auth/bootstrap-manager` (one-time setup of the single primary manager; `X-Manager-Bootstrap-Secret` header, `MANAGER_BOOTSTRAP_SECRET` environment value)
 - `POST /api/auth/password-reset/request`
 - `POST /api/auth/password-reset/confirm`
 
 Passwords are scrypt-hashed. Role checks are enforced by the backend, not by UI routing alone. Password-reset tokens are single-use, hashed, and expire. Email verification and refresh-token rotation are not implemented yet.
 
-Frontend wiring status (authentication): the four portal login pages (`/login`, `/vendor/login`, `/admin/login`, `/manager/login`) and the registration form call these endpoints; each portal submits only to its own role-specific endpoint. The frontend session restore (`getCurrentUser`) reads the persisted local user state and never calls `GET /api/auth/me`; logout is browser-local (no server-side token-invalidation endpoint is called); profile updates and the address book are browser-local because no profile or address endpoints exist yet. The role set is `CUSTOMER`, `VENDOR`, `ADMIN`, and the least-privilege `MANAGER` (vendor-application review only, provisioned exclusively by administrators); manager and administrator accounts can never be created through public registration.
+Frontend wiring status (authentication): the four portal login pages (`/login`, `/vendor/login`, `/admin/login`, `/manager/login`) and the registration form call these endpoints; each portal submits only to its own role-specific endpoint. The frontend session restore (`getCurrentUser`) reads the persisted local user state and never calls `GET /api/auth/me`; logout is browser-local (no server-side token-invalidation endpoint is called); profile updates and the address book are browser-local because no profile or address endpoints exist yet. The role set is `CUSTOMER`, `VENDOR`, `ADMIN`, and `MANAGER`: the manager is the single primary platform owner (bootstrap-only) and appoints admins with granular permission presets; manager and administrator accounts can never be created through public registration. The production header account menu links to the real portal sign-in pages rather than simulating roles.
 
 ### Vendors and products
 - `POST /api/vendors/apply`
-- `GET /api/admin/vendors/applications` (ADMIN or MANAGER)
-- `PATCH /api/admin/vendors/applications/:id` (ADMIN or MANAGER)
-- `GET /api/admin/managers`, `POST /api/admin/managers`, `PATCH /api/admin/managers/:id/status` (admin-only provisioning and lifecycle for the least-privilege MANAGER role)
+- `GET /api/admin/vendors/applications` (MANAGER, or an ADMIN holding `vendors:review`)
+- `PATCH /api/admin/vendors/applications/:id` (MANAGER, or an ADMIN holding `vendors:review`)
+- `GET /api/admin/admins`, `POST /api/admin/admins`, `PATCH /api/admin/admins/:id/permissions`, `PATCH /api/admin/admins/:id/status` (MANAGER-only governance: admin appointment, server-resolved permission presets, and lifecycle)
 - `GET /api/products`
 - `GET /api/products/:identifier`
 - `GET /api/products/mine`
@@ -40,7 +40,7 @@ Frontend wiring status (authentication): the four portal login pages (`/login`, 
 - `DELETE /api/products/:id` (soft archive)
 - `POST /api/uploads/images`
 
-The public catalog supports pagination, search, price/rating/stock/sale filters, category/vendor/brand filters, sorting, and featured/bestseller/new-arrival/flash-deal filters. Public catalog requests return only published products. Vendors can manage only their own products; vendor-created products remain drafts. Admin publishing and archive permissions are enforced server-side.
+The public catalog supports pagination, search, price/rating/stock/sale filters, category/vendor/brand filters, sorting, and featured/bestseller/new-arrival/flash-deal filters. Public catalog requests return only published products. Vendors can manage only their own products; vendor-created products remain drafts. Whole-catalog management (publishing, archiving, featured toggles, and image uploads) requires the primary MANAGER or an admin holding the `products:manage` permission, and is enforced server-side.
 
 Image uploads require server-side Cloudinary configuration. Password reset delivery requires Resend configuration.
 
