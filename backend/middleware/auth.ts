@@ -13,7 +13,8 @@ export interface AuthUser {
   email: string;
   role: AppRole;
   authVersion?: number;
-  adminPermissions: AdminPermission[];
+  // Effective granular permissions; set by requireAuth, absent on freshly minted tokens.
+  adminPermissions?: AdminPermission[];
 }
 declare global {
   namespace Express {
@@ -110,7 +111,7 @@ export function requirePermission(permission: AdminPermission) {
       res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "Authentication is required." } });
       return;
     }
-    if (req.authUser.role === "MANAGER" || (req.authUser.role === "ADMIN" && req.authUser.adminPermissions.includes(permission))) {
+    if (req.authUser.role === "MANAGER" || (req.authUser.role === "ADMIN" && (req.authUser.adminPermissions ?? []).includes(permission))) {
       next();
       return;
     }
@@ -137,5 +138,5 @@ export function requireVendorOrPermission(permission: AdminPermission) {
 // Whole-catalog management: the primary manager or an admin holding the
 // products:manage permission. Everyone else is limited to their own resources.
 export function canManageWholeCatalog(user: AuthUser): boolean {
-  return user.role === "MANAGER" || (user.role === "ADMIN" && user.adminPermissions.includes("products:manage"));
+  return user.role === "MANAGER" || (user.role === "ADMIN" && (user.adminPermissions ?? []).includes("products:manage"));
 }

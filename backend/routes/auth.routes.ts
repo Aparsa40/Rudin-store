@@ -29,16 +29,17 @@ function publicUser(user: { _id: string; email: string; firstName: string; lastN
   };
 }
 
-// One-time bootstrap is available only while no administrator exists.
-// Configure a long random ADMIN_BOOTSTRAP_SECRET locally and remove it after bootstrap.
-authRouter.post("/bootstrap-admin", async (req, res, next) => {
+// One-time bootstrap creates the single primary MANAGER account and is available
+// only while no manager exists. Configure a long random MANAGER_BOOTSTRAP_SECRET
+// locally and remove it after bootstrap.
+authRouter.post("/bootstrap-manager", async (req, res, next) => {
   try {
-    const configuredSecret = process.env.ADMIN_BOOTSTRAP_SECRET;
+    const configuredSecret = process.env.MANAGER_BOOTSTRAP_SECRET;
     if (!configuredSecret || configuredSecret.length < 32) {
       res.status(404).json({ error: { code: "NOT_FOUND", message: "Not found." } });
       return;
     }
-    const suppliedSecret = req.header("x-admin-bootstrap-secret") ?? "";
+    const suppliedSecret = req.header("x-manager-bootstrap-secret") ?? "";
     const expected = Buffer.from(configuredSecret);
     const supplied = Buffer.from(suppliedSecret);
     if (expected.length !== supplied.length || !timingSafeEqual(expected, supplied)) {
@@ -50,15 +51,15 @@ authRouter.post("/bootstrap-admin", async (req, res, next) => {
         typeof password !== "string" || password.length < 12 || password.length > 128 ||
         typeof firstName !== "string" || !firstName.trim() || firstName.trim().length > 80 ||
         (lastName !== undefined && (typeof lastName !== "string" || lastName.length > 80))) {
-      res.status(400).json({ error: { code: "INVALID_ADMIN", message: "Provide a valid email, a password of 12–128 characters, and a first name." } });
+      res.status(400).json({ error: { code: "INVALID_MANAGER", message: "Provide a valid email, a password of 12–128 characters, and a first name." } });
       return;
     }
     const normalizedEmail = email.trim().toLowerCase();
     const passwordHash = await hashPassword(password);
-    // Both the "admin already exists" and "email already in use" checks run inside the
+    // Both the "manager already exists" and "email already in use" checks run inside the
     // serialized admin-state transaction so concurrent bootstraps cannot slip through.
     const outcome = await withAdminStateLock(async (session) => {
-      if (await UserModel.exists({ role: "ADMIN" }).session(session)) {
+      if (await UserModel.exists({ role: "MANAGER" }).session(session)) {
         return { kind: "closed" } as const;
       }
       if (await UserModel.exists({ email: normalizedEmail }).session(session)) {
@@ -70,13 +71,13 @@ authRouter.post("/bootstrap-admin", async (req, res, next) => {
         passwordHash,
         firstName: firstName.trim(),
         lastName: typeof lastName === "string" ? lastName.trim() : "",
-        role: "ADMIN",
+        role: "MANAGER",
         status: "ACTIVE",
       }], { session });
       return { kind: "created", user: createdUser } as const;
     });
     if (outcome.kind === "closed") {
-      res.status(409).json({ error: { code: "BOOTSTRAP_CLOSED", message: "An administrator already exists." } });
+      res.status(409).json({ error: { code: "BOOTSTRAP_CLOSED", message: "A manager already exists." } });
       return;
     }
     if (outcome.kind === "email-in-use") {
@@ -85,8 +86,8 @@ authRouter.post("/bootstrap-admin", async (req, res, next) => {
     }
     res.status(201).json({
       user: publicUser(outcome.user),
-      accessToken: createAccessToken({ id: outcome.user._id, email: outcome.user.email, role: "ADMIN" }),
-      note: "Remove ADMIN_BOOTSTRAP_SECRET from the environment after the first administrator is created.",
+      accessToken: createAccessToken({ id: outcome.user._id, email: outcome.user.email, role: "MANAGER" }),
+      note: "Remove MANAGER_BOOTSTRAP_SECRET from the environment after the primary manager is created.",
     });
   } catch (error) {
     // Safety net: a concurrent registration could still win the unique-email race and
