@@ -13,6 +13,7 @@ import adminVendorsRouter from "./routes/admin-vendors.routes.js";
 import passwordResetRouter from "./routes/password-reset.routes.js";
 import uploadsRouter from "./routes/uploads.routes.js";
 import ordersRouter from "./routes/orders.routes.js";
+import couponsRouter from "./routes/coupons.routes.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
@@ -64,6 +65,10 @@ app.use("/api/vendors", vendorsRouter);
 app.use("/api/products", productsRouter);
 app.use("/api/orders", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 30, message: "Too many order requests. Please try again later." }));
 app.use("/api/orders", ordersRouter);
+// Coupon validation and redemption are unauthenticated/customer-facing paths, so
+// they receive their own abuse-prevention bucket like the order endpoints.
+app.use("/api/coupons", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 30, message: "Too many coupon requests. Please try again later." }));
+app.use("/api/coupons", couponsRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
