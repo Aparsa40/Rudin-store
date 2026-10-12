@@ -227,8 +227,12 @@ couponsRouter.patch("/:id", requireAuth, requirePermission("COUPON_MANAGEMENT"),
       validFrom?: Date; validUntil: Date; usageLimit?: number;
     } = {
       type: coupon.type, value: coupon.value,
-      minPurchaseAmount: coupon.minPurchaseAmount, maxDiscount: coupon.maxDiscount,
-      validFrom: coupon.validFrom, validUntil: coupon.validUntil, usageLimit: coupon.usageLimit,
+      // Mongoose optional fields may be null; the validation shape uses undefined for absent values.
+      minPurchaseAmount: coupon.minPurchaseAmount ?? undefined,
+      maxDiscount: coupon.maxDiscount ?? undefined,
+      validFrom: coupon.validFrom ?? undefined,
+      validUntil: coupon.validUntil,
+      usageLimit: coupon.usageLimit ?? undefined,
     };
     const updates: Record<string, unknown> = {};
 
