@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
 import { UserModel } from "../models/user.model.js";
-import type { AdminPermission } from "../lib/admin-permissions.js";
+import { ADMIN_PERMISSIONS, type AdminPermission } from "../lib/admin-permissions.js";
 
 // Single source of truth for account roles. MANAGER is the primary platform
 // owner: it appoints ADMIN accounts and passes every permission check. ADMIN
@@ -81,7 +81,10 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "Account role is invalid." } });
       return;
     }
-    req.authUser = { id: user._id, email: user.email, role: user.role as AppRole, adminPermissions: [...(user.adminPermissions ?? [])] };
+    const adminPermissions = (user.adminPermissions ?? []).filter(
+      (permission): permission is AdminPermission => (ADMIN_PERMISSIONS as readonly string[]).includes(permission),
+    );
+    req.authUser = { id: user._id, email: user.email, role: user.role as AppRole, adminPermissions };
     next();
   } catch (error) {
     next(error);
