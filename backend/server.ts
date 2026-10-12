@@ -14,6 +14,7 @@ import passwordResetRouter from "./routes/password-reset.routes.js";
 import uploadsRouter from "./routes/uploads.routes.js";
 import ordersRouter from "./routes/orders.routes.js";
 import couponsRouter from "./routes/coupons.routes.js";
+import adminOrdersRouter from "./routes/admin-orders.routes.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
@@ -55,6 +56,10 @@ app.use("/api/auth/password-reset", createRateLimiter({ windowMs: 15 * 60 * 1000
 app.use("/api/uploads/images", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 20, message: "Too many image uploads. Please try again later." }));
 app.use("/api/auth", authRouter);
 app.use("/api/auth/password-reset", passwordResetRouter);
+// Read-only admin order listing, gated by the ORDER_MANAGEMENT permission. Mounted
+// before the /api/admin router for consistency with the vendor review router.
+app.use("/api/admin/orders", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 60, message: "Too many order listing requests. Please try again later." }));
+app.use("/api/admin/orders", adminOrdersRouter);
 // The vendor-application review router is gated by the SELLER_MANAGEMENT permission
 // (the manager always passes; an admin passes only when granted). Mount order relative
 // to the /api/admin router is preserved for consistency.

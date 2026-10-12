@@ -50,7 +50,8 @@ function isDuplicateKeyError(error: unknown): boolean {
   return Array.isArray(candidate.writeErrors) && candidate.writeErrors.some((writeError) => writeError.code === 11000);
 }
 
-function serializeOrder(order: Record<string, unknown>) {
+// Shared with the read-only admin orders router (admin-orders.routes.ts).
+export function serializeOrder(order: Record<string, unknown>) {
   const { _id, __v, ...fields } = order;
   return { ...fields, id: _id };
 }
