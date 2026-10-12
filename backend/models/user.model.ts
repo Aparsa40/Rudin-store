@@ -9,7 +9,7 @@ const userSchema = new Schema(
     firstName: { type: String, required: true, trim: true, maxlength: 80 },
     lastName: { type: String, trim: true, maxlength: 80, default: "" },
     phone: { type: String, trim: true, maxlength: 32 },
-    role: { type: String, enum: ["CUSTOMER", "VENDOR", "ADMIN", "MANAGER"], required: true, default: "CUSTOMER", index: true },
+    role: { type: String, enum: ["CUSTOMER", "VENDOR", "ADMIN", "MANAGER"], required: true, default: "CUSTOMER" },
     // Granular admin capabilities. Meaningful only for ADMIN accounts: the platform
     // MANAGER always has every capability, and customers/vendors keep an empty list.
     // Authorization is enforced server-side on every request.
