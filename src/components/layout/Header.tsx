@@ -9,6 +9,7 @@ import {
   ChevronDown,
   Store,
   ShieldAlert,
+  Crown,
   LogOut,
   Sparkles,
   Layers,
@@ -28,6 +29,12 @@ export const Header: React.FC = () => {
   const openCartDrawer = useCartStore((state) => state.openDrawer);
   const wishlistCount = useWishlistStore((state) => state.getCount());
   const { user, logout, setDemoRole } = useAuthStore();
+
+  // Demo role switching is a development-only evaluation tool: it is stripped
+  // from production builds, and every portal entry leads to the real
+  // authentication route for that role.
+  const demoAuthEnabled =
+    import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_AUTH === 'true';
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -56,7 +63,8 @@ export const Header: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-4 text-slate-300">
-            {/* Quick Demo Role Switcher */}
+            {/* Quick Demo Role Switcher — development-only, never rendered in production builds */}
+            {demoAuthEnabled && (
             <div className="flex items-center gap-1.5 text-[11px] bg-slate-800/80 px-2.5 py-0.5 rounded-full border border-slate-700">
               <span className="text-slate-400">View as:</span>
               <button
@@ -92,6 +100,7 @@ export const Header: React.FC = () => {
                 Admin
               </button>
             </div>
+            )}
 
             <Link to="/seller/join" className="hover:text-white transition-colors hidden md:block">
               Sell on Rudin
@@ -221,29 +230,79 @@ export const Header: React.FC = () => {
                     <Heart className="w-4 h-4 text-slate-400" /> Wishlist ({wishlistCount})
                   </Link>
 
-                  {/* Portals */}
-                  <div className="border-t border-slate-100 my-1 pt-1">
-                    <Link
-                      to="/seller/dashboard"
-                      onClick={() => {
-                        setDemoRole('VENDOR');
-                        setIsAccountDropdownOpen(false);
-                      }}
-                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50"
-                    >
-                      <Store className="w-4 h-4" /> Seller Dashboard
-                    </Link>
-                    <Link
-                      to="/admin"
-                      onClick={() => {
-                        setDemoRole('ADMIN');
-                        setIsAccountDropdownOpen(false);
-                      }}
-                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50"
-                    >
-                      <ShieldAlert className="w-4 h-4" /> Admin Portal
-                    </Link>
-                  </div>
+                  {/* Role-aware portal shortcuts — plain navigation, never a
+                      simulated role change. */}
+                  {user && (
+                    <div className="border-t border-slate-100 my-1 pt-1">
+                      {user.role === 'VENDOR' && (
+                        <Link
+                          to="/seller/dashboard"
+                          onClick={() => setIsAccountDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50"
+                        >
+                          <Store className="w-4 h-4" /> Seller Dashboard
+                        </Link>
+                      )}
+                      {user.role === 'ADMIN' && (
+                        <Link
+                          to="/admin"
+                          onClick={() => setIsAccountDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+                        >
+                          <ShieldAlert className="w-4 h-4" /> Admin Portal
+                        </Link>
+                      )}
+                      {user.role === 'MANAGER' && (
+                        <Link
+                          to="/manager"
+                          onClick={() => setIsAccountDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-purple-700 hover:bg-purple-50"
+                        >
+                          <Crown className="w-4 h-4" /> Manager Console
+                        </Link>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Real authentication portals for each role. Public self
+                      registration exists only for customers and sellers;
+                      admins are appointed by the manager, and the manager is
+                      provisioned through the controlled bootstrap. */}
+                  {!user && (
+                    <div className="border-t border-slate-100 my-1 pt-1">
+                      <p className="px-4 pt-1 pb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        Sign in
+                      </p>
+                      <Link
+                        to="/login"
+                        onClick={() => setIsAccountDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                      >
+                        <UserIcon className="w-4 h-4 text-slate-400" /> Customer
+                      </Link>
+                      <Link
+                        to="/vendor/login"
+                        onClick={() => setIsAccountDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50"
+                      >
+                        <Store className="w-4 h-4" /> Seller
+                      </Link>
+                      <Link
+                        to="/admin/login"
+                        onClick={() => setIsAccountDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+                      >
+                        <ShieldAlert className="w-4 h-4" /> Admin
+                      </Link>
+                      <Link
+                        to="/manager/login"
+                        onClick={() => setIsAccountDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-purple-700 hover:bg-purple-50"
+                      >
+                        <Crown className="w-4 h-4" /> Manager
+                      </Link>
+                    </div>
+                  )}
                 </div>
 
                 <div className="border-t border-slate-100 pt-1">
@@ -356,26 +415,68 @@ export const Header: React.FC = () => {
                   Portals & Dashboards
                 </p>
                 <nav className="space-y-1">
-                  <Link
-                    to="/seller/dashboard"
-                    onClick={() => {
-                      setDemoRole('VENDOR');
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="block px-3 py-2 text-sm font-semibold text-amber-700 rounded-lg hover:bg-amber-50"
-                  >
-                    Seller Dashboard
-                  </Link>
-                  <Link
-                    to="/admin"
-                    onClick={() => {
-                      setDemoRole('ADMIN');
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="block px-3 py-2 text-sm font-semibold text-blue-700 rounded-lg hover:bg-blue-50"
-                  >
-                    Admin Portal
-                  </Link>
+                  {user ? (
+                    <>
+                      {user.role === 'VENDOR' && (
+                        <Link
+                          to="/seller/dashboard"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className="block px-3 py-2 text-sm font-semibold text-amber-700 rounded-lg hover:bg-amber-50"
+                        >
+                          Seller Dashboard
+                        </Link>
+                      )}
+                      {user.role === 'ADMIN' && (
+                        <Link
+                          to="/admin"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className="block px-3 py-2 text-sm font-semibold text-blue-700 rounded-lg hover:bg-blue-50"
+                        >
+                          Admin Portal
+                        </Link>
+                      )}
+                      {user.role === 'MANAGER' && (
+                        <Link
+                          to="/manager"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className="block px-3 py-2 text-sm font-semibold text-purple-700 rounded-lg hover:bg-purple-50"
+                        >
+                          Manager Console
+                        </Link>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        to="/login"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="block px-3 py-2 text-sm text-slate-700 rounded-lg hover:bg-slate-100"
+                      >
+                        Customer sign-in
+                      </Link>
+                      <Link
+                        to="/vendor/login"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="block px-3 py-2 text-sm text-amber-700 rounded-lg hover:bg-amber-50"
+                      >
+                        Seller sign-in
+                      </Link>
+                      <Link
+                        to="/admin/login"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="block px-3 py-2 text-sm text-blue-700 rounded-lg hover:bg-blue-50"
+                      >
+                        Administrator sign-in
+                      </Link>
+                      <Link
+                        to="/manager/login"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="block px-3 py-2 text-sm text-purple-700 rounded-lg hover:bg-purple-50"
+                      >
+                        Manager sign-in
+                      </Link>
+                    </>
+                  )}
                 </nav>
               </div>
             </div>

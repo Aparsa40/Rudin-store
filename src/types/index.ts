@@ -1,5 +1,11 @@
 export type Role = 'CUSTOMER' | 'VENDOR' | 'ADMIN' | 'MANAGER';
 
+/**
+ * Granular permissions a MANAGER-appointed ADMIN account may hold.
+ * The backend resolves presets server-side; the client never invents them.
+ */
+export type AdminPermission = 'vendors:review' | 'products:manage';
+
 export interface User {
   id: string;
   email: string;
@@ -9,6 +15,8 @@ export interface User {
   avatarUrl?: string;
   phone?: string;
   createdAt: string;
+  /** Effective granular permissions for manager-appointed ADMIN accounts. */
+  adminPermissions?: AdminPermission[];
 }
 
 export interface Address {
