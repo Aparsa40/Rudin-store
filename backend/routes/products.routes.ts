@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { randomBytes } from "node:crypto";
-import { requireAuth, requireRole } from "../middleware/auth.js";
+import { canManageWholeCatalog, requireAuth, requireVendorOrPermission } from "../middleware/auth.js";
 import type { SortOrder } from "mongoose";
 import { ProductModel } from "../models/product.model.js";
 import { normalizeProductSlug, validateProductInput } from "../lib/product-validation.js";
@@ -119,9 +119,9 @@ productsRouter.get("/", async (req, res, next) => {
   }
 });
 
-productsRouter.get("/mine", requireAuth, requireRole("ADMIN", "VENDOR"), async (req, res, next) => {
+productsRouter.get("/mine", requireAuth, requireVendorOrPermission("products:manage"), async (req, res, next) => {
   try {
-    const filter = req.authUser!.role === "ADMIN" ? {} : { vendorId: req.authUser!.id };
+    const filter = canManageWholeCatalog(req.authUser!) ? {} : { vendorId: req.authUser!.id };
     const products = await ProductModel.find(filter).sort({ createdAt: -1 }).lean();
     res.status(200).json({
       products: products.map((product) => serializeProduct(product as unknown as Record<string, unknown>)),
@@ -151,8 +151,8 @@ productsRouter.get("/:identifier", async (req, res, next) => {
 });
 
 
-// Admins can publish products; vendors can create drafts owned by their own user ID.
-productsRouter.post("/", requireAuth, requireRole("ADMIN", "VENDOR"), async (req, res, next) => {
+// Catalog managers can publish any product; vendors create drafts owned by their own user ID.
+productsRouter.post("/", requireAuth, requireVendorOrPermission("products:manage"), async (req, res, next) => {
   try {
     const body = req.body ?? {};
     if (typeof body !== "object" || body === null || Array.isArray(body)) {
@@ -169,10 +169,10 @@ productsRouter.post("/", requireAuth, requireRole("ADMIN", "VENDOR"), async (req
       res.status(400).json({ error: { code: "INVALID_SLUG", message: "Provide an ASCII-compatible slug or a title that can be converted to one." } });
       return;
     }
-    const vendorId = req.authUser!.role === "ADMIN" && typeof body.vendorId === "string" && body.vendorId.trim()
+    const vendorId = canManageWholeCatalog(req.authUser!) && typeof body.vendorId === "string" && body.vendorId.trim()
       ? body.vendorId.trim()
       : req.authUser!.id;
-    const status = req.authUser!.role === "ADMIN" && body.status === "PUBLISHED" ? "PUBLISHED" : "DRAFT";
+    const status = canManageWholeCatalog(req.authUser!) && body.status === "PUBLISHED" ? "PUBLISHED" : "DRAFT";
     const product = await ProductModel.create({
       _id: `prd_${randomBytes(12).toString("hex")}`, vendorId,
       categoryId: body.categoryId.trim(), brandId: typeof body.brandId === "string" ? body.brandId.trim() : undefined,
@@ -182,7 +182,7 @@ productsRouter.post("/", requireAuth, requireRole("ADMIN", "VENDOR"), async (req
       images: body.images ?? [], variants: [], tags: Array.isArray(body.tags) ? body.tags.filter((v: unknown) => typeof v === "string").slice(0, 30) : [],
       features: Array.isArray(body.features) ? body.features.filter((v: unknown) => typeof v === "string").slice(0, 50) : [],
       specifications: body.specifications && typeof body.specifications === "object" && !Array.isArray(body.specifications) ? body.specifications : {},
-      isFeatured: req.authUser!.role === "ADMIN" && body.isFeatured === true,
+      isFeatured: canManageWholeCatalog(req.authUser!) && body.isFeatured === true,
       isBestSeller: false, isNewArrival: false, isFlashDeal: false, status,
     });
     res.status(201).json({ product: serializeProduct(product.toObject() as unknown as Record<string, unknown>) });
@@ -192,8 +192,8 @@ productsRouter.post("/", requireAuth, requireRole("ADMIN", "VENDOR"), async (req
 });
 
 
-// Product updates and deletion are scoped to the authenticated owner; admins can manage any product.
-productsRouter.patch("/:id", requireAuth, requireRole("ADMIN", "VENDOR"), async (req, res, next) => {
+// Product updates and deletion are scoped to the authenticated owner; catalog managers can manage any product.
+productsRouter.patch("/:id", requireAuth, requireVendorOrPermission("products:manage"), async (req, res, next) => {
   try {
     const body = req.body ?? {};
     if (typeof body !== "object" || body === null || Array.isArray(body)) {
@@ -206,7 +206,7 @@ productsRouter.patch("/:id", requireAuth, requireRole("ADMIN", "VENDOR"), async 
       res.status(404).json({ error: { code: "PRODUCT_NOT_FOUND", message: "Product not found." } });
       return;
     }
-    if (req.authUser!.role !== "ADMIN" && product.vendorId !== req.authUser!.id) {
+    if (!canManageWholeCatalog(req.authUser!) && product.vendorId !== req.authUser!.id) {
       res.status(403).json({ error: { code: "FORBIDDEN", message: "You can only manage products owned by your account." } });
       return;
     }
@@ -241,8 +241,8 @@ productsRouter.patch("/:id", requireAuth, requireRole("ADMIN", "VENDOR"), async 
         res.status(400).json({ error: { code: "INVALID_STATUS", message: "status must be DRAFT, PUBLISHED, or ARCHIVED." } });
         return;
       }
-      if (req.authUser!.role !== "ADMIN" && body.status !== "DRAFT") {
-        res.status(403).json({ error: { code: "FORBIDDEN", message: "Only administrators can publish or archive products." } });
+      if (!canManageWholeCatalog(req.authUser!) && body.status !== "DRAFT") {
+        res.status(403).json({ error: { code: "FORBIDDEN", message: "Only managers and authorized administrators can publish or archive products." } });
         return;
       }
     }
@@ -273,9 +273,9 @@ productsRouter.patch("/:id", requireAuth, requireRole("ADMIN", "VENDOR"), async 
       tags: merged.tags ?? [],
       features: merged.features ?? [],
       specifications: merged.specifications ?? {},
-      ...(body.status === "DRAFT" ? { status: "DRAFT" } : req.authUser!.role === "ADMIN" && body.status ? { status: body.status } : {}),
+      ...(body.status === "DRAFT" ? { status: "DRAFT" } : canManageWholeCatalog(req.authUser!) && body.status ? { status: body.status } : {}),
     });
-    if (req.authUser!.role === "ADMIN" && typeof body.isFeatured === "boolean") {
+    if (canManageWholeCatalog(req.authUser!) && typeof body.isFeatured === "boolean") {
       product.isFeatured = body.isFeatured;
     }
     await product.save();
@@ -285,7 +285,7 @@ productsRouter.patch("/:id", requireAuth, requireRole("ADMIN", "VENDOR"), async 
   }
 });
 
-productsRouter.delete("/:id", requireAuth, requireRole("ADMIN", "VENDOR"), async (req, res, next) => {
+productsRouter.delete("/:id", requireAuth, requireVendorOrPermission("products:manage"), async (req, res, next) => {
   try {
     const product = await ProductModel.findById(req.params.id);
     if (!product) {

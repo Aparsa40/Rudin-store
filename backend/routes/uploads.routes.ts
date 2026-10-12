@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Router } from "express";
-import { requireAuth, requireRole } from "../middleware/auth.js";
+import { requireAuth, requireVendorOrPermission } from "../middleware/auth.js";
 
 const uploadsRouter = Router();
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
@@ -24,7 +24,7 @@ export function decodeImageDataUrl(value: unknown): { mimeType: string; bytes: B
   return { mimeType, bytes, extension };
 }
 
-uploadsRouter.post("/images", requireAuth, requireRole("ADMIN", "VENDOR"), async (req, res) => {
+uploadsRouter.post("/images", requireAuth, requireVendorOrPermission("products:manage"), async (req, res) => {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   const apiKey = process.env.CLOUDINARY_API_KEY;
   const apiSecret = process.env.CLOUDINARY_API_SECRET;
