@@ -25,7 +25,12 @@ The single primary `MANAGER` account must be created once using `POST /api/auth/
 All routes under `/api/admin` require the active primary `MANAGER` bearer token. Admin accounts can never reach this governance area, even when the manager granted them permissions.
 
 - `GET /api/admin/admins`: list administrator accounts (never returns password hashes).
-- `POST /api/admin/admins`: appoint an admin account. The optional `permission` object is resolved server-side from `presets`, `allow`, and `deny` arrays; client-supplied permission lists are never stored directly, and unknown presets or permissions are rejected with `400 INVALID_PERMISSIONS`.
+- `GET /api/admin/invitations`: list invitation history across `INVITED`, `EMAIL_VERIFIED`, `PENDING_APPROVAL`, `ACTIVE`, `REJECTED`, and `DISABLED` states without returning token or password hashes.
+- `POST /api/admin/invitations`: create an invitation and send a one-time, 48-hour email link. The optional `permission` object is resolved server-side from `presets`, `allow`, and `deny`; client-supplied effective permissions are never trusted. A unique sparse `activeEmail` index prevents concurrent invitations for the same normalized email.
+- `POST /api/admin/invitations/:id/approve`: create and activate an ADMIN only after the invitee verifies their email and accepts the invitation with their own password; this is the Manager's final approval step.
+- `POST /api/admin/invitations/:id/reject`: reject an invitation and clear its active-email reservation.
+- `POST /api/admin-invitations/verify` and `POST /api/admin-invitations/accept`: public invitee endpoints to verify the token and explicitly accept the invitation while setting a password. Tokens are stored only as SHA-256 digests and are single-use.
+- There is intentionally no `POST /api/admin/admins` account-creation endpoint. Admins cannot be created by directly setting a password from the Manager Console.
 - `PATCH /api/admin/admins/:id/permissions`: replace the admin's effective permissions wholesale from a server-side resolution. `deny` always wins over `presets` and `allow`, so revocation is explicit. Because the whole router is manager-only, admins cannot edit their own or anyone else's permissions.
 - `PATCH /api/admin/admins/:id/status`: activate or disable an admin. Disabled admins lose access immediately because the middleware re-reads account status on every request.
 
