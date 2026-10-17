@@ -5,7 +5,6 @@ import { AdminInvitationModel } from '../models/admin-invitation.model.js';
 
 const router = Router();
 const scrypt = promisify(scryptCallback);
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
