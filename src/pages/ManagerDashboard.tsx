@@ -55,7 +55,7 @@ type AdminInvitation = {
   rejectedReason?: string;
 };
 
-type AdminPreset = 'vendor-support' | 'catalog-curator' | 'none';
+type AdminPreset = 'vendor-support' | 'catalog-curator' | 'operations' | 'none' | 'custom';
 
 type ApiErrorPayload = {
   error?: {
@@ -67,23 +67,25 @@ type ApiErrorPayload = {
 const PRESET_LABELS: Record<AdminPreset, string> = {
   'vendor-support': 'Vendor support',
   'catalog-curator': 'Catalog curator',
+  operations: 'Operations (coupons + orders)',
   none: 'No permissions',
+  custom: 'Custom permissions (preserve)',
 };
 
-const presetsFromSelection = (preset: AdminPreset): string[] => (preset === 'none' ? [] : [preset]);
+const presetsFromSelection = (preset: AdminPreset): string[] =>
+  preset === 'none' || preset === 'custom' ? [] : [preset];
 
 const selectionFromPermissions = (permissions: AdminPermission[] | undefined): AdminPreset => {
-  if (!permissions?.length) return 'none';
+  const normalized = [...new Set(permissions ?? [])].sort().join(',');
 
-  if (permissions.includes('products:manage')) {
-    return 'catalog-curator';
-  }
+  if (!normalized) return 'none';
+  if (normalized === 'vendors:review') return 'vendor-support';
+  if (normalized === 'products:manage,vendors:review') return 'catalog-curator';
+  if (normalized === 'coupons:manage,orders:manage') return 'operations';
 
-  if (permissions.includes('vendors:review')) {
-    return 'vendor-support';
-  }
-
-  return 'none';
+  // Preserve unfamiliar/custom permission sets until the manager explicitly
+  // chooses a supported preset; never silently turn them into no permissions.
+  return 'custom';
 };
 
 const INVITATION_STATUS_LABELS: Record<AdminInvitationStatus, string> = {
@@ -359,6 +361,7 @@ export const ManagerDashboard: React.FC = () => {
     if (!accessToken || savingAdminId) return;
 
     const preset = presetDrafts[id] ?? 'none';
+    if (preset === 'custom') return;
 
     setSavingAdminId(id);
 
@@ -540,7 +543,7 @@ export const ManagerDashboard: React.FC = () => {
                 onChange={(event) => setInvitePreset(event.target.value as AdminPreset)}
                 className={`${inputClassName} bg-white`}
               >
-                {(Object.keys(PRESET_LABELS) as AdminPreset[]).map((preset) => (
+                {(Object.keys(PRESET_LABELS) as AdminPreset[]).filter((preset) => preset !== 'custom').map((preset) => (
                   <option key={preset} value={preset}>
                     {PRESET_LABELS[preset]}
                   </option>
@@ -741,7 +744,7 @@ export const ManagerDashboard: React.FC = () => {
                           ))}
                         </select>
 
-                        <p className="mt-1 max-w-xs 'break-words' text-[10px] text-slate-400">
+                        <p className="mt-1 max-w-xs break-words text-[10px] text-slate-400">
                           Effective:{' '}
                           {admin.permissions?.length ? admin.permissions.join(', ') : 'none'}
                         </p>
@@ -751,7 +754,7 @@ export const ManagerDashboard: React.FC = () => {
                         <div className="flex justify-end gap-3 whitespace-nowrap">
                           <button
                             type="button"
-                            disabled={Boolean(savingAdminId)}
+                            disabled={Boolean(savingAdminId) || preset === 'custom'}
                             onClick={() => void applyPreset(admin.id)}
                             className="font-bold text-slate-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                           >
