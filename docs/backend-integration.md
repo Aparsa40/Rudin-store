@@ -33,7 +33,9 @@ Frontend wiring status (authentication): the four portal login pages (`/login`, 
 - `POST /api/vendors/apply`
 - `GET /api/admin/vendors/applications` (MANAGER, or an ADMIN holding `vendors:review`)
 - `PATCH /api/admin/vendors/applications/:id` (MANAGER, or an ADMIN holding `vendors:review`)
-- `GET /api/admin/admins`, `POST /api/admin/admins`, `PATCH /api/admin/admins/:id/permissions`, `PATCH /api/admin/admins/:id/status` (MANAGER-only governance: admin appointment, server-resolved permission presets, and lifecycle)
+- `GET /api/admin/admins`, `PATCH /api/admin/admins/:id/permissions`, `PATCH /api/admin/admins/:id/status` (MANAGER-only governance for existing admins)
+- `GET /api/admin/invitations`, `POST /api/admin/invitations`, `POST /api/admin/invitations/:id/approve`, `POST /api/admin/invitations/:id/reject` (Manager-only invitation lifecycle; final approval is required before an ADMIN account is created)
+- `POST /api/admin-invitations/verify`, `POST /api/admin-invitations/accept` (public one-time token verification and invitee acceptance/password selection)
 - `GET /api/products`
 - `GET /api/products/:identifier`
 - `GET /api/products/mine`
