@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
+import { createHash, randomBytes } from 'node:crypto';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import test from 'node:test';
 import mongoose from 'mongoose';
 import { UserModel } from '../models/user.model.js';
+import { AdminInvitationModel } from '../models/admin-invitation.model.js';
+import { createIntegrationAdmin } from './admin-fixtures.js';
 import { ProductModel } from '../models/product.model.js';
 import { createAccessToken } from '../middleware/auth.js';
 
@@ -36,6 +39,7 @@ test(
     await mongoose.connect(uri);
     await Promise.all([
       UserModel.deleteMany({}),
+      AdminInvitationModel.deleteMany({}),
       ProductModel.deleteMany({}),
       mongoose.connection.collection('adminstates').deleteMany({}),
     ]);
@@ -232,38 +236,149 @@ test(
           assert.equal(winner.body.user.role, 'MANAGER');
           const managerToken = winner.body.accessToken as string;
 
-          // The primary manager appoints an admin with the catalog-curator preset; the
-          // server resolves the preset and stores the effective permission list on the
-          // account instead of trusting client-supplied permission strings.
-          const appointedAdmin = await request('/api/admin/admins', {
-            method: 'POST',
-            headers: { authorization: `Bearer ${managerToken}` },
-            body: JSON.stringify({
-              email: 'admin.integration@example.test',
-              password: 'Admin-Password-123!',
-              firstName: 'Integration Admin',
-              permission: { presets: ['catalog-curator'] },
-            }),
+          const managerId = winner.body.user.id as string;
+          const appointedAdmin = await createIntegrationAdmin({
+            email: 'admin.integration@example.test',
+            password: 'Admin-Password-123!',
+            firstName: 'Integration Admin',
+            createdBy: managerId,
+            permissions: ['products:manage', 'vendors:review'],
           });
-          assert.equal(appointedAdmin.response.status, 201);
-          assert.deepEqual(appointedAdmin.body.admin.permissions, [
-            'products:manage',
-            'vendors:review',
-          ]);
-          const adminId = appointedAdmin.body.admin.id as string;
+          const adminId = appointedAdmin._id as string;
 
-          const invalidPermission = await request('/api/admin/admins', {
+          // Direct administrator creation is intentionally retired. Invalid permission
+          // input is now validated by the invitation endpoint before email delivery.
+          const invalidPermission = await request('/api/admin/invitations', {
             method: 'POST',
             headers: { authorization: `Bearer ${managerToken}` },
             body: JSON.stringify({
               email: 'invalid-permission.integration@example.test',
-              password: 'Admin-Password-123!',
               firstName: 'Invalid Permission',
               permission: { allow: ['not-a-permission'] },
             }),
           });
           assert.equal(invalidPermission.response.status, 400);
           assert.equal(invalidPermission.body.error.code, 'INVALID_PERMISSIONS');
+
+          const legacyCreation = await request('/api/admin/admins', {
+            method: 'POST',
+            headers: { authorization: `Bearer ${managerToken}` },
+            body: JSON.stringify({
+              email: 'legacy-creation.integration@example.test',
+              password: 'Admin-Password-123!',
+              firstName: 'Legacy Creation',
+            }),
+          });
+          assert.equal(legacyCreation.response.status, 404);
+
+          // Exercise the invitation lifecycle without calling an external email provider:
+          // seed the same token digest that the email link carries, then use the public
+          // verify/accept endpoints and Manager-only final approval.
+          await AdminInvitationModel.init();
+          const invitationToken = randomBytes(32).toString('base64url');
+          const invitationId = `inv_${randomBytes(12).toString('hex')}`;
+          const invitationEmail = 'workflow.invitee@example.test';
+          await AdminInvitationModel.create({
+            _id: invitationId,
+            email: invitationEmail,
+            activeEmail: invitationEmail,
+            firstName: 'Workflow Invitee',
+            lastName: 'Integration',
+            adminPermissions: ['products:manage'],
+            status: 'INVITED',
+            tokenHash: createHash('sha256').update(invitationToken).digest('hex'),
+            tokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+            createdBy: managerId,
+          });
+
+          await assert.rejects(
+            () =>
+              AdminInvitationModel.create({
+                _id: `inv_${randomBytes(12).toString('hex')}`,
+                email: 'duplicate-workflow.invitee@example.test',
+                activeEmail: invitationEmail,
+                firstName: 'Duplicate Invitee',
+                status: 'INVITED',
+                adminPermissions: [],
+                createdBy: managerId,
+              }),
+            (error: unknown) => (error as { code?: number }).code === 11000,
+          );
+
+          const verifiedInvitation = await request('/api/admin-invitations/verify', {
+            method: 'POST',
+            body: JSON.stringify({ token: invitationToken }),
+          });
+          assert.equal(verifiedInvitation.response.status, 200);
+
+          const acceptedInvitation = await request('/api/admin-invitations/accept', {
+            method: 'POST',
+            body: JSON.stringify({
+              token: invitationToken,
+              password: 'Workflow-Invitee-Password-123!',
+              accepted: true,
+            }),
+          });
+          assert.equal(acceptedInvitation.response.status, 200);
+
+          const invitationList = await request('/api/admin/invitations', {
+            headers: { authorization: `Bearer ${managerToken}` },
+          });
+          assert.equal(invitationList.response.status, 200);
+          const pendingInvitation = (
+            invitationList.body.invitations as Array<{ id: string; email: string; status: string }>
+          ).find((entry) => entry.email === invitationEmail);
+          assert.equal(pendingInvitation?.status, 'PENDING_APPROVAL');
+
+          const approvedInvitation = await request(
+            `/api/admin/invitations/${encodeURIComponent(invitationId)}/approve`,
+            {
+              method: 'POST',
+              headers: { authorization: `Bearer ${managerToken}` },
+            },
+          );
+          assert.equal(approvedInvitation.response.status, 200);
+          assert.equal(approvedInvitation.body.admin.email, invitationEmail);
+
+          const approvedRecord = await AdminInvitationModel.findById(invitationId).lean();
+          assert.equal(approvedRecord?.status, 'ACTIVE');
+          assert.equal(approvedRecord?.activeEmail, undefined);
+
+          const inviteeLogin = await request('/api/auth/admin/login', {
+            method: 'POST',
+            body: JSON.stringify({
+              email: invitationEmail,
+              password: 'Workflow-Invitee-Password-123!',
+            }),
+          });
+          assert.equal(inviteeLogin.response.status, 200);
+
+          const rejectionToken = randomBytes(32).toString('base64url');
+          const rejectionId = `inv_${randomBytes(12).toString('hex')}`;
+          const rejectionEmail = 'workflow.rejected@example.test';
+          await AdminInvitationModel.create({
+            _id: rejectionId,
+            email: rejectionEmail,
+            activeEmail: rejectionEmail,
+            firstName: 'Rejected Invitee',
+            status: 'INVITED',
+            adminPermissions: [],
+            tokenHash: createHash('sha256').update(rejectionToken).digest('hex'),
+            tokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+            createdBy: managerId,
+          });
+          const rejectedInvitation = await request(
+            `/api/admin/invitations/${encodeURIComponent(rejectionId)}/reject`,
+            {
+              method: 'POST',
+              headers: { authorization: `Bearer ${managerToken}` },
+              body: JSON.stringify({ reason: 'Integration test rejection.' }),
+            },
+          );
+          assert.equal(rejectedInvitation.response.status, 200);
+          const rejectedRecord = await AdminInvitationModel.findById(rejectionId).lean();
+          assert.equal(rejectedRecord?.status, 'REJECTED');
+          assert.equal(rejectedRecord?.activeEmail, undefined);
 
           const adminLogin = await request('/api/auth/admin/login', {
             method: 'POST',
