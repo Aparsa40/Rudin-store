@@ -363,6 +363,16 @@ adminRouter.post('/invitations', async (req, res, next) => {
       }
     }
 
+    const databaseError = error as { code?: number; keyPattern?: Record<string, unknown> } | null;
+    if (databaseError?.code === 11000 && databaseError.keyPattern?.activeEmail) {
+      res.status(409).json({
+        error: {
+          code: 'INVITATION_EXISTS',
+          message: 'An invitation for this email is already in progress.',
+        },
+      });
+      return;
+    }
     next(error);
   }
 });
@@ -683,16 +693,6 @@ adminRouter.post('/invitations/:id/reject', async (req, res, next) => {
       message: 'Invitation rejected.',
     });
   } catch (error) {
-    const databaseError = error as { code?: number; keyPattern?: Record<string, unknown> } | null;
-    if (databaseError?.code === 11000 && databaseError.keyPattern?.activeEmail) {
-      res.status(409).json({
-        error: {
-          code: 'INVITATION_EXISTS',
-          message: 'An invitation for this email is already in progress.',
-        },
-      });
-      return;
-    }
     next(error);
   }
 });
