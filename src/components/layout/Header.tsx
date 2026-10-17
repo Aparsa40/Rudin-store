@@ -125,7 +125,7 @@ export const Header: React.FC = () => {
           <img
             src="/branding/header-logo.svg"
             alt="Rudin Store"
-            className="h-11 w-auto max-w-[170px] object-contain transition-transform group-hover:scale-[1.02]"
+            className="h-11 w-auto max-w-170px object-contain transition-transform group-hover:scale-[1.02]"
           />
         </Link>
 
@@ -355,7 +355,7 @@ export const Header: React.FC = () => {
                 <img
                   src="/branding/header-logo.svg"
                   alt="Rudin Store"
-                  className="h-9 w-auto max-w-[150px] object-contain"
+                  className="h-9 w-auto max-w-150px object-contain"
                 />
               </div>
               <button

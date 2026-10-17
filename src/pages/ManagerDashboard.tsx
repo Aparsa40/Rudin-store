@@ -47,7 +47,8 @@ const PRESET_LABELS: Record<AdminPreset, string> = {
 };
 
 const presetsFromSelection = (preset: AdminPreset): string[] =>
-  preset === 'none' ? [] : ADMIN_PRESETS[preset];
+  preset === 'none' ? [] : [preset];
+
 
 const selectionFromPermissions = (permissions: AdminPermission[] | undefined): AdminPreset => {
   if (!permissions) return 'none';
