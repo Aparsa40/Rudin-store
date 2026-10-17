@@ -5,6 +5,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import test from 'node:test';
 import mongoose from 'mongoose';
 import { UserModel } from '../models/user.model.js';
+import { createIntegrationAdmin } from './admin-fixtures.js';
 import { createAccessToken } from '../middleware/auth.js';
 
 const enabled = process.env.RUN_MONGODB_INTEGRATION === 'true' && Boolean(process.env.MONGODB_URI);
@@ -106,21 +107,16 @@ test(
       const managerToken = bootstrap.body.accessToken as string;
       const managerId = bootstrap.body.user.id as string;
 
-      // Admins are appointed exclusively by the primary manager; the vendor-support
-      // preset grants vendor application review only.
-      const appointedAdmin = await request('/api/admin/admins', {
-        method: 'POST',
-        headers: { authorization: `Bearer ${managerToken}` },
-        body: JSON.stringify({
-          email: 'admin.portals@example.test',
-          password: 'Portal-Admin-Password-123!',
-          firstName: 'Portal Admin',
-          permission: { presets: ['vendor-support'] },
-        }),
+      // Seed an administrator fixture for portal/role tests. The actual account
+      // appointment workflow is invitation-based and has its own lifecycle coverage.
+      const admin = await createIntegrationAdmin({
+        email: 'admin.portals@example.test',
+        password: 'Portal-Admin-Password-123!',
+        firstName: 'Portal Admin',
+        createdBy: managerId,
+        permissions: ['vendors:review'],
       });
-      assert.equal(appointedAdmin.response.status, 201);
-      assert.deepEqual(appointedAdmin.body.admin.permissions, ['vendors:review']);
-      const adminId = appointedAdmin.body.admin.id as string;
+      const adminId = admin._id as string;
       const adminPortalLogin = await request('/api/auth/admin/login', {
         method: 'POST',
         body: JSON.stringify({
