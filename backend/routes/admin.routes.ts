@@ -234,8 +234,10 @@ adminRouter.post('/invitations', async (req, res, next) => {
     }
 
     const existingInvitation = await AdminInvitationModel.exists({
-      email,
-      status: { $in: [...INVITATION_PENDING_STATUSES] },
+      $or: [
+        { activeEmail: email },
+        { email, status: { $in: [...INVITATION_PENDING_STATUSES] } },
+      ],
     });
 
     if (existingInvitation) {
@@ -277,6 +279,7 @@ adminRouter.post('/invitations', async (req, res, next) => {
     const invitation = await AdminInvitationModel.create({
       _id: `inv_${randomBytes(12).toString('hex')}`,
       email,
+      activeEmail: email,
       firstName,
       lastName,
       adminPermissions: resolved.permissions,
@@ -553,6 +556,7 @@ adminRouter.post('/invitations/:id/approve', async (req, res, next) => {
             reviewedAt: new Date(),
           },
           $unset: {
+            activeEmail: 1,
             passwordHash: 1,
             tokenHash: 1,
             tokenExpiresAt: 1,
@@ -650,6 +654,7 @@ adminRouter.post('/invitations/:id/reject', async (req, res, next) => {
           rejectedReason: reason,
         },
         $unset: {
+          activeEmail: 1,
           tokenHash: 1,
           tokenExpiresAt: 1,
           passwordHash: 1,
@@ -678,6 +683,16 @@ adminRouter.post('/invitations/:id/reject', async (req, res, next) => {
       message: 'Invitation rejected.',
     });
   } catch (error) {
+    const databaseError = error as { code?: number; keyPattern?: Record<string, unknown> } | null;
+    if (databaseError?.code === 11000 && databaseError.keyPattern?.activeEmail) {
+      res.status(409).json({
+        error: {
+          code: 'INVITATION_EXISTS',
+          message: 'An invitation for this email is already in progress.',
+        },
+      });
+      return;
+    }
     next(error);
   }
 });
