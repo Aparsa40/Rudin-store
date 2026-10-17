@@ -81,7 +81,7 @@ export const adminOrdersApi = {
       ) {
         throw new Error('The orders response was malformed: an entry is not a recognizable order.');
       }
-      return entry as AdminOrderSummary;
+      return entry as unknown as AdminOrderSummary;
     });
     return { orders, pagination: requirePagination(payload.pagination) };
   },
@@ -152,7 +152,7 @@ export const adminCouponsApi = {
       if (!isRecord(entry) || typeof entry.id !== 'string' || typeof entry.code !== 'string') {
         throw new Error('The coupons response was malformed: an entry is not a recognizable coupon.');
       }
-      return entry as AdminCoupon;
+      return entry as unknown as AdminCoupon;
     });
   },
 
