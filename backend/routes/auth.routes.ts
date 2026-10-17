@@ -97,7 +97,7 @@ authRouter.post('/bootstrap-manager', async (req, res, next) => {
         .json({
           error: {
             code: 'INVALID_MANAGER',
-            message: 'Provide a valid email, a password of 12â128 characters, and a first name.',
+            message: 'Provide a valid email, a password of 12–128 characters, and a first name.',
           },
         });
       return;
@@ -189,7 +189,7 @@ authRouter.post('/register', async (req, res, next) => {
           error: {
             code: 'INVALID_REGISTRATION',
             message:
-              'Provide a valid email, a password of 12â128 characters, and a first name (maximum 80 characters).',
+              'Provide a valid email, a password of 12–128 characters, and a first name (maximum 80 characters).',
           },
         });
       return;
