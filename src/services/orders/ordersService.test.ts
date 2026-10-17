@@ -128,17 +128,67 @@ test('does not fabricate order history from mock data', async () => {
   );
 });
 
-test('stores created orders when localStorage is available', async (t) => {
-  // localStorage only exists in a browser-like environment; in the Node test
-  // runner the storage layer safely no-ops, so persistence cannot be checked.
-  if (typeof localStorage === 'undefined') {
-    t.skip('localStorage is not available in this environment');
-    return;
+test('stores created orders when localStorage is available', async () => {
+  const originalDescriptor = Object.getOwnPropertyDescriptor(
+    globalThis,
+    'localStorage',
+  );
+
+  const values = new Map<string, string>();
+
+  const storage = {
+    get length() {
+      return values.size;
+    },
+    clear() {
+      values.clear();
+    },
+    getItem(key: string) {
+      return values.get(key) ?? null;
+    },
+    key(index: number) {
+      return [...values.keys()][index] ?? null;
+    },
+    removeItem(key: string) {
+      values.delete(key);
+    },
+    setItem(key: string, value: string) {
+      values.set(key, String(value));
+    },
+  } as Storage;
+
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: storage,
+  });
+
+  try {
+    storage.removeItem('rudin_orders');
+
+    const created = await createOrder('CREDIT_CARD');
+    const after = await ordersService.getOrders('user_test');
+
+    assert.equal(after.length, 1);
+    assert.equal(after[0].id, created.id);
+    assert.equal(after[0].userId, 'user_test');
+
+    const stored = storage.getItem('rudin_orders');
+    assert.ok(stored);
+
+    const parsed = JSON.parse(stored) as Array<{ id: string }>;
+    assert.equal(parsed.length, 1);
+    assert.equal(parsed[0].id, created.id);
+  } finally {
+    storage.removeItem('rudin_orders');
+
+    if (originalDescriptor) {
+      Object.defineProperty(
+        globalThis,
+        'localStorage',
+        originalDescriptor,
+      );
+    } else {
+      Reflect.deleteProperty(globalThis, 'localStorage');
+    }
   }
-  localStorage.removeItem('rudin_orders');
-  const created = await createOrder('CREDIT_CARD');
-  const after = await ordersService.getOrders('user_test');
-  assert.equal(after.length, 1);
-  assert.equal(after[0].id, created.id);
-  localStorage.removeItem('rudin_orders');
 });
