@@ -7,6 +7,7 @@ import { CouponModel } from '../models/coupon.model.js';
 import { OrderModel } from '../models/order.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { UserModel } from '../models/user.model.js';
+import { createIntegrationAdmin } from './admin-fixtures.js';
 
 const enabled = process.env.RUN_MONGODB_INTEGRATION === 'true' && Boolean(process.env.MONGODB_URI);
 const port = 4320;
@@ -114,49 +115,30 @@ test(
       assert.equal(bootstrap.response.status, 201);
       const managerToken = bootstrap.body.accessToken as string;
 
-      // Three admins demonstrate the extended vocabulary: one holds coupons:manage only,
-      // one holds orders:manage only, and one receives both through the operations preset.
-      const appointCouponsAdmin = await request('/api/admin/admins', {
-        method: 'POST',
-        headers: { authorization: `Bearer ${managerToken}` },
-        body: JSON.stringify({
-          email: 'admin.coupons@example.test',
-          password: 'Coupons-Admin-Password-123!',
-          firstName: 'Coupons Admin',
-          permission: { allow: ['coupons:manage'] },
-        }),
+      // Seed administrator fixtures directly: this suite tests coupon/order permission
+      // boundaries. Account creation is now invitation-only and is covered separately.
+      const managerId = bootstrap.body.user.id as string;
+      await createIntegrationAdmin({
+        email: 'admin.coupons@example.test',
+        password: 'Coupons-Admin-Password-123!',
+        firstName: 'Coupons Admin',
+        createdBy: managerId,
+        permissions: ['coupons:manage'],
       });
-      assert.equal(appointCouponsAdmin.response.status, 201);
-      assert.deepEqual(appointCouponsAdmin.body.admin.permissions, ['coupons:manage']);
-
-      const appointOrdersAdmin = await request('/api/admin/admins', {
-        method: 'POST',
-        headers: { authorization: `Bearer ${managerToken}` },
-        body: JSON.stringify({
-          email: 'admin.orders@example.test',
-          password: 'Orders-Admin-Password-123!',
-          firstName: 'Orders Admin',
-          permission: { allow: ['orders:manage'] },
-        }),
+      await createIntegrationAdmin({
+        email: 'admin.orders@example.test',
+        password: 'Orders-Admin-Password-123!',
+        firstName: 'Orders Admin',
+        createdBy: managerId,
+        permissions: ['orders:manage'],
       });
-      assert.equal(appointOrdersAdmin.response.status, 201);
-      assert.deepEqual(appointOrdersAdmin.body.admin.permissions, ['orders:manage']);
-
-      const appointOperationsAdmin = await request('/api/admin/admins', {
-        method: 'POST',
-        headers: { authorization: `Bearer ${managerToken}` },
-        body: JSON.stringify({
-          email: 'admin.operations@example.test',
-          password: 'Operations-Admin-Password-123!',
-          firstName: 'Operations Admin',
-          permission: { presets: ['operations'] },
-        }),
+      await createIntegrationAdmin({
+        email: 'admin.operations@example.test',
+        password: 'Operations-Admin-Password-123!',
+        firstName: 'Operations Admin',
+        createdBy: managerId,
+        permissions: ['coupons:manage', 'orders:manage'],
       });
-      assert.equal(appointOperationsAdmin.response.status, 201);
-      assert.deepEqual(appointOperationsAdmin.body.admin.permissions, [
-        'coupons:manage',
-        'orders:manage',
-      ]);
 
       const couponsAdminLogin = await request('/api/auth/admin/login', {
         method: 'POST',
