@@ -40,7 +40,7 @@ The `MANAGER` role is the single primary platform owner and is not an alias for 
 
 | Capability                                                     | MANAGER      | ADMIN                       | VENDOR                     | CUSTOMER              |
 | -------------------------------------------------------------- | ------------ | --------------------------- | -------------------------- | --------------------- |
-| Appoint/permit/disable admins (`/api/admin/admins`)            | Yes          | No (403)                    | No (403)                   | No (403)              |
+| Govern admin invitations and existing admins (`/api/admin/invitations`, `/api/admin/admins`)            | Yes          | No (403)                    | No (403)                   | No (403)              |
 | Review vendor applications (`/api/admin/vendors/applications`) | Yes          | Only with `vendors:review`  | No (403)                   | No (403)              |
 | Create/publish/archive any product; upload images              | Yes          | Only with `products:manage` | Own products only (drafts) | No (403)              |
 | Manage coupons (`/api/coupons` management routes)              | Yes          | Only with `coupons:manage`  | No (403)                   | No (403)              |
