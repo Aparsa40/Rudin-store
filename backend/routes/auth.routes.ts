@@ -5,6 +5,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { UserModel } from '../models/user.model.js';
 import { createAccessToken, requireAuth, type AppRole } from '../middleware/auth.js';
 import { withAdminStateLock } from '../lib/admin-state.js';
+import { ADMIN_PERMISSIONS, type AdminPermission } from '../lib/admin-permissions.js';
 
 const scrypt = promisify(scryptCallback);
 const authRouter = Router();
@@ -31,7 +32,25 @@ function publicUser(user: {
   phone?: string | null;
   role: string;
   createdAt?: Date;
+  adminPermissions?: unknown;
 }) {
+  // Effective granular permissions, mirroring the `requirePermission` middleware:
+  // the MANAGER passes every permission check, an ADMIN holds only the permissions
+  // its manager granted (sanitized against the known permission catalog), and
+  // every other role carries no administrative permissions. The field is omitted
+  // from non-administrative responses so clients fail closed on missing data.
+  let adminPermissions: AdminPermission[] | undefined;
+  if (user.role === 'MANAGER') {
+    adminPermissions = [...ADMIN_PERMISSIONS];
+  } else if (user.role === 'ADMIN') {
+    adminPermissions = Array.isArray(user.adminPermissions)
+      ? user.adminPermissions.filter(
+          (entry): entry is AdminPermission =>
+            typeof entry === 'string' &&
+            (ADMIN_PERMISSIONS as readonly string[]).includes(entry),
+        )
+      : [];
+  }
   return {
     id: user._id,
     email: user.email,
@@ -40,6 +59,7 @@ function publicUser(user: {
     phone: user.phone,
     role: user.role,
     createdAt: user.createdAt,
+    adminPermissions,
   };
 }
 
@@ -77,7 +97,7 @@ authRouter.post('/bootstrap-manager', async (req, res, next) => {
         .json({
           error: {
             code: 'INVALID_MANAGER',
-            message: 'Provide a valid email, a password of 12–128 characters, and a first name.',
+            message: 'Provide a valid email, a password of 12â128 characters, and a first name.',
           },
         });
       return;
@@ -169,7 +189,7 @@ authRouter.post('/register', async (req, res, next) => {
           error: {
             code: 'INVALID_REGISTRATION',
             message:
-              'Provide a valid email, a password of 12–128 characters, and a first name (maximum 80 characters).',
+              'Provide a valid email, a password of 12â128 characters, and a first name (maximum 80 characters).',
           },
         });
       return;
@@ -327,3 +347,4 @@ authRouter.get('/me', requireAuth, async (req, res, next) => {
 });
 
 export default authRouter;
+

@@ -126,6 +126,9 @@ test(
       });
       assert.equal(adminPortalLogin.response.status, 200);
       assert.equal(adminPortalLogin.body.user.role, 'ADMIN');
+      // Auth responses expose the account's effective admin permissions so the
+      // client can render permission-aware sections without trusting local state.
+      assert.deepEqual(adminPortalLogin.body.user.adminPermissions, ['vendors:review']);
       const adminToken = adminPortalLogin.body.accessToken as string;
 
       const registeredCustomer = await request('/api/auth/register', {
@@ -138,6 +141,8 @@ test(
       });
       assert.equal(registeredCustomer.response.status, 201);
       assert.equal(registeredCustomer.body.user.role, 'CUSTOMER');
+      // Non-administrative accounts carry no administrative permissions.
+      assert.equal(registeredCustomer.body.user.adminPermissions, undefined);
       const customerToken = registeredCustomer.body.accessToken as string;
 
       const pendingVendor = await request('/api/auth/register', {
@@ -452,6 +457,14 @@ test(
         });
         assert.equal(managerOnManagerPortal.response.status, 200);
         assert.equal(managerOnManagerPortal.body.user.role, 'MANAGER');
+        // The manager passes every permission check, so its effective permission
+        // list is the full administrative catalog in canonical order.
+        assert.deepEqual(managerOnManagerPortal.body.user.adminPermissions, [
+          'vendors:review',
+          'products:manage',
+          'coupons:manage',
+          'orders:manage',
+        ]);
         const customerOnManagerPortal = await request('/api/auth/manager/login', {
           method: 'POST',
           body: JSON.stringify({
@@ -655,6 +668,8 @@ test(
         });
         assert.equal(adminMe.response.status, 200);
         assert.equal(adminMe.body.user.role, 'ADMIN');
+        // Session refresh returns the same effective permissions as login.
+        assert.deepEqual(adminMe.body.user.adminPermissions, ['vendors:review']);
 
         const disabled = await request(`/api/admin/admins/${encodeURIComponent(adminId)}/status`, {
           method: 'PATCH',
@@ -773,3 +788,4 @@ test(
     }
   },
 );
+

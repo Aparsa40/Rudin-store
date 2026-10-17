@@ -279,3 +279,116 @@ export interface ProductFilterParams {
   page?: number;
   limit?: number;
 }
+
+
+// ---------------------------------------------------------------------------
+// Administrative order and coupon contracts.
+//
+// These mirror the server DTOs exactly: the admin order listing omits the
+// customer's shipping address and idempotency key, and only the detail
+// endpoint returns the full document. The customer-facing `Order` type above
+// is a frontend composite and does not match the admin API responses.
+// ---------------------------------------------------------------------------
+
+export type AdminOrderStatus =
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'SHIPPED'
+  | 'DELIVERED'
+  | 'CANCELLED';
+export type AdminPaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
+export type AdminCouponType = 'PERCENTAGE' | 'FIXED' | 'FREE_SHIPPING';
+
+export interface AdminOrderItem {
+  productId: string;
+  variantId?: string;
+  title: string;
+  unitPrice: number;
+  quantity: number;
+  subtotal: number;
+  vendorId: string;
+}
+
+export interface AdminOrderShippingAddress {
+  fullName: string;
+  phone: string;
+  street1: string;
+  street2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+}
+
+export interface AdminOrderCouponRedemption {
+  couponId: string;
+  code: string;
+  discount: number;
+  redeemedAt: string;
+}
+
+export interface AdminOrderBase {
+  id: string;
+  userId: string;
+  orderNumber: string;
+  status: AdminOrderStatus;
+  paymentStatus: AdminPaymentStatus;
+  paymentMethod: string;
+  items: AdminOrderItem[];
+  subtotal: number;
+  shippingCost: number;
+  tax: number;
+  total: number;
+  couponRedemption?: AdminOrderCouponRedemption;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A row from the administrative order listing (no shipping address). */
+export type AdminOrderSummary = AdminOrderBase;
+
+/** The full order document from the administrative detail endpoint. */
+export type AdminOrder = AdminOrderBase & {
+  shippingAddress: AdminOrderShippingAddress;
+  idempotencyKey?: string;
+};
+
+export interface AdminOrdersPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+/** Supported filters for `GET /api/admin/orders`; the server validates them. */
+export interface AdminOrdersQuery {
+  page?: number;
+  limit?: number;
+  status?: AdminOrderStatus;
+  paymentStatus?: AdminPaymentStatus;
+  userId?: string;
+  orderNumber?: string;
+  from?: string;
+  to?: string;
+}
+
+/**
+ * A coupon document from the management API. Optional fields are `null` when the
+ * stored document omits them (Mongoose leans null into the serialized payload).
+ */
+export interface AdminCoupon {
+  id: string;
+  code: string;
+  type: AdminCouponType;
+  value: number;
+  minPurchaseAmount?: number | null;
+  maxDiscount?: number | null;
+  description?: string | null;
+  validFrom?: string | null;
+  validUntil: string;
+  usageLimit?: number | null;
+  usedCount: number;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
