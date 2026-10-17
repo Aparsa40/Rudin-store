@@ -1,4 +1,4 @@
-import { model, Schema } from "mongoose";
+import { model, Schema } from 'mongoose';
 
 const productImageSchema = new Schema(
   {
@@ -43,7 +43,12 @@ const productSchema = new Schema(
     variants: { type: [productVariantSchema], default: [] },
     rating: { type: Number, min: 0, max: 5, default: 0 },
     reviewCount: { type: Number, min: 0, default: 0 },
-    status: { type: String, enum: ["DRAFT", "PUBLISHED", "ARCHIVED"], default: "DRAFT", index: true },
+    status: {
+      type: String,
+      enum: ['DRAFT', 'PUBLISHED', 'ARCHIVED'],
+      default: 'DRAFT',
+      index: true,
+    },
     tags: { type: [String], default: [] },
     features: { type: [String], default: [] },
     specifications: { type: Map, of: String, default: {} },
@@ -59,6 +64,12 @@ const productSchema = new Schema(
 
 productSchema.index({ slug: 1 }, { unique: true });
 productSchema.index({ status: 1, isFeatured: -1, createdAt: -1 });
-productSchema.index({ title: "text", description: "text", shortDescription: "text", tags: "text", brandName: "text" });
+productSchema.index({
+  title: 'text',
+  description: 'text',
+  shortDescription: 'text',
+  tags: 'text',
+  brandName: 'text',
+});
 
-export const ProductModel = model("Product", productSchema);
+export const ProductModel = model('Product', productSchema);

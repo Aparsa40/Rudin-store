@@ -33,19 +33,19 @@ The service layer is the integration boundary. UI components must not connect di
 
 ## Frontend service integration status
 
-| Frontend service | Backend integration |
-|---|---|
-| Auth — role-specific portal logins and registration | Real API (`POST /api/auth/customer/login`, `POST /api/auth/vendor/login`, `POST /api/auth/admin/login`, `POST /api/auth/manager/login`, `POST /api/auth/register`; the generic `POST /api/auth/login` remains for backward compatibility) |
-| Auth — session restore (`getCurrentUser`), logout, profile updates | **Browser-local only**; `GET /api/auth/me` is implemented but never called by the frontend; logout performs no server call |
-| Address book | **Browser-local only** (`localStorage` with mock fallback); no backend address endpoints exist |
-| Public product catalog, search, filters, details | Real API |
-| Seller product management (create, edit, status, archive, image upload) | Real API |
-| Admin catalog moderation (featured toggle) and vendor-application review | Real API |
-| Admin orders and coupons tabs | **Mock / presentation-only**; rendered from `mockOrders`/`mockCoupons`; coupon create/toggle is in-memory state only |
-| Seller order fulfillment, payouts, and store settings | **Mock / presentation-only**; in-memory order status, toast-only payout/settings actions, mock vendor profile |
-| Vendor application and admin approval | Real API |
-| Orders / checkout | **Browser-local only** (`localStorage`); not connected to `/api/orders` |
-| Cart, coupons, wishlist, reviews | Browser-local demo data |
+| Frontend service                                                         | Backend integration                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth — role-specific portal logins and registration                      | Real API (`POST /api/auth/customer/login`, `POST /api/auth/vendor/login`, `POST /api/auth/admin/login`, `POST /api/auth/manager/login`, `POST /api/auth/register`; the generic `POST /api/auth/login` remains for backward compatibility) |
+| Auth — session restore (`getCurrentUser`), logout, profile updates       | **Browser-local only**; `GET /api/auth/me` is implemented but never called by the frontend; logout performs no server call                                                                                                                |
+| Address book                                                             | **Browser-local only** (`localStorage` with mock fallback); no backend address endpoints exist                                                                                                                                            |
+| Public product catalog, search, filters, details                         | Real API                                                                                                                                                                                                                                  |
+| Seller product management (create, edit, status, archive, image upload)  | Real API                                                                                                                                                                                                                                  |
+| Admin catalog moderation (featured toggle) and vendor-application review | Real API                                                                                                                                                                                                                                  |
+| Admin orders and coupons tabs                                            | **Mock / presentation-only**; rendered from `mockOrders`/`mockCoupons`; coupon create/toggle is in-memory state only                                                                                                                      |
+| Seller order fulfillment, payouts, and store settings                    | **Mock / presentation-only**; in-memory order status, toast-only payout/settings actions, mock vendor profile                                                                                                                             |
+| Vendor application and admin approval                                    | Real API                                                                                                                                                                                                                                  |
+| Orders / checkout                                                        | **Browser-local only** (`localStorage`); not connected to `/api/orders`                                                                                                                                                                   |
+| Cart, coupons, wishlist, reviews                                         | Browser-local demo data                                                                                                                                                                                                                   |
 
 The frontend `ordersService` persists orders in `localStorage` only. The server-authoritative order API (`POST /api/orders`, `GET /api/orders`, `GET /api/orders/:id`) exists, but the checkout UI does not call it yet, so a browser order is not a server order. See docs/server-authoritative-checkout.md and backend/README.md.
 
@@ -119,23 +119,23 @@ See SECURITY.md, docs/security.md, docs/backend-integration.md, and backend/READ
 
 ## Project status
 
-| Area | Status |
-|---|---|
-| Frontend UI | Implemented |
-| Demo/local persistence architecture | Implemented |
-| Client route guards | Implemented (UX only) |
-| Frontend auth session wiring (logout, profile, addresses, `/api/auth/me`) | Browser-local; `GET /api/auth/me` not called |
-| Admin orders/coupons and seller fulfillment/payout/settings screens | Mock / presentation-only |
-| Backend authentication/authorization (auth, admin, vendors, products, orders) | Implemented, unreleased |
-| Role-specific login portals and manager-owned governance (admin appointment, permission presets) | Implemented, unreleased |
-| MongoDB backend + transactional inventory | Implemented, unreleased; replica set required |
-| Frontend checkout/order API wiring | Not implemented (browser-local orders) |
-| Payment gateway / verified callbacks | Not implemented |
-| Currency / tax / shipping / coupon rules | Not implemented (open product decisions) |
-| Order lifecycle (cancel/refund/fulfillment) | Not implemented |
-| Shipping provider / seller payouts | Not implemented |
-| Contact backend/email | Not implemented |
-| Email verification / refresh-token rotation | Not implemented |
+| Area                                                                                             | Status                                        |
+| ------------------------------------------------------------------------------------------------ | --------------------------------------------- |
+| Frontend UI                                                                                      | Implemented                                   |
+| Demo/local persistence architecture                                                              | Implemented                                   |
+| Client route guards                                                                              | Implemented (UX only)                         |
+| Frontend auth session wiring (logout, profile, addresses, `/api/auth/me`)                        | Browser-local; `GET /api/auth/me` not called  |
+| Admin orders/coupons and seller fulfillment/payout/settings screens                              | Mock / presentation-only                      |
+| Backend authentication/authorization (auth, admin, vendors, products, orders)                    | Implemented, unreleased                       |
+| Role-specific login portals and manager-owned governance (admin appointment, permission presets) | Implemented, unreleased                       |
+| MongoDB backend + transactional inventory                                                        | Implemented, unreleased; replica set required |
+| Frontend checkout/order API wiring                                                               | Not implemented (browser-local orders)        |
+| Payment gateway / verified callbacks                                                             | Not implemented                               |
+| Currency / tax / shipping / coupon rules                                                         | Not implemented (open product decisions)      |
+| Order lifecycle (cancel/refund/fulfillment)                                                      | Not implemented                               |
+| Shipping provider / seller payouts                                                               | Not implemented                               |
+| Contact backend/email                                                                            | Not implemented                               |
+| Email verification / refresh-token rotation                                                      | Not implemented                               |
 
 Rudin Store is a functional marketplace prototype with a partially integrated backend, not a production-ready marketplace.
 

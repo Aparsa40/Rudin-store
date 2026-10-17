@@ -10,17 +10,17 @@ Rudin Store v2.1.0 is a hardened frontend prototype. It includes client-side rou
 
 These features improve UX and demo consistency but are not trusted security boundaries.
 
-| Capability | v2.1.0 | Production |
-|---|---|---|
-| Login | Mock/demo | Backend credential verification |
-| Authorization | Client guard | Server-side authorization |
-| Sessions | Browser state | Secure server-managed session |
-| Password reset | Demo/UI | Trusted recovery service |
-| Cart stock | Client validation | Server transaction |
-| Coupons | Client validation | Server-side rules |
-| Payments | Simulation | Provider + backend |
-| Database | None | PostgreSQL or equivalent |
-| Contact | No production backend | API + controlled notification |
+| Capability     | v2.1.0                | Production                      |
+| -------------- | --------------------- | ------------------------------- |
+| Login          | Mock/demo             | Backend credential verification |
+| Authorization  | Client guard          | Server-side authorization       |
+| Sessions       | Browser state         | Secure server-managed session   |
+| Password reset | Demo/UI               | Trusted recovery service        |
+| Cart stock     | Client validation     | Server transaction              |
+| Coupons        | Client validation     | Server-side rules               |
+| Payments       | Simulation            | Provider + backend              |
+| Database       | None                  | PostgreSQL or equivalent        |
+| Contact        | No production backend | API + controlled notification   |
 
 ## Authentication
 

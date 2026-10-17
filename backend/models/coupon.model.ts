@@ -1,11 +1,11 @@
-import { model, Schema } from "mongoose";
+import { model, Schema } from 'mongoose';
 
 const couponSchema = new Schema(
   {
     _id: { type: String, required: true },
     // Customer-facing code, always stored uppercase; unique across the store.
     code: { type: String, required: true, trim: true, uppercase: true, unique: true, index: true },
-    type: { type: String, enum: ["PERCENTAGE", "FIXED", "FREE_SHIPPING"], required: true },
+    type: { type: String, enum: ['PERCENTAGE', 'FIXED', 'FREE_SHIPPING'], required: true },
     // PERCENTAGE: percent off (1-100). FIXED: absolute amount off. FREE_SHIPPING: unused (0).
     value: { type: Number, required: true, min: 0 },
     minPurchaseAmount: { type: Number, min: 0 },
@@ -22,4 +22,4 @@ const couponSchema = new Schema(
   { timestamps: true, versionKey: false },
 );
 
-export const CouponModel = model("Coupon", couponSchema);
+export const CouponModel = model('Coupon', couponSchema);

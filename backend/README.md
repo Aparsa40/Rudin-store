@@ -33,14 +33,14 @@ All routes under `/api/admin` require the active primary `MANAGER` bearer token.
 
 The `MANAGER` role is the single primary platform owner and is not an alias for `ADMIN`. The manager appoints admin accounts, exclusively controls their permissions, and passes every permission check. Admin accounts hold only the granular permissions the manager explicitly granted; they cannot grant themselves permissions, cannot appoint other admins, and cannot touch the manager's authority. The permission set is currently `vendors:review` (list and decide vendor applications), `products:manage` (whole-catalog product authoring, publishing/archiving, and image uploads), `coupons:manage` (coupon creation, management listing, and updates), and `orders:manage` (read-only administrative order listing and detail). Permission matrix, enforced server-side on every request:
 
-| Capability | MANAGER | ADMIN | VENDOR | CUSTOMER |
-|---|---|---|---|---|
-| Appoint/permit/disable admins (`/api/admin/admins`) | Yes | No (403) | No (403) | No (403) |
-| Review vendor applications (`/api/admin/vendors/applications`) | Yes | Only with `vendors:review` | No (403) | No (403) |
-| Create/publish/archive any product; upload images | Yes | Only with `products:manage` | Own products only (drafts) | No (403) |
-| Manage coupons (`/api/coupons` management routes) | Yes | Only with `coupons:manage` | No (403) | No (403) |
-| View all orders (`/api/admin/orders`, read-only) | Yes | Only with `orders:manage` | No (403) | No (403) |
-| Create an ADMIN or MANAGER through public registration | Not possible | Not possible | Via approved application | Yes (always CUSTOMER) |
+| Capability                                                     | MANAGER      | ADMIN                       | VENDOR                     | CUSTOMER              |
+| -------------------------------------------------------------- | ------------ | --------------------------- | -------------------------- | --------------------- |
+| Appoint/permit/disable admins (`/api/admin/admins`)            | Yes          | No (403)                    | No (403)                   | No (403)              |
+| Review vendor applications (`/api/admin/vendors/applications`) | Yes          | Only with `vendors:review`  | No (403)                   | No (403)              |
+| Create/publish/archive any product; upload images              | Yes          | Only with `products:manage` | Own products only (drafts) | No (403)              |
+| Manage coupons (`/api/coupons` management routes)              | Yes          | Only with `coupons:manage`  | No (403)                   | No (403)              |
+| View all orders (`/api/admin/orders`, read-only)               | Yes          | Only with `orders:manage`   | No (403)                   | No (403)              |
+| Create an ADMIN or MANAGER through public registration         | Not possible | Not possible                | Via approved application   | Yes (always CUSTOMER) |
 
 Server-defined presets give the manager a safe shorthand: `vendor-support` (`vendors:review`), `catalog-curator` (`vendors:review` + `products:manage`), and `operations` (`coupons:manage` + `orders:manage`). The resolved list is stored on the account, so future preset redefinitions never silently re-grant permissions to existing admins. Manager and admin accounts can never be created through public registration; the manager exists only via the controlled bootstrap.
 

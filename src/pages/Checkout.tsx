@@ -187,9 +187,7 @@ export const Checkout: React.FC = () => {
             Order Placed — Payment Pending
           </Badge>
 
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">
-            Order Placed!
-          </h1>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Order Placed!</h1>
           <p className="text-sm text-slate-600 max-w-md mx-auto mb-8">
             Thank you, {completedOrder.shippingAddress.fullName}. Your order has been recorded and
             is awaiting payment confirmation. You can follow its status from your orders dashboard.

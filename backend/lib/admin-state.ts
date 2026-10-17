@@ -1,4 +1,4 @@
-import mongoose, { model, Schema, type ClientSession } from "mongoose";
+import mongoose, { model, Schema, type ClientSession } from 'mongoose';
 
 const adminStateSchema = new Schema(
   {
@@ -8,7 +8,7 @@ const adminStateSchema = new Schema(
   { versionKey: false },
 );
 
-const AdminStateModel = model("AdminState", adminStateSchema);
+const AdminStateModel = model('AdminState', adminStateSchema);
 
 /**
  * Serialize admin-critical operations through a shared write inside a MongoDB transaction.
@@ -24,7 +24,7 @@ export async function withAdminStateLock<T>(
   try {
     await session.withTransaction(async () => {
       await AdminStateModel.updateOne(
-        { _id: "global-admin-state" },
+        { _id: 'global-admin-state' },
         { $inc: { revision: 1 } },
         { upsert: true, session },
       );

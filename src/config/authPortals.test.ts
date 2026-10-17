@@ -43,7 +43,11 @@ test('protected areas redirect unauthenticated visitors to the correct portal', 
   assert.equal(getLoginRouteForRoles([]), '/login');
   assert.equal(getLoginRouteForRoles(['CUSTOMER']), '/login');
   assert.equal(getLoginRouteForRoles(['VENDOR']), '/vendor/login');
-  assert.equal(getLoginRouteForRoles(['VENDOR', 'ADMIN']), '/vendor/login', 'the shared seller area must use the vendor portal');
+  assert.equal(
+    getLoginRouteForRoles(['VENDOR', 'ADMIN']),
+    '/vendor/login',
+    'the shared seller area must use the vendor portal',
+  );
   assert.equal(getLoginRouteForRoles(['ADMIN']), '/admin/login');
   assert.equal(getLoginRouteForRoles(['MANAGER']), '/manager/login');
 });

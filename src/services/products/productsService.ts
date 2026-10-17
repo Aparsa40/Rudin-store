@@ -30,20 +30,31 @@ function toProduct(value: Product): Product {
   };
 }
 
-async function fetchProducts(params: URLSearchParams): Promise<{ products: Product[]; total: number }> {
+async function fetchProducts(
+  params: URLSearchParams,
+): Promise<{ products: Product[]; total: number }> {
   const response = await fetch(`${API_BASE_URL}/api/products?${params.toString()}`);
   const payload = await readApiResponse<ProductsResponse>(response);
   const products = (payload.products || []).map(toProduct);
   return { products, total: payload.pagination?.total ?? products.length };
 }
 
-async function fetchProductsByFlag(flag: 'featured' | 'bestSeller' | 'newArrival' | 'flashDeal', limit: number): Promise<Product[]> {
-  const params = new URLSearchParams({ [flag]: 'true', limit: String(limit), sortBy: flag === 'featured' ? 'featured' : 'newest' });
+async function fetchProductsByFlag(
+  flag: 'featured' | 'bestSeller' | 'newArrival' | 'flashDeal',
+  limit: number,
+): Promise<Product[]> {
+  const params = new URLSearchParams({
+    [flag]: 'true',
+    limit: String(limit),
+    sortBy: flag === 'featured' ? 'featured' : 'newest',
+  });
   return (await fetchProducts(params)).products;
 }
 
 export const productsService = {
-  getProducts: async (filters: ProductFilterParams = {}): Promise<{ products: Product[]; total: number }> => {
+  getProducts: async (
+    filters: ProductFilterParams = {},
+  ): Promise<{ products: Product[]; total: number }> => {
     const params = new URLSearchParams();
     if (filters.categoryId) params.set('categoryId', filters.categoryId);
     if (filters.vendorId) params.set('vendorId', filters.vendorId);
@@ -75,12 +86,15 @@ export const productsService = {
   },
 
   getProductsByCategory: async (categoryId: string): Promise<Product[]> =>
-    (await fetchProducts(new URLSearchParams({ categoryId, limit: '100', sortBy: 'featured' }))).products,
+    (await fetchProducts(new URLSearchParams({ categoryId, limit: '100', sortBy: 'featured' })))
+      .products,
 
   getProductsByVendor: async (vendorId: string): Promise<Product[]> =>
-    (await fetchProducts(new URLSearchParams({ vendorId, limit: '100', sortBy: 'newest' }))).products,
+    (await fetchProducts(new URLSearchParams({ vendorId, limit: '100', sortBy: 'newest' })))
+      .products,
 
-  getFeaturedProducts: async (limit = 4): Promise<Product[]> => fetchProductsByFlag('featured', limit),
+  getFeaturedProducts: async (limit = 4): Promise<Product[]> =>
+    fetchProductsByFlag('featured', limit),
   getBestSellers: async (limit = 4): Promise<Product[]> => fetchProductsByFlag('bestSeller', limit),
   getNewArrivals: async (limit = 4): Promise<Product[]> => fetchProductsByFlag('newArrival', limit),
   getFlashDeals: async (): Promise<Product[]> => fetchProductsByFlag('flashDeal', 100),
@@ -89,12 +103,17 @@ export const productsService = {
     const target = await productsService.getProductById(productId);
     if (!target) return [];
     const pageSize = Math.min(100, limit + 1);
-    const byCategory = (await productsService.getProducts({ categoryId: target.categoryId, limit: pageSize })).products;
+    const byCategory = (
+      await productsService.getProducts({ categoryId: target.categoryId, limit: pageSize })
+    ).products;
     const related = byCategory.filter((product) => product.id !== target.id);
     if (related.length >= limit) return related.slice(0, limit);
-    const byVendor = (await productsService.getProducts({ vendorId: target.vendorId, limit: pageSize })).products;
+    const byVendor = (
+      await productsService.getProducts({ vendorId: target.vendorId, limit: pageSize })
+    ).products;
     for (const product of byVendor) {
-      if (product.id !== target.id && !related.some((existing) => existing.id === product.id)) related.push(product);
+      if (product.id !== target.id && !related.some((existing) => existing.id === product.id))
+        related.push(product);
       if (related.length >= limit) break;
     }
     return related.slice(0, limit);
@@ -103,14 +122,18 @@ export const productsService = {
   // Co-purchase data requires an order-item backend relation that is not implemented yet.
   getFrequentlyBoughtTogether: async (_productId: string): Promise<Product[]> => [],
 
-  searchSuggestions: async (query: string): Promise<{
+  searchSuggestions: async (
+    query: string,
+  ): Promise<{
     products: { id: string; title: string; slug: string; price: number; image: string }[];
     categories: { id: string; name: string; slug: string }[];
     popular: string[];
   }> => {
     const q = query.trim();
     if (!q) return { products: [], categories: [], popular: [] };
-    const { products } = await fetchProducts(new URLSearchParams({ q, limit: '4', sortBy: 'featured' }));
+    const { products } = await fetchProducts(
+      new URLSearchParams({ q, limit: '4', sortBy: 'featured' }),
+    );
     return {
       products: products.map((product) => ({
         id: product.id,

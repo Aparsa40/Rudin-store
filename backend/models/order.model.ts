@@ -1,4 +1,4 @@
-import { model, Schema } from "mongoose";
+import { model, Schema } from 'mongoose';
 
 const orderAddressSchema = new Schema(
   {
@@ -45,11 +45,23 @@ const orderSchema = new Schema(
     _id: { type: String, required: true },
     userId: { type: String, required: true, index: true },
     orderNumber: { type: String, required: true },
-    status: { type: String, enum: ["PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"], default: "PENDING" },
+    status: {
+      type: String,
+      enum: ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'],
+      default: 'PENDING',
+    },
     // No payment gateway is integrated: an order is created PENDING and may only
     // become PAID through a verified payment callback (not implemented yet).
-    paymentStatus: { type: String, enum: ["PENDING", "PAID", "FAILED", "REFUNDED"], default: "PENDING" },
-    paymentMethod: { type: String, enum: ["CASH_ON_DELIVERY", "CREDIT_CARD", "PAYPAL", "APPLE_PAY"], required: true },
+    paymentStatus: {
+      type: String,
+      enum: ['PENDING', 'PAID', 'FAILED', 'REFUNDED'],
+      default: 'PENDING',
+    },
+    paymentMethod: {
+      type: String,
+      enum: ['CASH_ON_DELIVERY', 'CREDIT_CARD', 'PAYPAL', 'APPLE_PAY'],
+      required: true,
+    },
     items: { type: [orderItemSchema], default: [] },
     shippingAddress: { type: orderAddressSchema, required: true },
     // All monetary fields are computed server-side from database product prices.
@@ -65,7 +77,10 @@ const orderSchema = new Schema(
   { timestamps: true, versionKey: false },
 );
 
-orderSchema.index({ userId: 1, idempotencyKey: 1 }, { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } } });
+orderSchema.index(
+  { userId: 1, idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } },
+);
 orderSchema.index({ userId: 1, createdAt: -1 });
 
-export const OrderModel = model("Order", orderSchema);
+export const OrderModel = model('Order', orderSchema);

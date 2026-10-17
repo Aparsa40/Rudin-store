@@ -43,7 +43,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ portal, submitLabel, onSuc
       const session = await authService.loginToPortal(portal, email.trim(), password);
       onSuccess(session);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Unable to sign in. Please try again.');
+      setError(
+        submitError instanceof Error ? submitError.message : 'Unable to sign in. Please try again.',
+      );
     } finally {
       setBusy(false);
     }
@@ -74,7 +76,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({ portal, submitLabel, onSuc
           <label htmlFor={`${fieldId}-password`} className="block text-xs font-bold text-slate-900">
             Password
           </label>
-          <Link to="/reset-password" className="text-xs text-blue-600 hover:underline font-semibold">
+          <Link
+            to="/reset-password"
+            className="text-xs text-blue-600 hover:underline font-semibold"
+          >
             Forgot password?
           </Link>
         </div>
@@ -112,7 +117,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ portal, submitLabel, onSuc
         </p>
       )}
 
-      <Button type="submit" size="lg" className="w-full font-bold h-11" isLoading={busy} disabled={busy}>
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full font-bold h-11"
+        isLoading={busy}
+        disabled={busy}
+      >
         {submitLabel}
       </Button>
     </form>

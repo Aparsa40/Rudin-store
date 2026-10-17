@@ -33,8 +33,7 @@ export const Header: React.FC = () => {
   // Demo role switching is a development-only evaluation tool: it is stripped
   // from production builds, and every portal entry leads to the real
   // authentication route for that role.
-  const demoAuthEnabled =
-    import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_AUTH === 'true';
+  const demoAuthEnabled = import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_AUTH === 'true';
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -65,41 +64,41 @@ export const Header: React.FC = () => {
           <div className="flex items-center gap-4 text-slate-300">
             {/* Quick Demo Role Switcher — development-only, never rendered in production builds */}
             {demoAuthEnabled && (
-            <div className="flex items-center gap-1.5 text-[11px] bg-slate-800/80 px-2.5 py-0.5 rounded-full border border-slate-700">
-              <span className="text-slate-400">View as:</span>
-              <button
-                onClick={() => handleRoleChange('CUSTOMER')}
-                className={`font-semibold transition-colors ${
-                  user?.role === 'CUSTOMER'
-                    ? 'text-white underline'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Customer
-              </button>
-              <span className="text-slate-600">|</span>
-              <button
-                onClick={() => handleRoleChange('VENDOR')}
-                className={`font-semibold transition-colors ${
-                  user?.role === 'VENDOR'
-                    ? 'text-amber-400 underline'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Seller
-              </button>
-              <span className="text-slate-600">|</span>
-              <button
-                onClick={() => handleRoleChange('ADMIN')}
-                className={`font-semibold transition-colors ${
-                  user?.role === 'ADMIN'
-                    ? 'text-blue-400 underline'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Admin
-              </button>
-            </div>
+              <div className="flex items-center gap-1.5 text-[11px] bg-slate-800/80 px-2.5 py-0.5 rounded-full border border-slate-700">
+                <span className="text-slate-400">View as:</span>
+                <button
+                  onClick={() => handleRoleChange('CUSTOMER')}
+                  className={`font-semibold transition-colors ${
+                    user?.role === 'CUSTOMER'
+                      ? 'text-white underline'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Customer
+                </button>
+                <span className="text-slate-600">|</span>
+                <button
+                  onClick={() => handleRoleChange('VENDOR')}
+                  className={`font-semibold transition-colors ${
+                    user?.role === 'VENDOR'
+                      ? 'text-amber-400 underline'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Seller
+                </button>
+                <span className="text-slate-600">|</span>
+                <button
+                  onClick={() => handleRoleChange('ADMIN')}
+                  className={`font-semibold transition-colors ${
+                    user?.role === 'ADMIN'
+                      ? 'text-blue-400 underline'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Admin
+                </button>
+              </div>
             )}
 
             <Link to="/seller/join" className="hover:text-white transition-colors hidden md:block">

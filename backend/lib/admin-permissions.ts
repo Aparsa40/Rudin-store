@@ -2,7 +2,12 @@
 // An admin only ever holds the permissions the manager explicitly granted,
 // so administrative work can be delegated without handing over the platform.
 
-export const ADMIN_PERMISSIONS = ["vendors:review", "products:manage", "coupons:manage", "orders:manage"] as const;
+export const ADMIN_PERMISSIONS = [
+  'vendors:review',
+  'products:manage',
+  'coupons:manage',
+  'orders:manage',
+] as const;
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
 
 // Server-defined presets give managers a safe shorthand; allow/deny entries
@@ -11,14 +16,18 @@ export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
 // full vendor onboarding workflow. The operations preset pairs the coupon and
 // order capabilities so an operations admin can be appointed in one step.
 export const ADMIN_PRESETS: Record<string, readonly AdminPermission[]> = {
-  "vendor-support": ["vendors:review"],
-  "catalog-curator": ["vendors:review", "products:manage"],
-  "operations": ["coupons:manage", "orders:manage"],
+  'vendor-support': ['vendors:review'],
+  'catalog-curator': ['vendors:review', 'products:manage'],
+  operations: ['coupons:manage', 'orders:manage'],
 };
 
 function toStringArray(value: unknown): string[] | null {
   if (value === undefined) return [];
-  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string" || entry.trim() === "")) return null;
+  if (
+    !Array.isArray(value) ||
+    value.some((entry) => typeof entry !== 'string' || entry.trim() === '')
+  )
+    return null;
   return value;
 }
 
@@ -36,7 +45,7 @@ export function resolveAdminPermissions(input: {
   const allow = toStringArray(input.allow);
   const deny = toStringArray(input.deny);
   if (presets === null || allow === null || deny === null) {
-    return { error: "presets, allow and deny must each be arrays of non-empty strings." };
+    return { error: 'presets, allow and deny must each be arrays of non-empty strings.' };
   }
   const granted = new Set<AdminPermission>();
   for (const presetName of presets) {

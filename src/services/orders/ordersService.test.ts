@@ -122,7 +122,10 @@ test('does not fabricate order history from mock data', async () => {
   // mock orders belonging to a demo user.
   const orders = await ordersService.getOrders('user_test');
   assert.equal(orders.length, 0);
-  assert.equal(orders.some((o) => o.userId === 'u1'), false);
+  assert.equal(
+    orders.some((o) => o.userId === 'u1'),
+    false,
+  );
 });
 
 test('stores created orders when localStorage is available', async (t) => {

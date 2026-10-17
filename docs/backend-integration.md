@@ -15,6 +15,7 @@ The browser-facing API base URL is `VITE_API_URL` (default `http://localhost:400
 ## Implemented backend endpoints
 
 ### Authentication and account security
+
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `POST /api/auth/customer/login`, `POST /api/auth/vendor/login`, `POST /api/auth/admin/login`, `POST /api/auth/manager/login` (role-specific portals; the vendor portal additionally requires an approved vendor application)
@@ -28,6 +29,7 @@ Passwords are scrypt-hashed. Role checks are enforced by the backend, not by UI 
 Frontend wiring status (authentication): the four portal login pages (`/login`, `/vendor/login`, `/admin/login`, `/manager/login`) and the registration form call these endpoints; each portal submits only to its own role-specific endpoint. The frontend session restore (`getCurrentUser`) reads the persisted local user state and never calls `GET /api/auth/me`; logout is browser-local (no server-side token-invalidation endpoint is called); profile updates and the address book are browser-local because no profile or address endpoints exist yet. The role set is `CUSTOMER`, `VENDOR`, `ADMIN`, and `MANAGER`: the manager is the single primary platform owner (bootstrap-only) and appoints admins with granular permission presets; manager and administrator accounts can never be created through public registration. The production header account menu links to the real portal sign-in pages rather than simulating roles.
 
 ### Vendors and products
+
 - `POST /api/vendors/apply`
 - `GET /api/admin/vendors/applications` (MANAGER, or an ADMIN holding `vendors:review`)
 - `PATCH /api/admin/vendors/applications/:id` (MANAGER, or an ADMIN holding `vendors:review`)
@@ -45,6 +47,7 @@ The public catalog supports pagination, search, price/rating/stock/sale filters,
 Image uploads require server-side Cloudinary configuration. Password reset delivery requires Resend configuration.
 
 ### Orders (server-authoritative)
+
 - `POST /api/orders`
 - `GET /api/orders`
 - `GET /api/orders/:id`
@@ -58,6 +61,7 @@ The frontend `ordersService` remains browser-local (localStorage) and is not yet
 ## MongoDB databases
 
 Use explicit database names in the connection URI:
+
 - `rudin_store_dev` for local development.
 - `rudin_store_test` for manual storefront testing; this Atlas database is seeded with clearly named test products.
 - `rudin_store_integration_test` for the security integration suite only.
@@ -68,6 +72,7 @@ Each integration suite clears only its own database collections (`users`, `produ
 ## Domains not yet fully integrated
 
 These areas still need backend models/routes, service wiring, authorization and end-to-end tests before they can be considered real rather than mock-backed:
+
 - Cart persistence and server-authoritative inventory checks/reservation.
 - Frontend checkout wiring: connecting the browser-local `ordersService` and the checkout flow to the server-authoritative order API.
 - Frontend logout and server-verified session restore: `GET /api/auth/me` is implemented but never called by the frontend; profile updates and the address book are browser-local.

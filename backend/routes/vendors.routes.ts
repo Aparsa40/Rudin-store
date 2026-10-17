@@ -1,7 +1,7 @@
-import { Router } from "express";
-import { requireAuth, requireRole } from "../middleware/auth.js";
-import { UserModel } from "../models/user.model.js";
-import { normalizeProductSlug } from "../lib/product-validation.js";
+import { Router } from 'express';
+import { requireAuth, requireRole } from '../middleware/auth.js';
+import { UserModel } from '../models/user.model.js';
+import { normalizeProductSlug } from '../lib/product-validation.js';
 
 const vendorsRouter = Router();
 
@@ -23,20 +23,20 @@ function publicVendor(user: PublicVendorRecord) {
     userId: user._id,
     storeName: user.storeName,
     slug,
-    description: user.storeDescription ?? "",
+    description: user.storeDescription ?? '',
     createdAt: user.createdAt,
   };
 }
 
 // Public directory of active vendors. Supports an exact slug filter for storefront links.
-vendorsRouter.get("/", async (req, res, next) => {
+vendorsRouter.get('/', async (req, res, next) => {
   try {
-    const users = await UserModel.find({ role: "VENDOR", status: "ACTIVE" })
-      .select("_id storeName storeDescription createdAt")
+    const users = await UserModel.find({ role: 'VENDOR', status: 'ACTIVE' })
+      .select('_id storeName storeDescription createdAt')
       .sort({ createdAt: -1 })
       .lean<PublicVendorRecord[]>();
     let vendors = users.map(publicVendor);
-    const slug = typeof req.query.slug === "string" ? req.query.slug.trim() : "";
+    const slug = typeof req.query.slug === 'string' ? req.query.slug.trim() : '';
     if (slug) vendors = vendors.filter((vendor) => vendor.slug === slug);
     res.status(200).json({ vendors });
   } catch (error) {
@@ -45,13 +45,13 @@ vendorsRouter.get("/", async (req, res, next) => {
 });
 
 // Public profile of a single active vendor.
-vendorsRouter.get("/:id", async (req, res, next) => {
+vendorsRouter.get('/:id', async (req, res, next) => {
   try {
-    const user = await UserModel.findOne({ _id: req.params.id, role: "VENDOR", status: "ACTIVE" })
-      .select("_id storeName storeDescription createdAt")
+    const user = await UserModel.findOne({ _id: req.params.id, role: 'VENDOR', status: 'ACTIVE' })
+      .select('_id storeName storeDescription createdAt')
       .lean<PublicVendorRecord | null>();
     if (!user) {
-      res.status(404).json({ error: { code: "VENDOR_NOT_FOUND", message: "Vendor not found." } });
+      res.status(404).json({ error: { code: 'VENDOR_NOT_FOUND', message: 'Vendor not found.' } });
       return;
     }
     res.status(200).json({ vendor: publicVendor(user) });
@@ -60,14 +60,22 @@ vendorsRouter.get("/:id", async (req, res, next) => {
   }
 });
 
-vendorsRouter.post("/apply", requireAuth, requireRole("CUSTOMER"), async (req, res, next) => {
+vendorsRouter.post('/apply', requireAuth, requireRole('CUSTOMER'), async (req, res, next) => {
   try {
     const { storeName, storeDescription } = req.body ?? {};
-    if (typeof storeName !== "string" || storeName.trim().length < 2 || storeName.trim().length > 120 ||
-        (storeDescription !== undefined &&
-          (typeof storeDescription !== "string" || storeDescription.trim().length > 2000))) {
+    if (
+      typeof storeName !== 'string' ||
+      storeName.trim().length < 2 ||
+      storeName.trim().length > 120 ||
+      (storeDescription !== undefined &&
+        (typeof storeDescription !== 'string' || storeDescription.trim().length > 2000))
+    ) {
       res.status(400).json({
-        error: { code: "INVALID_VENDOR_APPLICATION", message: "Provide a store name of 2–120 characters and a description of at most 2000 characters." },
+        error: {
+          code: 'INVALID_VENDOR_APPLICATION',
+          message:
+            'Provide a store name of 2–120 characters and a description of at most 2000 characters.',
+        },
       });
       return;
     }
@@ -75,23 +83,26 @@ vendorsRouter.post("/apply", requireAuth, requireRole("CUSTOMER"), async (req, r
     const user = await UserModel.findOneAndUpdate(
       {
         _id: req.authUser!.id,
-        role: "CUSTOMER",
-        status: "ACTIVE",
-        vendorApplicationStatus: { $nin: ["PENDING", "APPROVED"] },
+        role: 'CUSTOMER',
+        status: 'ACTIVE',
+        vendorApplicationStatus: { $nin: ['PENDING', 'APPROVED'] },
       },
       {
         $set: {
           storeName: storeName.trim(),
-          storeDescription: typeof storeDescription === "string" ? storeDescription.trim() : "",
-          vendorApplicationStatus: "PENDING",
+          storeDescription: typeof storeDescription === 'string' ? storeDescription.trim() : '',
+          vendorApplicationStatus: 'PENDING',
         },
       },
       { new: true, runValidators: true },
-    ).select("_id email firstName lastName storeName storeDescription vendorApplicationStatus");
+    ).select('_id email firstName lastName storeName storeDescription vendorApplicationStatus');
 
     if (!user) {
       res.status(409).json({
-        error: { code: "VENDOR_APPLICATION_EXISTS", message: "Your account is not eligible for a new vendor application." },
+        error: {
+          code: 'VENDOR_APPLICATION_EXISTS',
+          message: 'Your account is not eligible for a new vendor application.',
+        },
       });
       return;
     }

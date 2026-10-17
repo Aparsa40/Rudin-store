@@ -31,7 +31,7 @@ function mapApiUser(user: ApiUser): User {
     lastName: user.lastName || '',
     phone: user.phone,
     role: user.role,
-    createdAt: user.createdAt || new Date().toISOString()
+    createdAt: user.createdAt || new Date().toISOString(),
   };
 }
 
@@ -60,7 +60,7 @@ const getStoredAddresses = (): Address[] => {
 
 export const authService = {
   getCurrentUser: async (): Promise<User | null> => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     return getStoredUser();
   },
 
@@ -68,7 +68,7 @@ export const authService = {
     const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email, password }),
     });
     const payload = await readApiResponse<{ user: ApiUser; accessToken: string }>(response);
     if (!payload.accessToken) throw new Error('The API did not return an access token.');
@@ -77,22 +77,32 @@ export const authService = {
 
   // Role-specific portal login: each portal submits only to its own backend
   // endpoint, which rejects credentials whose account role does not match.
-  loginToPortal: async (portal: AuthPortal, email: string, password: string): Promise<{ user: User; accessToken: string }> => {
+  loginToPortal: async (
+    portal: AuthPortal,
+    email: string,
+    password: string,
+  ): Promise<{ user: User; accessToken: string }> => {
     const response = await fetch(`${API_BASE_URL}${AUTH_PORTALS[portal].apiPath}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email, password }),
     });
     const payload = await readApiResponse<{ user: ApiUser; accessToken: string }>(response);
     if (!payload.accessToken) throw new Error('The API did not return an access token.');
     return { user: mapApiUser(payload.user), accessToken: payload.accessToken };
   },
 
-  register: async (data: { firstName: string; lastName: string; email: string; password: string; phone?: string }): Promise<{ user: User; accessToken: string }> => {
+  register: async (data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    phone?: string;
+  }): Promise<{ user: User; accessToken: string }> => {
     const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
     const payload = await readApiResponse<{ user: ApiUser; accessToken: string }>(response);
     if (!payload.accessToken) throw new Error('The API did not return an access token.');
@@ -100,37 +110,39 @@ export const authService = {
   },
 
   logout: async (): Promise<void> => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
   },
 
   updateProfile: async (updates: Partial<User>): Promise<User | null> => {
-    await new Promise(resolve => setTimeout(resolve, 150));
+    await new Promise((resolve) => setTimeout(resolve, 150));
     const current = getStoredUser();
     if (!current) return null;
     return { ...current, ...updates };
   },
 
   getAddresses: async (): Promise<Address[]> => {
-    await new Promise(resolve => setTimeout(resolve, 60));
+    await new Promise((resolve) => setTimeout(resolve, 60));
     return getStoredAddresses();
   },
 
   saveAddress: async (address: Omit<Address, 'id'> & { id?: string }): Promise<Address> => {
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     const current = getStoredAddresses();
     let saved: Address;
 
     if (address.id) {
       saved = address as Address;
-      const idx = current.findIndex(a => a.id === address.id);
+      const idx = current.findIndex((a) => a.id === address.id);
       if (idx !== -1) current[idx] = saved;
     } else {
       saved = {
         ...address,
-        id: `addr_${Date.now()}`
+        id: `addr_${Date.now()}`,
       };
       if (saved.isDefault) {
-        current.forEach(a => { a.isDefault = false; });
+        current.forEach((a) => {
+          a.isDefault = false;
+        });
       }
       current.push(saved);
     }
@@ -140,8 +152,8 @@ export const authService = {
   },
 
   deleteAddress: async (addressId: string): Promise<void> => {
-    await new Promise(resolve => setTimeout(resolve, 80));
-    const current = getStoredAddresses().filter(a => a.id !== addressId);
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    const current = getStoredAddresses().filter((a) => a.id !== addressId);
     localStorage.setItem('rudin_addresses', JSON.stringify(current));
-  }
+  },
 };
