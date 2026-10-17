@@ -14,10 +14,7 @@ interface ProtectedRouteProps {
  * NOTE: This is client-side route protection for UX navigation only.
  * It does not replace real server-side access control, token verification, or backend authorization.
  */
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
-  children,
-  allowedRoles
-}) => {
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
   const { user, isAuthenticated } = useAuthStore();
   const location = useLocation();
 

@@ -50,15 +50,25 @@ export const SellerDashboard: React.FC = () => {
       return;
     }
     let cancelled = false;
-    fetch(`${apiBaseUrl}/api/products/mine`, { headers: { Authorization: `Bearer ${accessToken}` } })
+    fetch(`${apiBaseUrl}/api/products/mine`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
       .then(async (response) => {
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload?.error?.message || 'Unable to load your products.');
+        if (!response.ok)
+          throw new Error(payload?.error?.message || 'Unable to load your products.');
         return payload.products as Product[];
       })
-      .then((products) => { if (!cancelled) setVendorProducts(products); })
-      .catch((error: unknown) => { if (!cancelled) addToast(error instanceof Error ? error.message : 'Unable to load products.', 'error'); });
-    return () => { cancelled = true; };
+      .then((products) => {
+        if (!cancelled) setVendorProducts(products);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled)
+          addToast(error instanceof Error ? error.message : 'Unable to load products.', 'error');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [accessToken, addToast, apiBaseUrl]);
 
   const handleAddProduct = async (e: React.FormEvent) => {
@@ -69,8 +79,18 @@ export const SellerDashboard: React.FC = () => {
     }
     const price = Number(newPrice);
     const stock = Number(newStock);
-    if (!newTitle.trim() || !newDesc.trim() || !Number.isFinite(price) || price < 0 || !Number.isInteger(stock) || stock < 0) {
-      addToast('Enter a title, description, non-negative price, and whole-number stock quantity.', 'error');
+    if (
+      !newTitle.trim() ||
+      !newDesc.trim() ||
+      !Number.isFinite(price) ||
+      price < 0 ||
+      !Number.isInteger(stock) ||
+      stock < 0
+    ) {
+      addToast(
+        'Enter a title, description, non-negative price, and whole-number stock quantity.',
+        'error',
+      );
       return;
     }
     try {
@@ -78,7 +98,10 @@ export const SellerDashboard: React.FC = () => {
       if (newImageFile) {
         const dataUrl = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
-          reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Could not read the selected image.'));
+          reader.onload = () =>
+            typeof reader.result === 'string'
+              ? resolve(reader.result)
+              : reject(new Error('Could not read the selected image.'));
           reader.onerror = () => reject(new Error('Could not read the selected image.'));
           reader.readAsDataURL(newImageFile);
         });
@@ -88,7 +111,8 @@ export const SellerDashboard: React.FC = () => {
           body: JSON.stringify({ dataUrl }),
         });
         const uploadPayload = await uploadResponse.json().catch(() => ({}));
-        if (!uploadResponse.ok) throw new Error(uploadPayload?.error?.message || 'Image upload failed.');
+        if (!uploadResponse.ok)
+          throw new Error(uploadPayload?.error?.message || 'Image upload failed.');
         uploadedImageUrl = uploadPayload.image.url as string;
       }
 
@@ -102,7 +126,9 @@ export const SellerDashboard: React.FC = () => {
           shortDescription: newDesc.trim().slice(0, 500),
           price,
           stock,
-          images: uploadedImageUrl ? [{ id: `img_${Date.now()}`, url: uploadedImageUrl, isPrimary: true, displayOrder: 0 }] : [],
+          images: uploadedImageUrl
+            ? [{ id: `img_${Date.now()}`, url: uploadedImageUrl, isPrimary: true, displayOrder: 0 }]
+            : [],
         }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -123,7 +149,10 @@ export const SellerDashboard: React.FC = () => {
     const product = vendorProducts.find((item) => item.id === id);
     if (!product) return;
     if (product.status !== 'PUBLISHED') {
-      addToast('Draft products cannot be published by sellers; request administrator approval.', 'info');
+      addToast(
+        'Draft products cannot be published by sellers; request administrator approval.',
+        'info',
+      );
       return;
     }
     if (!accessToken) return;
@@ -134,8 +163,11 @@ export const SellerDashboard: React.FC = () => {
         body: JSON.stringify({ status: 'DRAFT' }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload?.error?.message || 'Product status could not be changed.');
-      setVendorProducts((products) => products.map((item) => item.id === id ? payload.product as Product : item));
+      if (!response.ok)
+        throw new Error(payload?.error?.message || 'Product status could not be changed.');
+      setVendorProducts((products) =>
+        products.map((item) => (item.id === id ? (payload.product as Product) : item)),
+      );
       addToast('Product moved to draft.', 'success');
     } catch (error) {
       addToast(error instanceof Error ? error.message : 'Unable to update product.', 'error');
@@ -153,7 +185,13 @@ export const SellerDashboard: React.FC = () => {
     if (stockText === null) return;
     const price = Number(priceText);
     const stock = Number(stockText);
-    if (!title.trim() || !Number.isFinite(price) || price < 0 || !Number.isInteger(stock) || stock < 0) {
+    if (
+      !title.trim() ||
+      !Number.isFinite(price) ||
+      price < 0 ||
+      !Number.isInteger(stock) ||
+      stock < 0
+    ) {
       addToast('Enter a title, non-negative price, and whole-number stock quantity.', 'error');
       return;
     }
@@ -165,7 +203,9 @@ export const SellerDashboard: React.FC = () => {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload?.error?.message || 'Product could not be updated.');
-      setVendorProducts((products) => products.map((item) => item.id === id ? payload.product as Product : item));
+      setVendorProducts((products) =>
+        products.map((item) => (item.id === id ? (payload.product as Product) : item)),
+      );
       addToast('Product changes saved.', 'success');
     } catch (error) {
       addToast(error instanceof Error ? error.message : 'Unable to edit product.', 'error');
@@ -180,7 +220,8 @@ export const SellerDashboard: React.FC = () => {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload?.error?.message || 'Product could not be archived.');
+      if (!response.ok)
+        throw new Error(payload?.error?.message || 'Product could not be archived.');
       setVendorProducts((products) => products.filter((item) => item.id !== id));
       addToast('Product archived.', 'success');
     } catch (error) {
@@ -675,7 +716,9 @@ export const SellerDashboard: React.FC = () => {
               onChange={(e) => setNewImageFile(e.target.files?.[0] ?? null)}
               className="w-full p-2.5 border border-slate-300 rounded-xl outline-none text-slate-600 text-[11px]"
             />
-            <p className="mt-1 text-[10px] text-slate-500">PNG, JPEG, or WebP; maximum 4 MB. Cloudinary storage must be configured on the API.</p>
+            <p className="mt-1 text-[10px] text-slate-500">
+              PNG, JPEG, or WebP; maximum 4 MB. Cloudinary storage must be configured on the API.
+            </p>
           </div>
 
           <div>

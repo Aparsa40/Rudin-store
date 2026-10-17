@@ -22,7 +22,7 @@ export const cartService = {
   validateItemStock: async (
     productId: string,
     variantId: string | undefined,
-    quantity: number
+    quantity: number,
   ): Promise<{ valid: boolean; availableStock: number; error?: string }> => {
     if (quantity < 1) {
       return { valid: false, availableStock: 0, error: 'Quantity must be at least 1 unit.' };
@@ -35,7 +35,7 @@ export const cartService = {
       return {
         valid: false,
         availableStock: stock,
-        error: `Requested quantity exceeds available inventory (${stock} in stock).`
+        error: `Requested quantity exceeds available inventory (${stock} in stock).`,
       };
     }
     return { valid: true, availableStock: stock };
@@ -55,10 +55,10 @@ export const cartService = {
           ? product.variants.find((v) => v.id === item.variantId)
           : undefined;
         return { ...item, product, variant, vendor } as ResolvedCartItem;
-      })
+      }),
     );
     return settled.flatMap((result) =>
-      result.status === 'fulfilled' && result.value ? [result.value] : []
+      result.status === 'fulfilled' && result.value ? [result.value] : [],
     );
   },
 
@@ -90,17 +90,14 @@ export const cartService = {
         items: vendorItems,
         subtotal,
         shipping,
-        estimatedDelivery: '3-5 Business Days'
+        estimatedDelivery: '3-5 Business Days',
       });
     });
 
     return groups;
   },
 
-  calculateTotals: (
-    resolvedItems: ResolvedCartItem[],
-    appliedCoupon: Coupon | null
-  ) => {
+  calculateTotals: (resolvedItems: ResolvedCartItem[], appliedCoupon: Coupon | null) => {
     const subtotal = resolvedItems.reduce((acc, item) => {
       const unitPrice = item.variant ? item.variant.price : item.product.price;
       return acc + unitPrice * item.quantity;
@@ -143,7 +140,7 @@ export const cartService = {
       shipping,
       tax: estimatedTax,
       total,
-      vendorGroups
+      vendorGroups,
     };
-  }
+  },
 };

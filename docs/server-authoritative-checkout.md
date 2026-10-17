@@ -21,7 +21,7 @@ Implemented in this phase (provider-independent):
 
 The roadmap forbids introducing a payment provider or redesigning checkout before the required decisions are documented. The following are open product decisions; none may be implemented by inferring a default:
 
-1. **Payment provider** — no gateway is integrated. Online payment methods are accepted as a *method label* only; payment stays `PENDING` until verified provider callbacks exist. Cash on delivery stays unpaid until settlement on delivery.
+1. **Payment provider** — no gateway is integrated. Online payment methods are accepted as a _method label_ only; payment stays `PENDING` until verified provider callbacks exist. Cash on delivery stays unpaid until settlement on delivery.
 2. **Currency** — prices are stored as plain numbers; no currency code is defined anywhere in the stack.
 3. **Tax rules** — the server currently computes `tax = 0`. Real tax rules (jurisdiction, rates, inclusive vs. exclusive) require a product decision.
 4. **Shipping methods and costs** — the server currently computes `shippingCost = 0`. No shipping-method configuration exists; client-supplied shipping costs are ignored.

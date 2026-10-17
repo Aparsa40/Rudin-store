@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction } from 'express';
 
 export interface RateLimitOptions {
   windowMs: number;
@@ -12,16 +12,20 @@ interface Bucket {
 }
 
 export function createRateLimiter(options: RateLimitOptions, now: () => number = Date.now) {
-  if (!Number.isInteger(options.windowMs) || options.windowMs < 1 ||
-      !Number.isInteger(options.maxRequests) || options.maxRequests < 1) {
-    throw new Error("Rate limiter windowMs and maxRequests must be positive integers.");
+  if (
+    !Number.isInteger(options.windowMs) ||
+    options.windowMs < 1 ||
+    !Number.isInteger(options.maxRequests) ||
+    options.maxRequests < 1
+  ) {
+    throw new Error('Rate limiter windowMs and maxRequests must be positive integers.');
   }
 
   const buckets = new Map<string, Bucket>();
   let operations = 0;
 
   return function rateLimit(req: Request, res: Response, next: NextFunction): void {
-    const key = req.ip || req.socket.remoteAddress || "unknown";
+    const key = req.ip || req.socket.remoteAddress || 'unknown';
     const currentTime = now();
     let bucket = buckets.get(key);
 
@@ -40,17 +44,17 @@ export function createRateLimiter(options: RateLimitOptions, now: () => number =
       }
     }
 
-    res.setHeader("RateLimit-Limit", String(options.maxRequests));
-    res.setHeader("RateLimit-Remaining", String(Math.max(0, options.maxRequests - bucket.count)));
-    res.setHeader("RateLimit-Reset", String(Math.ceil(bucket.resetAt / 1000)));
+    res.setHeader('RateLimit-Limit', String(options.maxRequests));
+    res.setHeader('RateLimit-Remaining', String(Math.max(0, options.maxRequests - bucket.count)));
+    res.setHeader('RateLimit-Reset', String(Math.ceil(bucket.resetAt / 1000)));
 
     if (bucket.count > options.maxRequests) {
       const retryAfterSeconds = Math.max(1, Math.ceil((bucket.resetAt - currentTime) / 1000));
-      res.setHeader("Retry-After", String(retryAfterSeconds));
+      res.setHeader('Retry-After', String(retryAfterSeconds));
       res.status(429).json({
         error: {
-          code: "RATE_LIMITED",
-          message: options.message ?? "Too many requests. Please try again later.",
+          code: 'RATE_LIMITED',
+          message: options.message ?? 'Too many requests. Please try again later.',
         },
       });
       return;

@@ -29,17 +29,18 @@ The integration suites are skipped unless `RUN_MONGODB_INTEGRATION=true` is set.
 
 ## Integration suite scope
 
-The security suite covers authentication, role enforcement, administrator bootstrap (including concurrent bootstrap attempts), vendor application approval, product ownership, and published-only catalog visibility.
+The security suite covers authentication, role enforcement, manager bootstrap (including concurrent bootstrap attempts, where exactly one manager is created), manager-appointed administrators with permission presets, vendor application approval, product ownership, and published-only catalog visibility.
 
 The orders suite covers server-authoritative pricing (client-supplied totals ignored), stock decrement, transaction rollback on order-persistence failure, concurrent requests with the same idempotency key, variant-specific inventory matching (insufficient requested variant, sufficient other variant), cross-user order isolation, and draft-product rejection.
 
-The login-portals suite covers per-portal role matching with generic non-enumerating errors, pending and rejected vendor applicants on the vendor portal, public-registration role-escalation prevention (no ADMIN or MANAGER), the least-privilege MANAGER permission matrix (vendor-application review allowed; admin, product, and manager-management operations denied), disabled-manager and expired-token rejection, and password-reset credential rotation with session revocation.
+The login-portals suite covers per-portal role matching with generic non-enumerating errors, pending and rejected vendor applicants on the vendor portal, public-registration role-escalation prevention (no ADMIN or MANAGER), manager-owned governance (the manager manages the catalog while appointed admins stay inside their granted permissions and cannot self-escalate), disabled-admin and expired-token rejection, and password-reset credential rotation with session revocation.
 
 All test files were audited for assertion quality: no tautological or unconditional-pass assertions (`|| true` patterns) exist in any test file.
 
 ## MongoDB integration-test safety
 
 The three integration suites run in parallel and use separate, derived databases:
+
 - `rudin_store_integration_test` for the security suite.
 - `rudin_store_integration_test_orders` for the orders suite, and `rudin_store_integration_test_portals` for the login-portals suite, each derived automatically from the configured test URI so the parallel suites cannot wipe each other's data.
 
@@ -56,21 +57,26 @@ These areas currently have no automated tests and are documented rather than inv
 ## Manual validation priorities
 
 ### Authentication
+
 - Register a customer and log in.
 - Verify logout and protected-route behavior.
 - Verify a customer cannot use administrator or seller-only API operations.
 - Verify password reset only after Resend credentials and a verified sender are configured.
 
 ### Catalog
+
 - Confirm the product listing, search, category/vendor filters, detail page, featured products, sale filters, and pagination use the API.
 - The test database contains seed products with `PUBLISHED` status. Use only this database for manual catalog testing.
 - Confirm a product created as a vendor remains a draft until an administrator publishes it.
 
 ### Seller/Admin
+
 - Verify vendor application submission and administrator approval.
 - Verify seller product creation, editing, unpublishing, archiving, and image upload after Cloudinary credentials are configured.
 - Admin product management and vendor-application review use backend endpoints.
+- Manager console: bootstrap the primary manager, appoint an administrator with a permission preset, verify the appointed admin can exercise only the granted capabilities, and verify permission revocation applies immediately.
 - The admin orders and coupons tabs and the seller order-fulfillment, payouts, and settings tabs are mock or presentation-only; do not use them to validate backend behavior.
 
 ### Not yet fully backend-connected
+
 The frontend checkout and orders UI still runs on the browser-local `ordersService` (localStorage) and is not yet connected to the server-authoritative order API. Session restore, logout, profile updates, and the address book are browser-local (`GET /api/auth/me` is never called). Cart persistence, payment provider/webhooks, account addresses, coupons, reviews, email verification, refresh-token rotation, and remaining seller/admin order/payout/settings screens require their own backend contracts and end-to-end tests. Do not treat mock-backed UI in those domains as production-connected.
