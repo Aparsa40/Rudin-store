@@ -64,7 +64,8 @@ function getInvitationBaseUrl(): string | null {
   try {
     const url = new URL(configuredUrl);
 
-    if (url.protocol !== 'https:' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') {
+    const isLocalHost = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+    if (url.protocol !== 'https:' && !(url.protocol === 'http:' && isLocalHost)) {
       return null;
     }
 
