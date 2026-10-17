@@ -543,11 +543,13 @@ export const ManagerDashboard: React.FC = () => {
                 onChange={(event) => setInvitePreset(event.target.value as AdminPreset)}
                 className={`${inputClassName} bg-white`}
               >
-                {(Object.keys(PRESET_LABELS) as AdminPreset[]).filter((preset) => preset !== 'custom').map((preset) => (
-                  <option key={preset} value={preset}>
-                    {PRESET_LABELS[preset]}
-                  </option>
-                ))}
+                {(Object.keys(PRESET_LABELS) as AdminPreset[])
+                  .filter((preset) => preset !== 'custom')
+                  .map((preset) => (
+                    <option key={preset} value={preset}>
+                      {PRESET_LABELS[preset]}
+                    </option>
+                  ))}
               </select>
             </label>
 
