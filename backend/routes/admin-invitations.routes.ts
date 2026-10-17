@@ -37,7 +37,7 @@ router.post('/verify', async (req, res, next) => {
     const invitation = await AdminInvitationModel.findOne({
       tokenHash: hashToken(token),
       tokenExpiresAt: { $gt: new Date() },
-      status: { $in: ["INVITED", "EMAIL_VERIFIED"] },
+      status: { $in: ['INVITED', 'EMAIL_VERIFIED'] },
     });
 
     if (!invitation) {
