@@ -677,6 +677,32 @@ test(
           headers: { authorization: `Bearer ${adminToken}` },
         });
         assert.equal(revokedAccess.response.status, 401);
+
+        const reenabled = await request(
+          `/api/admin/admins/${encodeURIComponent(adminId)}/status`,
+          {
+            method: 'PATCH',
+            headers: { authorization: `Bearer ${managerToken}` },
+            body: JSON.stringify({ status: 'ACTIVE' }),
+          },
+        );
+        assert.equal(reenabled.response.status, 200);
+        assert.equal(reenabled.body.admin.status, 'ACTIVE');
+
+        // Re-enabling the account must not revive the token issued before disablement.
+        const staleAfterReenable = await request('/api/auth/me', {
+          headers: { authorization: `Bearer ${adminToken}` },
+        });
+        assert.equal(staleAfterReenable.response.status, 401);
+
+        const reenabledLogin = await request('/api/auth/admin/login', {
+          method: 'POST',
+          body: JSON.stringify({
+            email: 'admin.portals@example.test',
+            password: 'Portal-Admin-Password-123!',
+          }),
+        });
+        assert.equal(reenabledLogin.response.status, 200);
       });
 
       await t.test('password reset rotates credentials and revokes old sessions', async () => {
