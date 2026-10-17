@@ -1,4 +1,3 @@
-
 import { model, Schema } from 'mongoose';
 
 export const ADMIN_INVITATION_STATUSES = [
@@ -114,12 +113,6 @@ const adminInvitationSchema = new Schema(
 
 adminInvitationSchema.index({ status: 1, createdAt: -1 });
 
-adminInvitationSchema.index(
-  { tokenExpiresAt: 1 },
-  { expireAfterSeconds: 0 },
-);
+adminInvitationSchema.index({ tokenExpiresAt: 1 }, { expireAfterSeconds: 0 });
 
-export const AdminInvitationModel = model(
-  'AdminInvitation',
-  adminInvitationSchema,
-);
+export const AdminInvitationModel = model('AdminInvitation', adminInvitationSchema);
