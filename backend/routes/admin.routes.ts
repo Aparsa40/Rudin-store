@@ -474,9 +474,13 @@ adminRouter.patch('/admins/:id/status', async (req, res, next) => {
 
     const user = await UserModel.findOneAndUpdate(
       { _id: req.params.id, role: 'ADMIN' },
-      { $set: { status } },
+      {
+        $set: { status },
+        // Revoke all previously issued sessions even if the account is later re-enabled.
+        $inc: { authVersion: 1 },
+      },
       { new: true, runValidators: true },
-    ).select('_id email firstName lastName status');
+    ).select('_id email firstName lastName status authVersion');
 
     if (!user) {
       res.status(404).json({
