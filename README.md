@@ -77,7 +77,7 @@ GitHub Actions CI (`.github/workflows/ci.yml`) runs on every pull request and pu
 `npm test` (scripts/run-tests.mjs) discovers every `*.test.ts` under `backend/` and `src/`:
 
 - Backend unit tests: product validation, rate limiting, upload validation.
-- Frontend unit tests: ordersService (browser-local behavior, honest payment states), admin permission resolution (fail-closed section gating), and the admin API client (query building, payload degradation, error propagation, coupon mutations).
+- Frontend unit tests: ordersService (browser-local behavior, honest payment states), admin permission resolution (fail-closed section gating), and the admin API client (query building, strict payload parsing that rejects malformed responses, error propagation, coupon mutations).
 - MongoDB integration suites (skipped unless `RUN_MONGODB_INTEGRATION=true`): security (auth, roles, bootstrap, vendor approval, product lifecycle), orders (server-authoritative pricing, transactional stock rollback, concurrent idempotency, variant matching, cross-user isolation), and login-portals (per-portal role matching, vendor-portal applicant restrictions, registration role-escalation prevention, manager-owned governance with permission-preset enforcement, disabled/expired credentials, password-reset revocation).
 
 See docs/testing.md for the database-isolation rules.

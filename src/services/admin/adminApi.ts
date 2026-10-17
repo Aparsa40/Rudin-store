@@ -33,9 +33,29 @@ export function buildAdminOrdersQuery(query: AdminOrdersQuery = {}): string {
   return encoded ? `?${encoded}` : '';
 }
 
-function asPagination(value: unknown): AdminOrdersPagination | null {
-  if (typeof value !== 'object' || value === null) return null;
-  return value as AdminOrdersPagination;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+/**
+ * Parses the listing pagination object. A malformed pagination payload raises
+ * a descriptive error instead of degrading to a fabricated result; a valid
+ * empty listing stays a legitimate empty result.
+ */
+function requirePagination(value: unknown): AdminOrdersPagination {
+  if (!isRecord(value)) {
+    throw new Error('The orders response was malformed: the pagination object is missing.');
+  }
+  const { page, limit, total, totalPages } = value;
+  if (
+    typeof page !== 'number' ||
+    typeof limit !== 'number' ||
+    typeof total !== 'number' ||
+    typeof totalPages !== 'number'
+  ) {
+    throw new Error('The orders response was malformed: pagination fields must all be numbers.');
+  }
+  return { page, limit, total, totalPages };
 }
 
 export const adminOrdersApi = {
@@ -43,13 +63,27 @@ export const adminOrdersApi = {
   list: async (
     request: AdminRequest,
     query?: AdminOrdersQuery,
-  ): Promise<{ orders: AdminOrderSummary[]; pagination: AdminOrdersPagination | null }> => {
+  ): Promise<{ orders: AdminOrderSummary[]; pagination: AdminOrdersPagination }> => {
     const payload = await request<{ orders?: unknown; pagination?: unknown }>(
       `/api/admin/orders${buildAdminOrdersQuery(query)}`,
     );
-    // Malformed responses degrade to an empty result instead of fabricated orders.
-    const orders = Array.isArray(payload?.orders) ? (payload.orders as AdminOrderSummary[]) : [];
-    return { orders, pagination: asPagination(payload?.pagination) };
+    // Malformed responses raise a descriptive error instead of degrading to a
+    // fabricated result; a valid empty orders array stays a legitimate result.
+    const ordersPayload = payload?.orders;
+    if (!Array.isArray(ordersPayload)) {
+      throw new Error('The orders response was malformed: the orders array is missing.');
+    }
+    const orders = ordersPayload.map((entry: unknown) => {
+      if (
+        !isRecord(entry) ||
+        typeof entry.id !== 'string' ||
+        typeof entry.orderNumber !== 'string'
+      ) {
+        throw new Error('The orders response was malformed: an entry is not a recognizable order.');
+      }
+      return entry as AdminOrderSummary;
+    });
+    return { orders, pagination: requirePagination(payload.pagination) };
   },
 
   /** Full order detail including the shipping address (requires `orders:manage`). */
@@ -108,8 +142,18 @@ export const adminCouponsApi = {
   /** Management listing (requires `coupons:manage`). */
   list: async (request: AdminRequest): Promise<AdminCoupon[]> => {
     const payload = await request<{ coupons?: unknown }>('/api/coupons');
-    // Malformed responses degrade to an empty list instead of fabricated coupons.
-    return Array.isArray(payload?.coupons) ? (payload.coupons as AdminCoupon[]) : [];
+    // Malformed responses raise a descriptive error instead of degrading to
+    // an empty list; a valid empty coupons array stays a legitimate result.
+    const couponsPayload = payload?.coupons;
+    if (!Array.isArray(couponsPayload)) {
+      throw new Error('The coupons response was malformed: the coupons array is missing.');
+    }
+    return couponsPayload.map((entry: unknown) => {
+      if (!isRecord(entry) || typeof entry.id !== 'string' || typeof entry.code !== 'string') {
+        throw new Error('The coupons response was malformed: an entry is not a recognizable coupon.');
+      }
+      return entry as AdminCoupon;
+    });
   },
 
   /** Creates a coupon through the server-side validation pipeline. */

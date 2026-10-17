@@ -63,10 +63,36 @@ test('orders listing parses a successful paginated payload', async () => {
   assert.deepEqual(result.pagination, { page: 1, limit: 10, total: 1, totalPages: 1 });
 });
 
-test('orders listing degrades a malformed payload to an empty result', async () => {
-  const { request } = recordingRequest(() => ({ orders: 'not-an-array', pagination: 'nope' }));
-  const result = await adminOrdersApi.list(request);
-  assert.deepEqual(result, { orders: [], pagination: null });
+test('a valid empty orders listing stays a legitimate empty result', async () => {
+  const { request } = recordingRequest(() => ({
+    orders: [],
+    pagination: { page: 1, limit: 10, total: 0, totalPages: 1 },
+  }));
+  const result = await adminOrdersApi.list(request, { page: 1, limit: 10 });
+  assert.deepEqual(result, {
+    orders: [],
+    pagination: { page: 1, limit: 10, total: 0, totalPages: 1 },
+  });
+});
+
+test('a malformed orders listing raises a descriptive error', async () => {
+  const notAnArray = recordingRequest(() => ({ orders: 'not-an-array', pagination: 'nope' }));
+  await assert.rejects(adminOrdersApi.list(notAnArray.request), /malformed/);
+
+  const missingPagination = recordingRequest(() => ({ orders: [] }));
+  await assert.rejects(adminOrdersApi.list(missingPagination.request), /malformed/);
+
+  const nonNumericPagination = recordingRequest(() => ({
+    orders: [],
+    pagination: { page: 1, limit: 10, total: 0 },
+  }));
+  await assert.rejects(adminOrdersApi.list(nonNumericPagination.request), /malformed/);
+
+  const unrecognizableEntry = recordingRequest(() => ({
+    orders: [{ orderNumber: 'RD-1' }],
+    pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
+  }));
+  await assert.rejects(adminOrdersApi.list(unrecognizableEntry.request), /malformed/);
 });
 
 test('order detail requires a well-formed server response', async () => {
@@ -100,7 +126,7 @@ test('failed order requests propagate real errors and never fake success', async
   }
 });
 
-test('coupon listing parses the server payload and degrades malformed responses', async () => {
+test('coupon listing parses the server payload and rejects malformed responses', async () => {
   const coupons: AdminCoupon[] = [
     {
       id: 'cpn_1',
@@ -120,8 +146,18 @@ test('coupon listing parses the server payload and degrades malformed responses'
   const ok = recordingRequest(() => ({ coupons }));
   assert.deepEqual(await adminCouponsApi.list(ok.request), coupons);
 
-  const malformed = recordingRequest(() => ({ coupons: { code: 'SAVE5' } }));
-  assert.deepEqual(await adminCouponsApi.list(malformed.request), []);
+  // A valid empty listing stays a legitimate empty result.
+  const empty = recordingRequest(() => ({ coupons: [] }));
+  assert.deepEqual(await adminCouponsApi.list(empty.request), []);
+
+  const notAnArray = recordingRequest(() => ({ coupons: { code: 'SAVE5' } }));
+  await assert.rejects(adminCouponsApi.list(notAnArray.request), /malformed/);
+
+  const missingCoupons = recordingRequest(() => ({}));
+  await assert.rejects(adminCouponsApi.list(missingCoupons.request), /malformed/);
+
+  const unrecognizableEntry = recordingRequest(() => ({ coupons: [{ code: 'SAVE5' }] }));
+  await assert.rejects(adminCouponsApi.list(unrecognizableEntry.request), /malformed/);
 });
 
 test('coupon creation sends a normalized body and returns only the server coupon', async () => {

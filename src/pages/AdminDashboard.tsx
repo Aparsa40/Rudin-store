@@ -20,8 +20,11 @@ import { Modal } from '../components/ui/Modal';
 import { useAuthStore } from '../store/authStore';
 import { useUIStore } from '../store/uiStore';
 import {
-  resolveVisibleAdminSections,
-  sanitizeAdminPermissions,
+  ADMIN_VERIFICATION_PENDING,
+  adminVerificationFailed,
+  parseAdminVerificationResponse,
+  resolveSectionsForVerification,
+  type AdminPermissionVerification,
   type AdminSectionId,
 } from '../config/adminPermissions';
 import { adminCouponsApi, adminOrdersApi, type CouponDraft } from '../services/admin/adminApi';
@@ -34,7 +37,6 @@ import type {
   AdminOrdersPagination,
   AdminPaymentStatus,
   Product,
-  User,
 } from '../types';
 
 type VendorApplication = {
@@ -149,7 +151,6 @@ const EmptyPanel: React.FC<{ message: string }> = ({ message }) => (
 
 export const AdminDashboard: React.FC = () => {
   const accessToken = useAuthStore((state) => state.accessToken);
-  const currentUser = useAuthStore((state) => state.user);
   const updateUserProfile = useAuthStore((state) => state.updateUserProfile);
   const { addToast } = useUIStore();
 
@@ -157,8 +158,13 @@ export const AdminDashboard: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'overview' | AdminSectionId>('overview');
   const [sessionExpired, setSessionExpired] = useState(false);
-  // Server-confirmed permissions: while pending, no administrative section renders.
-  const [permissionsState, setPermissionsState] = useState<'pending' | 'ready'>('pending');
+  // Server-verified permissions: until /api/auth/me succeeds, no
+  // administrative section renders (fail closed, including verification errors).
+  const [verification, setVerification] = useState<AdminPermissionVerification>(
+    ADMIN_VERIFICATION_PENDING,
+  );
+  // Bumping this state re-runs the verification effect (retry action).
+  const [verificationTick, setVerificationTick] = useState(0);
 
   // Vendor applications (vendors:review)
   const [vendorsList, setVendorsList] = useState<VendorApplication[]>([]);
@@ -222,17 +228,17 @@ export const AdminDashboard: React.FC = () => {
   const [newValidUntil, setNewValidUntil] = useState('');
   const [newUsageLimit, setNewUsageLimit] = useState('');
 
-  const grantedPermissions = useMemo(
-    () => sanitizeAdminPermissions(currentUser?.adminPermissions),
-    [currentUser],
-  );
+  // Permissions come only from the server-verified /api/auth/me response;
+  // persisted or stale grants are never used to expose a section.
+  const grantedPermissions = verification.phase === 'ready' ? verification.permissions : [];
 
-  // Server-resolved permissions mirror the backend `requirePermission` model:
+  // Server-verified permissions mirror the backend `requirePermission` model:
   // the MANAGER passes every check, an ADMIN passes only with granted
-  // permissions, and any other role fails closed.
+  // permissions, and any other role fails closed. Pending and failed
+  // verification hide every section.
   const visibleSections = useMemo(
-    () => resolveVisibleAdminSections(currentUser?.role, grantedPermissions),
-    [currentUser, grantedPermissions],
+    () => resolveSectionsForVerification(verification),
+    [verification],
   );
 
   const isTabVisible = (tab: 'overview' | AdminSectionId): boolean =>
@@ -271,52 +277,55 @@ export const AdminDashboard: React.FC = () => {
     [accessToken, apiBaseUrl],
   );
 
-  // Refresh the persisted profile from `/api/auth/me` so stale, revoked, or
-  // malformed permission data is corrected by the server before sections render.
+  // Verify the account through `/api/auth/me` before any administrative section
+  // renders. Only a verified server response can expose a section: pending and
+  // failed verification (network, server, or malformed-response errors) keeps
+  // the dashboard fail-closed behind a retryable error state. The backend
+  // still enforces every permission check on each request.
   useEffect(() => {
     if (!accessToken) {
       setSessionExpired(true);
       return;
     }
     let cancelled = false;
+    setVerification(ADMIN_VERIFICATION_PENDING);
     fetch(`${apiBaseUrl}/api/auth/me`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
       .then(async (response) => {
         const payload = (await response
           .json()
-          .catch(() => ({}))) as { user?: User } & ApiErrorPayload;
+          .catch(() => ({}))) as ApiErrorPayload & { user?: unknown };
         if (response.status === 401) {
           if (!cancelled) setSessionExpired(true);
           return;
         }
-        if (!response.ok || !payload.user) {
+        if (!response.ok) {
           throw new Error(
             getErrorMessage(payload, 'Unable to verify your administrator permissions.'),
           );
         }
         if (!cancelled) {
-          updateUserProfile({
-            role: payload.user.role,
-            adminPermissions: sanitizeAdminPermissions(payload.user.adminPermissions),
-          });
-          setPermissionsState('ready');
+          const next = parseAdminVerificationResponse(payload);
+          if (next.phase === 'ready') {
+            updateUserProfile({ role: next.role, adminPermissions: next.permissions });
+          }
+          setVerification(next);
         }
       })
-      .catch(() => {
-        // Verification failed for a non-authentication reason: continue with the
-        // sanitized persisted permissions (fail closed) and let the API enforce
-        // every check server-side.
-        if (!cancelled) setPermissionsState('ready');
+      .catch((error: unknown) => {
+        // Fail closed: without a verified server response, no administrative
+        // section renders, and stale persisted permissions are never used.
+        if (!cancelled) setVerification(adminVerificationFailed(error));
       });
     return () => {
       cancelled = true;
     };
-  }, [accessToken, apiBaseUrl, updateUserProfile]);
+  }, [accessToken, apiBaseUrl, updateUserProfile, verificationTick]);
 
   // Vendor applications: only fetched for accounts with vendors:review.
   useEffect(() => {
-    if (permissionsState !== 'ready' || !visibleSections.vendors) {
+    if (verification.phase !== 'ready' || !visibleSections.vendors) {
       setVendorsList([]);
       return;
     }
@@ -353,11 +362,11 @@ export const AdminDashboard: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [permissionsState, visibleSections.vendors, request, vendorsTick]);
+  }, [verification.phase, visibleSections.vendors, request, vendorsTick]);
 
   // Catalog listings: only fetched for accounts with products:manage.
   useEffect(() => {
-    if (permissionsState !== 'ready' || !visibleSections.products) {
+    if (verification.phase !== 'ready' || !visibleSections.products) {
       setProductsList([]);
       return;
     }
@@ -388,12 +397,12 @@ export const AdminDashboard: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [permissionsState, visibleSections.products, request, productsTick]);
+  }, [verification.phase, visibleSections.products, request, productsTick]);
 
   // Orders: only fetched for accounts with orders:manage. The per-effect
   // cancellation flag keeps a stale response from overwriting newer results.
   useEffect(() => {
-    if (permissionsState !== 'ready' || !visibleSections.orders) {
+    if (verification.phase !== 'ready' || !visibleSections.orders) {
       setOrdersList([]);
       setOrdersPagination(null);
       return;
@@ -434,7 +443,7 @@ export const AdminDashboard: React.FC = () => {
       cancelled = true;
     };
   }, [
-    permissionsState,
+    verification.phase,
     visibleSections.orders,
     request,
     ordersPage,
@@ -447,7 +456,7 @@ export const AdminDashboard: React.FC = () => {
   // Overview summary: a small, unfiltered read of the order API for the
   // overview cards. Truthful counts only; no fabricated metrics.
   useEffect(() => {
-    if (permissionsState !== 'ready' || !visibleSections.orders) {
+    if (verification.phase !== 'ready' || !visibleSections.orders) {
       setOverviewOrders([]);
       setOverviewTotalOrders(null);
       return;
@@ -474,11 +483,11 @@ export const AdminDashboard: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [permissionsState, visibleSections.orders, request, overviewTick]);
+  }, [verification.phase, visibleSections.orders, request, overviewTick]);
 
   // Coupons: only fetched for accounts with coupons:manage.
   useEffect(() => {
-    if (permissionsState !== 'ready' || !visibleSections.coupons) {
+    if (verification.phase !== 'ready' || !visibleSections.coupons) {
       setCouponsList([]);
       return;
     }
@@ -509,7 +518,7 @@ export const AdminDashboard: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [permissionsState, visibleSections.coupons, request, couponsTick]);
+  }, [verification.phase, visibleSections.coupons, request, couponsTick]);
 
   const handleReviewVendorApplication = async (id: string, decision: 'APPROVED' | 'REJECTED') => {
     if (!accessToken || reviewingVendorId) return;
@@ -729,7 +738,7 @@ export const AdminDashboard: React.FC = () => {
     );
   }
 
-  if (permissionsState !== 'ready') {
+  if (verification.phase === 'pending') {
     return (
       <div className="min-h-[calc(100vh-80px)] bg-slate-50 flex items-center justify-center p-6">
         <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
@@ -740,8 +749,32 @@ export const AdminDashboard: React.FC = () => {
     );
   }
 
-  const hasAnyAdminAccess =
-    currentUser?.role === 'MANAGER' || Object.values(visibleSections).some(Boolean);
+  if (verification.phase === 'failed') {
+    return (
+      <div className="min-h-[calc(100vh-80px)] bg-slate-50 flex items-center justify-center p-6">
+        <div className="bg-white border border-slate-200 rounded-3xl p-10 max-w-md text-center space-y-4 shadow-sm">
+          <ShieldCheck className="w-8 h-8 text-slate-400 mx-auto" aria-hidden="true" />
+          <h1 className="text-xl font-black text-slate-900">
+            Permissions could not be verified
+          </h1>
+          <p className="text-xs text-slate-500">{verification.message}</p>
+          <p className="text-xs text-slate-400">
+            Administrative sections stay hidden until the API confirms your permissions. The API
+            remains the authoritative permission check.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setVerificationTick((tick) => tick + 1)}
+          >
+            Retry verification
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const hasAnyAdminAccess = Object.values(visibleSections).some(Boolean);
 
   const sidebarTabClassName = (tab: 'overview' | AdminSectionId): string =>
     `w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors text-left ${
@@ -760,7 +793,7 @@ export const AdminDashboard: React.FC = () => {
             <div>
               <h2 className="text-white font-bold text-sm">Rudin Control</h2>
               <Badge variant="primary" size="sm">
-                {currentUser?.role === 'MANAGER' ? 'MANAGER' : 'ADMIN'}
+                {verification.role === 'MANAGER' ? 'MANAGER' : 'ADMIN'}
               </Badge>
             </div>
           </div>
@@ -837,7 +870,7 @@ export const AdminDashboard: React.FC = () => {
         <div className="pt-6 border-t border-slate-900 text-[11px] text-slate-500 space-y-1">
           <p className="text-slate-400 font-bold uppercase tracking-wider">Granted permissions</p>
           <p>
-            {currentUser?.role === 'MANAGER'
+            {verification.role === 'MANAGER'
               ? 'Full platform access (Manager)'
               : grantedPermissions.length
                 ? grantedPermissions.join(', ')

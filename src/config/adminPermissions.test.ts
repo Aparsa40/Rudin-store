@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   ADMIN_SECTION_PERMISSIONS,
+  ADMIN_VERIFICATION_PENDING,
+  adminVerificationFailed,
   hasAdminPermission,
+  parseAdminVerificationResponse,
+  resolveSectionsForVerification,
   resolveVisibleAdminSections,
   sanitizeAdminPermissions,
 } from './adminPermissions.js';
@@ -138,4 +142,134 @@ test('non-administrator roles never receive administrative sections', () => {
     orders: false,
     coupons: false,
   });
+});
+
+
+test('successful verification exposes only the sections the server permits', () => {
+  const managerReady = parseAdminVerificationResponse({
+    user: {
+      id: 'usr_m',
+      email: 'manager@example.com',
+      role: 'MANAGER',
+      adminPermissions: ['vendors:review', 'products:manage', 'coupons:manage', 'orders:manage'],
+    },
+  });
+  assert.deepEqual(managerReady, {
+    phase: 'ready',
+    role: 'MANAGER',
+    permissions: ['vendors:review', 'products:manage', 'coupons:manage', 'orders:manage'],
+  });
+  assert.deepEqual(resolveSectionsForVerification(managerReady), {
+    vendors: true,
+    products: true,
+    orders: true,
+    coupons: true,
+  });
+
+  const adminReady = parseAdminVerificationResponse({
+    user: {
+      id: 'usr_a',
+      email: 'admin@example.com',
+      role: 'ADMIN',
+      adminPermissions: ['vendors:review'],
+    },
+  });
+  assert.deepEqual(resolveSectionsForVerification(adminReady), {
+    vendors: true,
+    products: false,
+    orders: false,
+    coupons: false,
+  });
+});
+
+test('malformed verification payloads fail closed with a descriptive error', () => {
+  const malformedPayloads: unknown[] = [
+    null,
+    {},
+    { user: null },
+    { user: {} },
+    { user: { role: 'WIZARD' } },
+  ];
+  for (const payload of malformedPayloads) {
+    const parsed = parseAdminVerificationResponse(payload);
+    assert.equal(parsed.phase, 'failed');
+    if (parsed.phase === 'failed') {
+      assert.equal(typeof parsed.message, 'string');
+      assert.match(parsed.message, /malformed/);
+    }
+    assert.deepEqual(resolveSectionsForVerification(parsed), {
+      vendors: false,
+      products: false,
+      orders: false,
+      coupons: false,
+    });
+  }
+});
+
+test('a failed re-verification drops previously granted sections', () => {
+  const ready = parseAdminVerificationResponse({
+    user: {
+      id: 'usr_a',
+      email: 'admin@example.com',
+      role: 'ADMIN',
+      adminPermissions: ['orders:manage', 'coupons:manage'],
+    },
+  });
+  assert.equal(ready.phase, 'ready');
+  if (ready.phase === 'ready') {
+    assert.equal(resolveSectionsForVerification(ready).orders, true);
+    assert.equal(resolveSectionsForVerification(ready).coupons, true);
+  }
+
+  const failed = adminVerificationFailed(new Error('network unavailable'));
+  assert.deepEqual(failed, { phase: 'failed', message: 'network unavailable' });
+  assert.deepEqual(resolveSectionsForVerification(failed), {
+    vendors: false,
+    products: false,
+    orders: false,
+    coupons: false,
+  });
+});
+
+test('a successful retry after a failed verification restores the granted sections', () => {
+  const failed = adminVerificationFailed(new TypeError('fetch failed'));
+  assert.equal(resolveSectionsForVerification(failed).orders, false);
+
+  const retried = parseAdminVerificationResponse({
+    user: {
+      id: 'usr_a',
+      email: 'admin@example.com',
+      role: 'ADMIN',
+      adminPermissions: ['orders:manage'],
+    },
+  });
+  assert.deepEqual(resolveSectionsForVerification(retried), {
+    vendors: false,
+    products: false,
+    orders: true,
+    coupons: false,
+  });
+});
+
+test('verification parsing sanitizes unknown permission values', () => {
+  const parsed = parseAdminVerificationResponse({
+    user: { id: 'usr_a', role: 'ADMIN', adminPermissions: ['orders:manage', 'superuser', 42] },
+  });
+  assert.deepEqual(parsed, { phase: 'ready', role: 'ADMIN', permissions: ['orders:manage'] });
+});
+
+test('pending verification and non-Error failures stay fail closed', () => {
+  assert.equal(ADMIN_VERIFICATION_PENDING.phase, 'pending');
+  assert.deepEqual(resolveSectionsForVerification(ADMIN_VERIFICATION_PENDING), {
+    vendors: false,
+    products: false,
+    orders: false,
+    coupons: false,
+  });
+
+  const bare = adminVerificationFailed('boom');
+  assert.equal(bare.phase, 'failed');
+  if (bare.phase === 'failed') {
+    assert.equal(bare.message, 'Unable to verify your administrator permissions.');
+  }
 });
