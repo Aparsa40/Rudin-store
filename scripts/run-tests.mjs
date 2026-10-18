@@ -41,7 +41,10 @@ if (testFiles.length === 0) {
 console.log('Running tests:');
 console.log(testFiles.join('\n'));
 
-const child = spawn('tsx', ['--test', ...testFiles], {
+// MongoDB integration suites each start an API process and exercise transactions
+// against the same Atlas cluster. Running all files concurrently can overload a
+// small shared test cluster and cause unrelated API requests to time out.
+const child = spawn('tsx', ['--test', '--test-concurrency=1', ...testFiles], {
   stdio: 'inherit',
   shell: true,
 });
