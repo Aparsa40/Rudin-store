@@ -12,6 +12,7 @@ Backend, test, and documentation work merged to the default branch after the v2.
 
 ### Added — Backend (Node.js/Express/MongoDB)
 
+- Cloudinary signed upload security: each signature is bound to a server-generated public ID with overwrite disabled; the signature quota supports the maximum 30-item product gallery; MOV delivery is converted to MP4 for broader browser playback.
 - Authentication API: registration (always CUSTOMER), login, `GET /api/auth/me`, scrypt password hashing, one-hour bearer tokens, token invalidation on password change and account status/authVersion changes.
 - One-time manager bootstrap (`POST /api/auth/bootstrap-manager`, `X-Manager-Bootstrap-Secret` header, `MANAGER_BOOTSTRAP_SECRET`) creating the single primary platform owner, with a transactional singleton guard so concurrent attempts cannot create a second manager.
 - Password reset request/confirm with single-use hashed expiring tokens (delivery via Resend).
@@ -88,14 +89,14 @@ Verified through GitHub Actions CI on pull requests to the main branch (TypeScri
 
 Version 2.1.0 is the hardening upgrade currently under review in release/v2.1.0.
 
-### Added
+### Added — v2.1.0
 
 - ProtectedRoute for account, seller, and admin route UX protection.
 - Explicit demo-role support for CUSTOMER, VENDOR, and ADMIN.
 - products.service.ts service barrel.
 - Coupon validity-window support through validFrom and validUntil.
 
-### Improved
+### Improved — v2.1.0
 
 - Authentication starts unauthenticated instead of with a fake pre-authenticated customer.
 - Auth store, login flow, and header use the same v2.1 API.
@@ -106,14 +107,14 @@ Version 2.1.0 is the hardening upgrade currently under review in release/v2.1.0.
 - TypeScript strict and filename-casing checks are enabled.
 - The conflicting Tailwind flex + block utility combination in Header was removed.
 
-### Documentation
+### Documentation — v2.1.0
 
 - Updated all repository documentation from the v2.0.0 baseline to the v2.1.0 candidate.
 - Documented the boundary between demo/local behavior and trusted backend behavior.
 - Documented planned authentication, cart/checkout, Contact Us, and PostgreSQL integration.
 - Documented favicon/logo integration as a pending branding step.
 
-### Validation
+### Validation — v2.1.0
 
     npm ci       PASS — 0 vulnerabilities reported
     npm run lint PASS
@@ -129,7 +130,7 @@ v2.1.0 still uses mock/demo authentication, browser persistence, and frontend ro
 
 ## [2.0.0] — 2026-10-06
 
-### Added
+### Added — v2.0.0
 
 - Multi-vendor marketplace frontend architecture.
 - Domain-oriented service layer.
@@ -137,7 +138,7 @@ v2.1.0 still uses mock/demo authentication, browser persistence, and frontend ro
 - Global UI state management.
 - Reusable UI primitives and technical documentation.
 
-### Improved
+### Improved — v2.0.0
 
 - Product browsing and filtering.
 - Product detail experience.
