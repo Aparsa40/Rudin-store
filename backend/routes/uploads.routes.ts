@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { getCloudinaryClient, getCloudinaryCredentials } from '../config/cloudinary.js';
 import { requireAuth, requireVendorOrPermission } from '../middleware/auth.js';
@@ -73,8 +73,10 @@ uploadsRouter.post(
     const timestamp = Math.floor(Date.now() / 1000);
     const folder = `rudin-store/products/${req.authUser!.id}`;
     const allowedFormats = resourceType === 'image' ? IMAGE_FORMATS : VIDEO_FORMATS;
+    const publicId = randomUUID();
+    const overwrite = false;
     const signature = client.utils.api_sign_request(
-      { allowed_formats: allowedFormats, folder, timestamp },
+      { allowed_formats: allowedFormats, folder, overwrite, public_id: publicId, timestamp },
       credentials.apiSecret,
     );
 
@@ -84,6 +86,8 @@ uploadsRouter.post(
         apiKey: credentials.apiKey,
         timestamp,
         folder,
+        publicId,
+        overwrite,
         signature,
         allowedFormats,
         resourceType,
