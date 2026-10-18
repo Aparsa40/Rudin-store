@@ -152,4 +152,3 @@ v2.1.0 still uses mock/demo authentication, browser persistence, and frontend ro
 ## [1.0.0]
 
 Initial documented frontend baseline.
-
