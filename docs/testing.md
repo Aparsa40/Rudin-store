@@ -23,9 +23,9 @@ npm run build
 - Backend unit tests covering product validation (including video metadata), rate limiting, and the uploads routes. The seller media uploader's direct Cloudinary flow should also be smoke-tested with a configured Cloudinary account.
 - A frontend unit test for the browser-local `ordersService`.
 - A frontend unit test for the role-specific portal configuration (`src/config/authPortals.test.ts`): each portal's endpoint, required role, login route, and home route, plus protected-area portal resolution.
-- Three MongoDB-backed integration suites: `backend/integration/security.integration.test.ts`, `backend/integration/orders.integration.test.ts`, and `backend/integration/login-portals.integration.test.ts`.
+- Five MongoDB-backed integration suites: `backend/integration/security.integration.test.ts`, `backend/integration/orders.integration.test.ts`, `backend/integration/login-portals.integration.test.ts`, `backend/integration/coupons-orders.integration.test.ts`, and `backend/integration/coupon-redemption.integration.test.ts`.
 
-The integration suites are skipped unless `RUN_MONGODB_INTEGRATION=true` is set. CI runs `npm test` with that flag against an ephemeral MongoDB replica set, then runs the production build.
+The test runner loads a local `.env` automatically through `dotenv/config`; set `RUN_MONGODB_INTEGRATION=true` and point `MONGODB_URI` at the dedicated `rudin_store_integration_test` database to run integration suites locally. If the opt-in flag or URI is absent outside CI, Node's test runner marks those suites skipped. In GitHub Actions, the runner fails fast if either integration setting is missing, preventing a green CI result with silently skipped MongoDB tests. CI starts an ephemeral MongoDB replica set, supplies both variables explicitly, and runs `npm test` before the production build.
 
 ## Integration suite scope
 
@@ -39,12 +39,17 @@ All test files were audited for assertion quality: no tautological or unconditio
 
 ## MongoDB integration-test safety
 
-The three integration suites run in parallel and use separate, derived databases:
+The five integration suites use separate, derived databases and run sequentially (`--test-concurrency=1`) to avoid concurrent writes and API startup contention:
 
 - `rudin_store_integration_test` for the security suite.
-- `rudin_store_integration_test_orders` for the orders suite, and `rudin_store_integration_test_portals` for the login-portals suite, each derived automatically from the configured test URI so the parallel suites cannot wipe each other's data.
+- `rudin_store_integration_test_orders` for the orders suite.
+- `rudin_store_integration_test_portals` for the login-portals suite.
+- `rudin_store_integration_test_coupons` for the coupons/orders permission and API suite.
+- `rudin_store_integration_test_redeem` for transactional coupon-redemption concurrency.
 
-Each suite clears only its own database collections (`users`, `products`, `adminstates`, and for the orders suite also `orders`) at setup and teardown, kills its child server process, and closes the mongoose connection in a `finally` block. The backend connection guard and the test assertions reject database names outside the `rudin_store_integration_test*` family when `RUN_MONGODB_INTEGRATION=true`.
+Each suite derives its database name from the configured test URI and runs serially, so suites cannot wipe each other's data.
+
+Each suite clears only its own database collections at setup and teardown, kills its child server process, and closes the Mongoose connection in a `finally` block. The backend connection guard and the test assertions reject database names outside the `rudin_store_integration_test*` family when `RUN_MONGODB_INTEGRATION=true`.
 
 Never set `RUN_MONGODB_INTEGRATION=true` while using the manual test database (`rudin_store_test`), development database, or any production database. Do not remove the isolation guard to make tests pass.
 
