@@ -32,7 +32,7 @@ Frontend wiring status (authentication): the four portal login pages (`/login`, 
 
 - `POST /api/uploads/sign` is authenticated, permission-gated, and rate-limited. It signs a short-lived upload request for images or videos in the caller's product-media folder.
 - The browser uploads directly to Cloudinary using the returned signature, server-generated public ID, and `overwrite: false`. The signed public ID prevents replaying one signature to create multiple new assets. The Cloudinary API secret never leaves the backend.
-- Supported image formats: JPEG, PNG, WebP, GIF. Supported video formats: MP4, WebM, MOV. MOV delivery URLs use Cloudinary's MP4 transformation for broader browser compatibility. The seller UI currently applies 20 MB/image and 100 MB/video client-side limits; these should be backed by provider-side upload controls for production. The signature endpoint allows 40 requests per 15 minutes per IP, matching the maximum 30-file product gallery with a small retry margin.
+- Supported image formats: JPEG, PNG, WebP, GIF. Supported video formats: MP4, WebM, MOV. MOV delivery URLs use Cloudinary's MP4 transformation for broader browser compatibility. The seller UI applies 10 MiB/image and 100 MiB/video client-side limits to match the connected Cloudinary plan's reported image/video upload caps. These client-side checks improve UX but are not a substitute for provider-side enforcement. The signature endpoint allows 40 requests per 15 minutes per IP, matching the maximum 30-file product gallery with a small retry margin.
 - Product documents store media metadata and secure URLs only. Product detail pages render uploaded videos.
 - The legacy `POST /api/uploads/images` data-URL endpoint remains for older clients (PNG/JPEG/WebP, up to 4 MB).
 
