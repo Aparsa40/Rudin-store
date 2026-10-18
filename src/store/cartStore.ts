@@ -46,7 +46,7 @@ export const useCartStore = create<CartState>()(
         const stock = await cartService.fetchAvailableStock(item.productId, item.variantId);
         const state = get();
         const existingIndex = state.items.findIndex(
-          (i) => i.productId === item.productId && i.variantId === item.variantId
+          (i) => i.productId === item.productId && i.variantId === item.variantId,
         );
         const currentQty = existingIndex >= 0 ? state.items[existingIndex].quantity : 0;
         const targetQty = currentQty + item.quantity;
@@ -54,14 +54,14 @@ export const useCartStore = create<CartState>()(
         if (stock <= 0) {
           return {
             success: false,
-            error: 'This item is currently out of stock.'
+            error: 'This item is currently out of stock.',
           };
         }
 
         if (targetQty > stock) {
           return {
             success: false,
-            error: `Only ${stock} unit${stock === 1 ? '' : 's'} available in stock.`
+            error: `Only ${stock} unit${stock === 1 ? '' : 's'} available in stock.`,
           };
         }
 
@@ -78,10 +78,10 @@ export const useCartStore = create<CartState>()(
               {
                 ...item,
                 id: `ci_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-                addedAt: new Date().toISOString()
-              }
+                addedAt: new Date().toISOString(),
+              },
             ],
-            isDrawerOpen: true
+            isDrawerOpen: true,
           };
         });
 
@@ -90,7 +90,7 @@ export const useCartStore = create<CartState>()(
 
       removeItem: (id) => {
         set((state) => ({
-          items: state.items.filter((i) => i.id !== id)
+          items: state.items.filter((i) => i.id !== id),
         }));
       },
 
@@ -101,33 +101,35 @@ export const useCartStore = create<CartState>()(
           return { success: false, error: 'Item not found in cart.' };
         }
 
-        const stock = await cartService.fetchAvailableStock(targetItem.productId, targetItem.variantId);
+        const stock = await cartService.fetchAvailableStock(
+          targetItem.productId,
+          targetItem.variantId,
+        );
 
         if (stock <= 0) {
           set((curr) => ({
-            items: curr.items.filter((i) => i.id !== id)
+            items: curr.items.filter((i) => i.id !== id),
           }));
-          return { success: false, error: 'This item is no longer available and was removed from your cart.' };
+          return {
+            success: false,
+            error: 'This item is no longer available and was removed from your cart.',
+          };
         }
 
         if (quantity > stock) {
           // Clamp to maximum stock
           set((curr) => ({
-            items: curr.items.map((i) =>
-              i.id === id ? { ...i, quantity: stock } : i
-            )
+            items: curr.items.map((i) => (i.id === id ? { ...i, quantity: stock } : i)),
           }));
           return {
             success: false,
-            error: `Only ${stock} unit${stock === 1 ? '' : 's'} available in stock.`
+            error: `Only ${stock} unit${stock === 1 ? '' : 's'} available in stock.`,
           };
         }
 
         const safeQuantity = Math.max(1, quantity);
         set((curr) => ({
-          items: curr.items.map((i) =>
-            i.id === id ? { ...i, quantity: safeQuantity } : i
-          )
+          items: curr.items.map((i) => (i.id === id ? { ...i, quantity: safeQuantity } : i)),
         }));
 
         return { success: true };
@@ -139,18 +141,18 @@ export const useCartStore = create<CartState>()(
 
       moveToSaveForLater: (id) => {
         set((state) => {
-          const item = state.items.find(i => i.id === id);
+          const item = state.items.find((i) => i.id === id);
           if (!item) return state;
           return {
-            items: state.items.filter(i => i.id !== id),
-            saveForLater: [...state.saveForLater, item]
+            items: state.items.filter((i) => i.id !== id),
+            saveForLater: [...state.saveForLater, item],
           };
         });
       },
 
       moveToCartFromSaved: async (id) => {
         const state = get();
-        const item = state.saveForLater.find(i => i.id === id);
+        const item = state.saveForLater.find((i) => i.id === id);
         if (!item) return { success: false, error: 'Item not found in saved list.' };
 
         const stock = await cartService.fetchAvailableStock(item.productId, item.variantId);
@@ -159,8 +161,8 @@ export const useCartStore = create<CartState>()(
         }
 
         set((curr) => ({
-          saveForLater: curr.saveForLater.filter(i => i.id !== id),
-          items: [...curr.items, { ...item, quantity: Math.min(item.quantity, stock) }]
+          saveForLater: curr.saveForLater.filter((i) => i.id !== id),
+          items: [...curr.items, { ...item, quantity: Math.min(item.quantity, stock) }],
         }));
 
         return { success: true };
@@ -168,7 +170,7 @@ export const useCartStore = create<CartState>()(
 
       removeSavedItem: (id) => {
         set((state) => ({
-          saveForLater: state.saveForLater.filter(i => i.id !== id)
+          saveForLater: state.saveForLater.filter((i) => i.id !== id),
         }));
       },
 
@@ -186,10 +188,10 @@ export const useCartStore = create<CartState>()(
       getItemCount: () => {
         const items = get().items;
         return items.reduce((acc, item) => acc + item.quantity, 0);
-      }
+      },
     }),
     {
-      name: 'rudin-cart-storage'
-    }
-  )
+      name: 'rudin-cart-storage',
+    },
+  ),
 );

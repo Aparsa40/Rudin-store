@@ -2,18 +2,18 @@
 
 ## Asset Map
 
-| Purpose | Asset |
-|---|---|
-| Header | `/branding/header-logo.svg` |
-| Footer | `/branding/footer-logo.svg` |
-| Social preview | `/branding/og-image.svg` |
-| Browser icon | `/favicon.ico` |
-| Small favicon | `/favicon-16x16.png` |
-| Standard favicon | `/favicon-32x32.png` |
-| Apple touch icon | `/apple-touch-icon.png` |
+| Purpose          | Asset                               |
+| ---------------- | ----------------------------------- |
+| Header           | `/branding/header-logo.svg`         |
+| Footer           | `/branding/footer-logo.svg`         |
+| Social preview   | `/branding/og-image.svg`            |
+| Browser icon     | `/favicon.ico`                      |
+| Small favicon    | `/favicon-16x16.png`                |
+| Standard favicon | `/favicon-32x32.png`                |
+| Apple touch icon | `/apple-touch-icon.png`             |
 | Android/PWA icon | `/icons/android-chrome-192x192.png` |
 | Android/PWA icon | `/icons/android-chrome-512x512.png` |
-| Web manifest | `/site.webmanifest` |
+| Web manifest     | `/site.webmanifest`                 |
 
 ## Usage Rules
 

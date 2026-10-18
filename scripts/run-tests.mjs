@@ -1,11 +1,8 @@
-import { spawn } from "node:child_process";
-import { readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { spawn } from 'node:child_process';
+import { readdir } from 'node:fs/promises';
+import { join } from 'node:path';
 
-const testRoots = [
-  "backend",
-  "src",
-];
+const testRoots = ['backend', 'src'];
 
 const testFiles = [];
 
@@ -22,10 +19,7 @@ async function findTests(dir) {
       continue;
     }
 
-    if (
-      entry.isFile() &&
-      entry.name.endsWith(".test.ts")
-    ) {
+    if (entry.isFile() && entry.name.endsWith('.test.ts')) {
       testFiles.push(fullPath);
     }
   }
@@ -40,25 +34,18 @@ for (const root of testRoots) {
 }
 
 if (testFiles.length === 0) {
-  console.error("No test files found.");
+  console.error('No test files found.');
   process.exit(1);
 }
 
-console.log("Running tests:");
-console.log(testFiles.join("\n"));
+console.log('Running tests:');
+console.log(testFiles.join('\n'));
 
-const child = spawn(
-  "tsx",
-  [
-    "--test",
-    ...testFiles,
-  ],
-  {
-    stdio: "inherit",
-    shell: true,
-  }
-);
+const child = spawn('tsx', ['--test', ...testFiles], {
+  stdio: 'inherit',
+  shell: true,
+});
 
-child.on("exit", (code) => {
+child.on('exit', (code) => {
   process.exit(code ?? 1);
 });

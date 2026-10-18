@@ -10,7 +10,9 @@ interface AuthState {
   accessToken: string | null;
   login: (user: User, accessToken?: string) => void;
   loginAsDemo: (role: Role) => void;
-  register: (userData: Omit<User, 'id' | 'createdAt'> & { id?: string; createdAt?: string }) => void;
+  register: (
+    userData: Omit<User, 'id' | 'createdAt'> & { id?: string; createdAt?: string },
+  ) => void;
   logout: () => void;
   setDemoRole: (role: Role) => void;
   updateUserProfile: (updates: Partial<User>) => void;
@@ -26,7 +28,13 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       accessToken: null,
 
-      login: (user, accessToken) => set({ user, accessToken: accessToken ?? null, isAuthenticated: Boolean(accessToken), isLoading: false }),
+      login: (user, accessToken) =>
+        set({
+          user,
+          accessToken: accessToken ?? null,
+          isAuthenticated: Boolean(accessToken),
+          isLoading: false,
+        }),
 
       loginAsDemo: (role: Role) => {
         let demoUser: User;
@@ -37,8 +45,9 @@ export const useAuthStore = create<AuthState>()(
             firstName: 'Aether',
             lastName: 'Studio',
             role: 'VENDOR',
-            avatarUrl: 'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?auto=format&fit=crop&q=80&w=200&h=200',
-            createdAt: '2022-04-12T00:00:00Z'
+            avatarUrl:
+              'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?auto=format&fit=crop&q=80&w=200&h=200',
+            createdAt: '2022-04-12T00:00:00Z',
           };
         } else if (role === 'ADMIN') {
           demoUser = {
@@ -47,8 +56,9 @@ export const useAuthStore = create<AuthState>()(
             firstName: 'Platform',
             lastName: 'Admin',
             role: 'ADMIN',
-            avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200&h=200',
-            createdAt: '2021-01-01T00:00:00Z'
+            avatarUrl:
+              'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200&h=200',
+            createdAt: '2021-01-01T00:00:00Z',
           };
         } else {
           demoUser = mockCurrentUser;
@@ -65,29 +75,32 @@ export const useAuthStore = create<AuthState>()(
           lastName: userData.lastName,
           role: userData.role || 'CUSTOMER',
           phone: userData.phone,
-          avatarUrl: userData.avatarUrl || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200&h=200`,
-          createdAt: userData.createdAt || new Date().toISOString()
+          avatarUrl:
+            userData.avatarUrl ||
+            `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200&h=200`,
+          createdAt: userData.createdAt || new Date().toISOString(),
         };
         set({ user: newUser, accessToken: null, isAuthenticated: false, isLoading: false });
       },
 
-      logout: () => set({ user: null, accessToken: null, isAuthenticated: false, isLoading: false }),
+      logout: () =>
+        set({ user: null, accessToken: null, isAuthenticated: false, isLoading: false }),
 
       // Explicit development/demo utility for testing different role perspectives
       setDemoRole: (role: Role) =>
         set((state) => {
           if (!state.user) return state;
           return {
-            user: { ...state.user, role }
+            user: { ...state.user, role },
           };
         }),
 
       updateUserProfile: (updates) =>
         set((state) => ({
-          user: state.user ? { ...state.user, ...updates } : null
+          user: state.user ? { ...state.user, ...updates } : null,
         })),
 
-      setLoading: (isLoading) => set({ isLoading })
+      setLoading: (isLoading) => set({ isLoading }),
     }),
     {
       name: 'rudin-auth-storage',
@@ -98,7 +111,7 @@ export const useAuthStore = create<AuthState>()(
           state.accessToken = null;
           state.isAuthenticated = false;
         }
-      }
-    }
-  )
+      },
+    },
+  ),
 );

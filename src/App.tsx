@@ -20,6 +20,7 @@ import { ManagerLogin } from './pages/ManagerLogin';
 import { ManagerDashboard } from './pages/ManagerDashboard';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { Button } from './components/ui/Button';
+import { AdminInvitationAccept } from './pages/AdminInvitationAccept';
 
 const NotFound: React.FC = () => (
   <div className="container mx-auto px-4 py-24 text-center max-w-md">
@@ -31,8 +32,14 @@ const NotFound: React.FC = () => (
       The page or artisan collection you were looking for could not be found or has moved.
     </p>
     <div className="flex gap-3 justify-center">
-      <Link to="/"><Button variant="outline" size="sm">Return Home</Button></Link>
-      <Link to="/shop"><Button size="sm">Browse Catalog</Button></Link>
+      <Link to="/">
+        <Button variant="outline" size="sm">
+          Return Home
+        </Button>
+      </Link>
+      <Link to="/shop">
+        <Button size="sm">Browse Catalog</Button>
+      </Link>
     </div>
   </div>
 );
@@ -54,13 +61,42 @@ export const App: React.FC = () => {
           <Route path="manager/login" element={<ManagerLogin />} />
           <Route path="register" element={<Register />} />
           <Route path="reset-password" element={<ResetPassword />} />
-          <Route path="account/*" element={<ProtectedRoute><Account /></ProtectedRoute>} />
+          <Route
+            path="account/*"
+            element={
+              <ProtectedRoute>
+                <Account />
+              </ProtectedRoute>
+            }
+          />
           <Route path="vendors" element={<VendorsList />} />
           <Route path="vendors/:slug" element={<VendorDetail />} />
-          <Route path="seller/dashboard" element={<ProtectedRoute allowedRoles={['VENDOR', 'ADMIN']}><SellerDashboard /></ProtectedRoute>} />
+          <Route
+            path="seller/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['VENDOR', 'ADMIN']}>
+                <SellerDashboard />
+              </ProtectedRoute>
+            }
+          />
           <Route path="seller/join" element={<Register />} />
-          <Route path="admin" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminDashboard /></ProtectedRoute>} />
-          <Route path="manager" element={<ProtectedRoute allowedRoles={['MANAGER']}><ManagerDashboard /></ProtectedRoute>} />
+          <Route path="admin-invitation" element={<AdminInvitationAccept />} />
+          <Route
+            path="admin"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="manager"
+            element={
+              <ProtectedRoute allowedRoles={['MANAGER']}>
+                <ManagerDashboard />
+              </ProtectedRoute>
+            }
+          />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

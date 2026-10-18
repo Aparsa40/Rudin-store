@@ -1,95 +1,211 @@
-import "dotenv/config";
-import express from "express";
-import { connectDatabase, disconnectDatabase } from "./config/database.js";
-import { errorHandler } from "./middleware/error-handler.js";
-import { notFoundHandler } from "./middleware/not-found.js";
-import healthRouter from "./routes/health.routes.js";
-import productsRouter from "./routes/products.routes.js";
-import authRouter from "./routes/auth.routes.js";
-import adminRouter from "./routes/admin.routes.js";
-import { createRateLimiter } from "./middleware/rate-limit.js";
-import vendorsRouter from "./routes/vendors.routes.js";
-import adminVendorsRouter from "./routes/admin-vendors.routes.js";
-import passwordResetRouter from "./routes/password-reset.routes.js";
-import uploadsRouter from "./routes/uploads.routes.js";
-import ordersRouter from "./routes/orders.routes.js";
+import 'dotenv/config';
+import express from 'express';
+import { connectDatabase, disconnectDatabase } from './config/database.js';
+import { errorHandler } from './middleware/error-handler.js';
+import { notFoundHandler } from './middleware/not-found.js';
+import healthRouter from './routes/health.routes.js';
+import productsRouter from './routes/products.routes.js';
+import authRouter from './routes/auth.routes.js';
+import adminRouter from './routes/admin.routes.js';
+import { createRateLimiter } from './middleware/rate-limit.js';
+import vendorsRouter from './routes/vendors.routes.js';
+import adminVendorsRouter from './routes/admin-vendors.routes.js';
+import passwordResetRouter from './routes/password-reset.routes.js';
+import uploadsRouter from './routes/uploads.routes.js';
+import ordersRouter from './routes/orders.routes.js';
+import couponsRouter from './routes/coupons.routes.js';
+import adminOrdersRouter from './routes/admin-orders.routes.js';
+import adminInvitationsRouter from './routes/admin-invitations.routes.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
-const webUrl = process.env.WEB_URL ?? "http://localhost:3000";
+const webUrl = process.env.WEB_URL ?? 'http://localhost:3000';
 
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
-  throw new Error("PORT must be an integer between 1 and 65535.");
+  throw new Error('PORT must be an integer between 1 and 65535.');
 }
-if (process.env.NODE_ENV === "production" && (!process.env.AUTH_TOKEN_SECRET || process.env.AUTH_TOKEN_SECRET.length < 32)) {
-  throw new Error("AUTH_TOKEN_SECRET must be set to a random secret of at least 32 characters in production.");
+if (
+  process.env.NODE_ENV === 'production' &&
+  (!process.env.AUTH_TOKEN_SECRET || process.env.AUTH_TOKEN_SECRET.length < 32)
+) {
+  throw new Error(
+    'AUTH_TOKEN_SECRET must be set to a random secret of at least 32 characters in production.',
+  );
 }
 
-app.disable("x-powered-by");
-app.use(express.json({ limit: "6mb" }));
+app.disable('x-powered-by');
+app.use(express.json({ limit: '6mb' }));
 
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", webUrl);
-  res.header("Vary", "Origin");
-  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Admin-Bootstrap-Secret, Idempotency-Key");
-  if (req.method === "OPTIONS") {
+  res.header('Access-Control-Allow-Origin', webUrl);
+  res.header('Vary', 'Origin');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.header(
+    'Access-Control-Allow-Headers',
+    'Content-Type, Authorization, X-Manager-Bootstrap-Secret, Idempotency-Key',
+  );
+  if (req.method === 'OPTIONS') {
     res.sendStatus(204);
     return;
   }
   next();
 });
 
-app.use("/api/health", healthRouter);
-app.use("/api/auth/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
+app.use('/api/health', healthRouter);
+app.use(
+  '/api/auth/login',
+  createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 10,
+    message: 'Too many login attempts. Please try again in 15 minutes.',
+  }),
+);
 // Role-specific portal logins receive the same brute-force protection as the
 // generic login endpoint; each portal path has its own request bucket.
-app.use("/api/auth/customer/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
-app.use("/api/auth/vendor/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
-app.use("/api/auth/admin/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
-app.use("/api/auth/manager/login", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10, message: "Too many login attempts. Please try again in 15 minutes." }));
-app.use("/api/auth/register", createRateLimiter({ windowMs: 60 * 60 * 1000, maxRequests: 8, message: "Too many registration attempts. Please try again later." }));
-app.use("/api/auth/bootstrap-admin", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 5, message: "Too many bootstrap attempts. Please try again later." }));
-app.use("/api/auth/password-reset", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 5, message: "Too many password reset attempts. Please try again later." }));
-app.use("/api/uploads/images", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 20, message: "Too many image uploads. Please try again later." }));
-app.use("/api/auth", authRouter);
-app.use("/api/auth/password-reset", passwordResetRouter);
-// The vendor-application review router is shared with the least-privilege MANAGER role,
-// so it must be mounted before the ADMIN-only /api/admin router; otherwise the admin
-// router's requireRole("ADMIN") guard rejects managers on every /api/admin/vendors/* path.
-app.use("/api/admin/vendors", adminVendorsRouter);
-app.use("/api/admin", adminRouter);
-app.use("/api/uploads", uploadsRouter);
-app.use("/api/vendors", vendorsRouter);
-app.use("/api/products", productsRouter);
-app.use("/api/orders", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 30, message: "Too many order requests. Please try again later." }));
-app.use("/api/orders", ordersRouter);
+app.use(
+  '/api/auth/customer/login',
+  createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 10,
+    message: 'Too many login attempts. Please try again in 15 minutes.',
+  }),
+);
+app.use(
+  '/api/auth/vendor/login',
+  createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 10,
+    message: 'Too many login attempts. Please try again in 15 minutes.',
+  }),
+);
+app.use(
+  '/api/auth/admin/login',
+  createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 10,
+    message: 'Too many login attempts. Please try again in 15 minutes.',
+  }),
+);
+app.use(
+  '/api/auth/manager/login',
+  createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 10,
+    message: 'Too many login attempts. Please try again in 15 minutes.',
+  }),
+);
+app.use(
+  '/api/auth/register',
+  createRateLimiter({
+    windowMs: 60 * 60 * 1000,
+    maxRequests: 8,
+    message: 'Too many registration attempts. Please try again later.',
+  }),
+);
+app.use(
+  '/api/auth/bootstrap-manager',
+  createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 5,
+    message: 'Too many bootstrap attempts. Please try again later.',
+  }),
+);
+app.use(
+  '/api/auth/password-reset',
+  createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 5,
+    message: 'Too many password reset attempts. Please try again later.',
+  }),
+);
+app.use(
+  '/api/uploads/images',
+  createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 20,
+    message: 'Too many image uploads. Please try again later.',
+  }),
+);
+app.use('/api/auth', authRouter);
+app.use('/api/auth/password-reset', passwordResetRouter);
+// The read-only administrative order router admits the primary MANAGER and admins
+// holding orders:manage, so it must be mounted before the MANAGER-only /api/admin
+// router for the same reason as the vendor-application router below.
+app.use(
+  '/api/admin/orders',
+  createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 60,
+    message: 'Too many admin order requests. Please try again later.',
+  }),
+);
+app.use('/api/admin/orders', adminOrdersRouter);
+// The vendor-application review router admits the primary MANAGER and admins holding
+// the vendors:review permission, so it must be mounted before the MANAGER-only
+// /api/admin router; otherwise the admin router's requireRole("MANAGER") guard
+// rejects authorized admins on every /api/admin/vendors/* path.
+app.use('/api/admin/vendors', adminVendorsRouter);
+app.use('/api/admin', adminRouter);
+app.use('/api/uploads', uploadsRouter);
+app.use('/api/vendors', vendorsRouter);
+app.use('/api/products', productsRouter);
+app.use(
+  '/api/orders',
+  createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 30,
+    message: 'Too many order requests. Please try again later.',
+  }),
+);
+app.use('/api/orders', ordersRouter);
+app.use(
+  '/api/coupons',
+  createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 30,
+    message: 'Too many coupon requests. Please try again later.',
+  }),
+);
+app.use('/api/coupons', couponsRouter);
+app.use(
+  '/api/admin-invitations',
+  createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 10,
+    message: 'Too many invitation requests. Please try again later.',
+  }),
+  adminInvitationsRouter,
+);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
 async function startServer(): Promise<void> {
   await connectDatabase();
-  const server = app.listen(port, () => console.log(`Rudin-Store API listening on http://localhost:${port}`));
+  const server = app.listen(port, () =>
+    console.log(`Rudin-Store API listening on http://localhost:${port}`),
+  );
   let isShuttingDown = false;
   const shutdown = (signal: string) => {
     if (isShuttingDown) return;
     isShuttingDown = true;
     console.log(`${signal} received. Shutting down gracefully...`);
     server.close(() => {
-      void disconnectDatabase().then(() => {
-        console.log("MongoDB connection closed.");
-        process.exit(0);
-      }).catch((error: unknown) => {
-        console.error("Failed to close MongoDB connection cleanly:", error);
-        process.exit(1);
-      });
+      void disconnectDatabase()
+        .then(() => {
+          console.log('MongoDB connection closed.');
+          process.exit(0);
+        })
+        .catch((error: unknown) => {
+          console.error('Failed to close MongoDB connection cleanly:', error);
+          process.exit(1);
+        });
     });
   };
-  process.on("SIGINT", () => shutdown("SIGINT"));
-  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
 startServer().catch((error: unknown) => {
-  console.error("Failed to start Rudin-Store API:", error);
+  console.error('Failed to start Rudin-Store API:', error);
   process.exit(1);
 });

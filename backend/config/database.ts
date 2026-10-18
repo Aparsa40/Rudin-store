@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 /**
  * Connects the backend to MongoDB Atlas.
@@ -11,28 +11,28 @@ export async function connectDatabase(): Promise<void> {
 
   if (!uri) {
     throw new Error(
-      "MONGODB_URI is not defined. Create a local .env file from .env.example and add your MongoDB Atlas URI.",
+      'MONGODB_URI is not defined. Create a local .env file from .env.example and add your MongoDB Atlas URI.',
     );
   }
 
-  if (process.env.RUN_MONGODB_INTEGRATION === "true") {
-    const databaseName = uri.split("://")[1]?.split("/")[1]?.split("?")[0];
+  if (process.env.RUN_MONGODB_INTEGRATION === 'true') {
+    const databaseName = uri.split('://')[1]?.split('/')[1]?.split('?')[0];
     // Integration suites may use the shared database or a dedicated derivation of it
     // (for example rudin_store_integration_test_orders) so parallel suites cannot wipe
     // each other's data. Any other database remains forbidden in integration mode.
     const isIntegrationDatabase =
-      databaseName === "rudin_store_integration_test" ||
-      (databaseName ?? "").startsWith("rudin_store_integration_test_");
+      databaseName === 'rudin_store_integration_test' ||
+      (databaseName ?? '').startsWith('rudin_store_integration_test_');
     if (!isIntegrationDatabase) {
       throw new Error(
-        "MongoDB integration tests are restricted to the isolated rudin_store_integration_test database (or a dedicated derivation of it).",
+        'MongoDB integration tests are restricted to the isolated rudin_store_integration_test database (or a dedicated derivation of it).',
       );
     }
   }
 
   await mongoose.connect(uri);
 
-  console.log("MongoDB connected successfully.");
+  console.log('MongoDB connected successfully.');
 }
 
 /**

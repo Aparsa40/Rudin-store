@@ -200,14 +200,12 @@ export const ProductDetail: React.FC = () => {
     const results: CartActionResult[] = [];
     // Add current product
     results.push(
-      await addItem({ productId: product.id, variantId: currentVariant?.id, quantity: 1 })
+      await addItem({ productId: product.id, variantId: currentVariant?.id, quantity: 1 }),
     );
     // Add checked bundle products
     for (const b of frequentlyBought) {
       if (bundleChecked[b.id]) {
-        results.push(
-          await addItem({ productId: b.id, variantId: b.variants[0]?.id, quantity: 1 })
-        );
+        results.push(await addItem({ productId: b.id, variantId: b.variants[0]?.id, quantity: 1 }));
       }
     }
     if (results.every((r) => r.success)) {

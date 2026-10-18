@@ -93,15 +93,15 @@ export const vendorsService = {
     const vendors = await vendorsService.getVendors();
     const q = query.toLowerCase();
     return vendors.filter(
-      (v) => v.storeName.toLowerCase().includes(q) || v.description.toLowerCase().includes(q)
+      (v) => v.storeName.toLowerCase().includes(q) || v.description.toLowerCase().includes(q),
     );
   },
 
   // Local demo helpers (no backend API exists for these yet).
   updateVendor: async (id: string, updates: Partial<Vendor>): Promise<Vendor | null> => {
-    await new Promise(resolve => setTimeout(resolve, 120));
+    await new Promise((resolve) => setTimeout(resolve, 120));
     const current = getStoredVendors();
-    const idx = current.findIndex(v => v.id === id);
+    const idx = current.findIndex((v) => v.id === id);
     if (idx === -1) return null;
     current[idx] = { ...current[idx], ...updates };
     saveStoredVendors(current);
@@ -109,12 +109,12 @@ export const vendorsService = {
   },
 
   toggleVendorVerification: async (id: string): Promise<Vendor | null> => {
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     const current = getStoredVendors();
-    const idx = current.findIndex(v => v.id === id);
+    const idx = current.findIndex((v) => v.id === id);
     if (idx === -1) return null;
     current[idx].isVerified = !current[idx].isVerified;
     saveStoredVendors(current);
     return current[idx];
-  }
+  },
 };

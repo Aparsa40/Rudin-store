@@ -25,8 +25,18 @@ export const Register: React.FC = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.firstName.trim() || !formData.email.trim() || formData.password.length < 12 || (formData.role === 'VENDOR' && formData.storeName.trim().length < 2)) {
-      addToast(formData.role === 'VENDOR' ? 'Enter your name, email, a password of at least 12 characters, and a store name.' : 'Enter your name and email, and use a password of at least 12 characters.', 'error');
+    if (
+      !formData.firstName.trim() ||
+      !formData.email.trim() ||
+      formData.password.length < 12 ||
+      (formData.role === 'VENDOR' && formData.storeName.trim().length < 2)
+    ) {
+      addToast(
+        formData.role === 'VENDOR'
+          ? 'Enter your name, email, a password of at least 12 characters, and a store name.'
+          : 'Enter your name and email, and use a password of at least 12 characters.',
+        'error',
+      );
       return;
     }
 
@@ -37,25 +47,41 @@ export const Register: React.FC = () => {
         lastName: formData.lastName.trim(),
         email: formData.email.trim(),
         phone: formData.phone.trim(),
-        password: formData.password
+        password: formData.password,
       });
       login(session.user, session.accessToken);
       if (formData.role === 'VENDOR') {
-        const apiBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/$/, '');
+        const apiBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(
+          /\/$/,
+          '',
+        );
         const response = await fetch(`${apiBaseUrl}/api/vendors/apply`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.accessToken}` },
-          body: JSON.stringify({ storeName: formData.storeName.trim(), storeDescription: formData.storeDescription.trim() }),
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+          body: JSON.stringify({
+            storeName: formData.storeName.trim(),
+            storeDescription: formData.storeDescription.trim(),
+          }),
         });
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload?.error?.message || 'Vendor application could not be submitted.');
-        addToast('Your store application was submitted. You can sell after an administrator approves it.', 'success');
+        if (!response.ok)
+          throw new Error(payload?.error?.message || 'Vendor application could not be submitted.');
+        addToast(
+          'Your store application was submitted. You can sell after an administrator approves it.',
+          'success',
+        );
       } else {
         addToast('Welcome to Rudin Store! Your account is created.', 'success');
       }
       navigate('/account');
     } catch (error) {
-      addToast(error instanceof Error ? error.message : 'Unable to create your account. Please try again.', 'error');
+      addToast(
+        error instanceof Error ? error.message : 'Unable to create your account. Please try again.',
+        'error',
+      );
     } finally {
       setLoading(false);
     }
