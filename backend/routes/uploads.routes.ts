@@ -1,9 +1,12 @@
 import { createHash } from 'node:crypto';
 import { Router } from 'express';
+import { getCloudinaryClient, getCloudinaryCredentials } from '../config/cloudinary.js';
 import { requireAuth, requireVendorOrPermission } from '../middleware/auth.js';
 
 const uploadsRouter = Router();
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+const IMAGE_FORMATS = 'jpg,jpeg,png,webp,gif';
+const VIDEO_FORMATS = 'mp4,webm,mov';
 
 export function decodeImageDataUrl(
   value: unknown,
@@ -34,6 +37,61 @@ export function decodeImageDataUrl(
   return { mimeType, bytes, extension };
 }
 
+/**
+ * Return a short-lived signature for a direct browser-to-Cloudinary upload.
+ * Only the server holds CLOUDINARY_API_SECRET; the client receives an upload
+ * signature scoped to the authenticated user's product-media folder.
+ */
+uploadsRouter.post(
+  '/sign',
+  requireAuth,
+  requireVendorOrPermission('products:manage'),
+  (req, res) => {
+    const credentials = getCloudinaryCredentials();
+    const client = getCloudinaryClient();
+    if (!credentials || !client) {
+      res.status(503).json({
+        error: {
+          code: 'MEDIA_UPLOAD_UNAVAILABLE',
+          message: 'Cloudinary media storage is not configured on this server.',
+        },
+      });
+      return;
+    }
+
+    const resourceType = req.body?.resourceType;
+    if (resourceType !== 'image' && resourceType !== 'video') {
+      res.status(400).json({
+        error: {
+          code: 'INVALID_MEDIA_TYPE',
+          message: 'resourceType must be either image or video.',
+        },
+      });
+      return;
+    }
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const folder = `rudin-store/products/${req.authUser!.id}`;
+    const allowedFormats = resourceType === 'image' ? IMAGE_FORMATS : VIDEO_FORMATS;
+    const signature = client.utils.api_sign_request(
+      { allowed_formats: allowedFormats, folder, timestamp },
+      credentials.apiSecret,
+    );
+
+    res.status(200).json({
+      upload: {
+        cloudName: credentials.cloudName,
+        apiKey: credentials.apiKey,
+        timestamp,
+        folder,
+        signature,
+        allowedFormats,
+        resourceType,
+      },
+    });
+  },
+);
+
 uploadsRouter.post(
   '/images',
   requireAuth,
@@ -43,27 +101,23 @@ uploadsRouter.post(
     const apiKey = process.env.CLOUDINARY_API_KEY;
     const apiSecret = process.env.CLOUDINARY_API_SECRET;
     if (!cloudName || !apiKey || !apiSecret) {
-      res
-        .status(503)
-        .json({
-          error: {
-            code: 'IMAGE_UPLOAD_UNAVAILABLE',
-            message: 'Image storage is not configured on this server.',
-          },
-        });
+      res.status(503).json({
+        error: {
+          code: 'IMAGE_UPLOAD_UNAVAILABLE',
+          message: 'Image storage is not configured on this server.',
+        },
+      });
       return;
     }
 
     const image = decodeImageDataUrl(req.body?.dataUrl);
     if (!image) {
-      res
-        .status(400)
-        .json({
-          error: {
-            code: 'INVALID_IMAGE',
-            message: 'Upload a valid PNG, JPEG, or WebP image no larger than 4 MB.',
-          },
-        });
+      res.status(400).json({
+        error: {
+          code: 'INVALID_IMAGE',
+          message: 'Upload a valid PNG, JPEG, or WebP image no larger than 4 MB.',
+        },
+      });
       return;
     }
 
@@ -75,11 +129,7 @@ uploadsRouter.post(
       const form = new FormData();
       const blobBuffer = new ArrayBuffer(image.bytes.length);
       new Uint8Array(blobBuffer).set(image.bytes);
-      form.set(
-        'file',
-        new Blob([blobBuffer], { type: image.mimeType }),
-        `product-image.${image.extension}`,
-      );
+      form.set('file', new Blob([blobBuffer], { type: image.mimeType }), `product-image.${image.extension}`);
       form.set('api_key', apiKey);
       form.set('timestamp', String(timestamp));
       form.set('folder', folder);
@@ -87,49 +137,38 @@ uploadsRouter.post(
 
       const response = await fetch(
         `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`,
-        {
-          method: 'POST',
-          body: form,
-        },
+        { method: 'POST', body: form },
       );
       if (!response.ok) {
-        res
-          .status(502)
-          .json({
-            error: {
-              code: 'IMAGE_UPLOAD_FAILED',
-              message: 'Image storage could not accept this upload. Please try again.',
-            },
-          });
-        return;
-      }
-
-      const result = (await response.json()) as { secure_url?: string; public_id?: string };
-      if (typeof result.secure_url !== 'string' || typeof result.public_id !== 'string') {
-        res
-          .status(502)
-          .json({
-            error: {
-              code: 'IMAGE_UPLOAD_FAILED',
-              message: 'Image storage returned an invalid response.',
-            },
-          });
-        return;
-      }
-      res
-        .status(201)
-        .json({
-          image: { id: result.public_id, url: result.secure_url, mimeType: image.mimeType },
-        });
-    } catch {
-      res
-        .status(502)
-        .json({
+        res.status(502).json({
           error: {
             code: 'IMAGE_UPLOAD_FAILED',
             message: 'Image storage could not accept this upload. Please try again.',
           },
         });
+        return;
+      }
+
+      const result = (await response.json()) as { secure_url?: string; public_id?: string };
+      if (typeof result.secure_url !== 'string' || typeof result.public_id !== 'string') {
+        res.status(502).json({
+          error: {
+            code: 'IMAGE_UPLOAD_FAILED',
+            message: 'Image storage returned an invalid response.',
+          },
+        });
+        return;
+      }
+      res.status(201).json({
+        image: { id: result.public_id, url: result.secure_url, mimeType: image.mimeType },
+      });
+    } catch {
+      res.status(502).json({
+        error: {
+          code: 'IMAGE_UPLOAD_FAILED',
+          message: 'Image storage could not accept this upload. Please try again.',
+        },
+      });
     }
   },
 );
