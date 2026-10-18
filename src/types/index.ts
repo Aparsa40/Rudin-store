@@ -91,6 +91,15 @@ export interface ProductImage {
   displayOrder: number;
 }
 
+export interface ProductVideo {
+  id: string;
+  url: string;
+  format: 'mp4' | 'webm' | 'mov';
+  bytes: number;
+  duration?: number;
+  displayOrder: number;
+}
+
 export interface ProductVariant {
   id: string;
   productId: string;
@@ -116,6 +125,7 @@ export interface Product {
   price: number;
   compareAtPrice?: number;
   images: ProductImage[];
+  videos?: ProductVideo[];
   variants: ProductVariant[];
   rating: number;
   reviewCount: number;
