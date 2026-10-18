@@ -23,18 +23,18 @@
 - Keep manifest icon paths aligned with their actual `public/icons/` location.
 - Use `og-image.svg` as the canonical social-preview artwork for the current frontend.
 - Product images belong under `public/images/` only while the catalog remains small enough for repository-hosted demo assets.
-- Product media should move to object storage/CDN later when catalog size, image weight, cache strategy, or deployment limits make repository storage inappropriate.
+- Product media is stored in Cloudinary, while Git retains only lightweight local/demo assets and source code.
 
 ## Product Media Storage Boundary
 
 The `public/images/` directory remains intended for lightweight local/demo assets. Seller product media is uploaded to Cloudinary and is not committed to Git or stored as binary data in MongoDB.
 
-The authenticated API issues a signed upload payload through `POST /api/uploads/sign`. The browser then uploads directly to Cloudinary, so large files do not have to pass through the Express process. The API secret is read only on the server and is never exposed to the browser. Signatures are scoped to a user-specific `rudin-store/products/<user-id>` folder and allowed formats.
+The authenticated API issues a signed upload payload through `POST /api/uploads/sign`. The browser then uploads directly to Cloudinary, so large files do not have to pass through the Express process. The API secret is read only on the server and is never exposed to the browser. Signatures are scoped to a user-specific `rudin-store/products/<user-id>` folder and allowed formats, and include a server-generated public ID with overwrite disabled to prevent replay from creating additional assets.
 
 Supported product media in the seller product form:
 
 - Images: JPEG, PNG, WebP, and GIF (browser-side limit: 20 MB per file)
-- Videos: MP4, WebM, and MOV (browser-side limit: 100 MB per file)
+- Videos: MP4, WebM, and MOV (browser-side limit: 100 MB per file; MOV delivery is transformed to MP4 for broader browser playback)
 - Up to 20 images and 10 videos are accepted by product payload validation.
 
 The browser limits are a usability guard, not a substitute for Cloudinary account controls. Configure Cloudinary upload/security settings and monitor usage before production rollout. Uploaded assets are not automatically deleted when a user removes them from the unsaved product form; orphan cleanup is a separate lifecycle task.
