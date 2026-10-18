@@ -20,7 +20,7 @@ npm run build
 
 `npm test` runs `scripts/run-tests.mjs`, which discovers and executes every `*.test.ts` file under `backend/` and `src/`. The current inventory:
 
-- Backend unit tests covering product validation, rate limiting, and the uploads routes.
+- Backend unit tests covering product validation (including video metadata), rate limiting, and the uploads routes. The seller media uploader's direct Cloudinary flow should also be smoke-tested with a configured Cloudinary account.
 - A frontend unit test for the browser-local `ordersService`.
 - A frontend unit test for the role-specific portal configuration (`src/config/authPortals.test.ts`): each portal's endpoint, required role, login route, and home route, plus protected-area portal resolution.
 - Three MongoDB-backed integration suites: `backend/integration/security.integration.test.ts`, `backend/integration/orders.integration.test.ts`, and `backend/integration/login-portals.integration.test.ts`.
@@ -72,7 +72,7 @@ These areas currently have no automated tests and are documented rather than inv
 ### Seller/Admin
 
 - Verify vendor application submission and administrator approval.
-- Verify seller product creation, editing, unpublishing, archiving, and image upload after Cloudinary credentials are configured.
+- Verify seller product creation, editing, unpublishing, archiving, multi-image/GIF uploads, video uploads, and product gallery previews after Cloudinary credentials are configured. Check that the API secret is absent from browser requests and that media is saved with product metadata.
 - Admin product management and vendor-application review use backend endpoints.
 - Manager console: bootstrap the primary manager, appoint an administrator with a permission preset, verify the appointed admin can exercise only the granted capabilities, and verify permission revocation applies immediately.
 - The admin orders and coupons tabs and the seller order-fulfillment, payouts, and settings tabs are mock or presentation-only; do not use them to validate backend behavior.
