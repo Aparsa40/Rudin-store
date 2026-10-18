@@ -57,6 +57,17 @@ export function ProductMediaUploader({
       return;
     }
 
+    const selectedImages = files.filter((file) => file.type.startsWith('image/')).length;
+    const selectedVideos = files.filter((file) => file.type.startsWith('video/')).length;
+    if (images.length + selectedImages > 20) {
+      onError('A product can contain at most 20 images.');
+      return;
+    }
+    if (videos.length + selectedVideos > 10) {
+      onError('A product can contain at most 10 videos.');
+      return;
+    }
+
     for (const file of files) {
       const isImage = file.type.startsWith('image/');
       const isVideo = file.type.startsWith('video/');
