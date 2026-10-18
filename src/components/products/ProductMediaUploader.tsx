@@ -35,7 +35,7 @@ interface Props {
 
 const IMAGE_FORMATS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
 const VIDEO_FORMATS = ['mp4', 'webm', 'mov'];
-const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 
 export function ProductMediaUploader({
@@ -82,7 +82,7 @@ export function ProductMediaUploader({
       }
       if ((isImage && file.size > MAX_IMAGE_BYTES) || (isVideo && file.size > MAX_VIDEO_BYTES)) {
         onError(isImage
-          ? 'Each image must be 20 MB or smaller.'
+          ? 'Each image must be 10 MiB or smaller.'
           : 'Each video must be 100 MB or smaller.');
         return;
       }
@@ -169,7 +169,7 @@ export function ProductMediaUploader({
       <div>
         <h3 className="text-sm font-bold text-slate-900">Product gallery</h3>
         <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-          Images: PNG, JPEG, WebP or GIF (up to 20 MB each). Videos: MP4, WebM or MOV (up to 100 MB each).
+          Images: PNG, JPEG, WebP or GIF (up to 10 MiB each). Videos: MP4, WebM or MOV (up to 100 MB each).
           Files upload directly to Cloudinary; API secrets never reach the browser.
         </p>
       </div>
