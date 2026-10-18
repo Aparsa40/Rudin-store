@@ -126,7 +126,7 @@ export function ProductMediaUploader({
           nextVideos.push({
             id: uploaded.public_id,
             url: uploaded.secure_url,
-            format: uploaded.format ?? extensionOf(file.name),
+            format: (uploaded.format && VIDEO_FORMATS.includes(uploaded.format) ? uploaded.format : extensionOf(file.name)) as ProductVideo['format'],
             bytes: uploaded.bytes ?? file.size,
             duration: uploaded.duration,
             displayOrder: nextVideos.length,
