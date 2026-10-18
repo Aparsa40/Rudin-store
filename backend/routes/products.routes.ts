@@ -247,6 +247,7 @@ productsRouter.post(
         compareAtPrice: body.compareAtPrice,
         stock: body.stock ?? 0,
         images: body.images ?? [],
+        videos: body.videos ?? [],
         variants: [],
         tags: Array.isArray(body.tags)
           ? body.tags.filter((v: unknown) => typeof v === 'string').slice(0, 30)
@@ -325,6 +326,7 @@ productsRouter.patch(
         'compareAtPrice',
         'stock',
         'images',
+        'videos',
         'tags',
         'features',
         'specifications',
@@ -341,6 +343,7 @@ productsRouter.patch(
         compareAtPrice: product.compareAtPrice,
         stock: product.stock,
         images: product.images,
+        videos: product.videos,
         tags: product.tags,
         features: product.features,
         specifications: Object.fromEntries(product.specifications ?? new Map()),
