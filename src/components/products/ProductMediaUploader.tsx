@@ -143,7 +143,7 @@ export function ProductMediaUploader({
             url: uploaded.format?.toLowerCase() === 'mov'
               ? uploaded.secure_url
                   .replace('/video/upload/', '/video/upload/f_mp4/')
-                  .replace(/\\.mov(?=$|\\?)/i, '.mp4')
+                  .replace(/\.mov(?=$|\?)/i, '.mp4')
               : uploaded.secure_url,
             format: uploaded.format?.toLowerCase() === 'mov'
               ? 'mp4'
