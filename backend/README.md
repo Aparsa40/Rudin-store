@@ -11,9 +11,10 @@
 - Passwords are hashed with Node.js scrypt and random per-password salts; plaintext passwords are never stored.
 - Send protected API requests with `Authorization: Bearer <accessToken>`.
 - The token secret must be at least 32 characters. Generate one in PowerShell:
-  ```powershell
-  [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
-  ```
+
+```ts  [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
+```
+
   Put it in the ignored local `.env` as `AUTH_TOKEN_SECRET`. Do not commit or share it.
 
 ## First manager bootstrap

@@ -46,10 +46,10 @@ test(
       'rudin_store_integration_test',
       'The redemption integration suite must start from the dedicated rudin_store_integration_test database.',
     );
-    // Parallel suites must not wipe each other's data: this suite owns its own derivation.
+    // Use a dedicated database name within MongoDB's length limit.
     const uri = baseUri.replace(
       'rudin_store_integration_test',
-      'rudin_store_integration_test_redemption',
+      'rudin_store_integration_test_redeem',
     );
     await mongoose.connect(uri);
     await Promise.all([
@@ -75,7 +75,7 @@ test(
             WEB_URL: 'http://localhost:3000',
             NODE_ENV: 'test',
           },
-          stdio: 'ignore',
+          stdio: 'inherit',
         },
       );
 
