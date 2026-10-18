@@ -28,6 +28,14 @@ Passwords are scrypt-hashed. Role checks are enforced by the backend, not by UI 
 
 Frontend wiring status (authentication): the four portal login pages (`/login`, `/vendor/login`, `/admin/login`, `/manager/login`) and the registration form call these endpoints; each portal submits only to its own role-specific endpoint. The frontend session restore (`getCurrentUser`) reads the persisted local user state and never calls `GET /api/auth/me`; logout is browser-local (no server-side token-invalidation endpoint is called); profile updates and the address book are browser-local because no profile or address endpoints exist yet. The role set is `CUSTOMER`, `VENDOR`, `ADMIN`, and `MANAGER`: the manager is the single primary platform owner (bootstrap-only) and appoints admins with granular permission presets; manager and administrator accounts can never be created through public registration. The production header account menu links to the real portal sign-in pages rather than simulating roles.
 
+### Product media (Cloudinary)
+
+- `POST /api/uploads/sign` is authenticated, permission-gated, and rate-limited. It signs a short-lived upload request for images or videos in the caller's product-media folder.
+- The browser uploads directly to Cloudinary using the returned signature and API key. The Cloudinary API secret never leaves the backend.
+- Supported image formats: JPEG, PNG, WebP, GIF. Supported video formats: MP4, WebM, MOV. The seller UI currently applies 20 MB/image and 100 MB/video client-side limits; these should be backed by provider-side upload controls for production.
+- Product documents store media metadata and secure URLs only. Product detail pages render uploaded videos.
+- The legacy `POST /api/uploads/images` data-URL endpoint remains for older clients (PNG/JPEG/WebP, up to 4 MB).
+
 ### Vendors and products
 
 - `POST /api/vendors/apply`
