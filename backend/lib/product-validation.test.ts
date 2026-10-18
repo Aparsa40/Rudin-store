@@ -42,6 +42,22 @@ test('rejects malformed image objects and non-HTTP URLs', () => {
   );
 });
 
+test('accepts valid product video metadata and rejects unsafe or malformed video values', () => {
+  const video = {
+    id: 'rudin-store/products/vendor/video-1',
+    url: 'https://res.cloudinary.com/example/video/upload/video-1.mp4',
+    format: 'mp4',
+    bytes: 1024,
+    duration: 12.5,
+    displayOrder: 0,
+  };
+  assert.equal(validateProductInput({ ...validProduct(), videos: [video] }), null);
+  assert.match(validateProductInput({ ...validProduct(), videos: [{ ...video, url: 'javascript:alert(1)' }] }) ?? '', /HTTPS url/);
+  assert.match(validateProductInput({ ...validProduct(), videos: [{ ...video, format: 'exe' }] }) ?? '', /format/);
+  assert.match(validateProductInput({ ...validProduct(), videos: [{ ...video, bytes: -1 }] }) ?? '', /bytes/);
+  assert.match(validateProductInput({ ...validProduct(), videos: Array.from({ length: 11 }, () => video) }) ?? '', /at most 10/);
+});
+
 test('rejects oversized arrays and malformed specifications', () => {
   assert.match(
     validateProductInput({
