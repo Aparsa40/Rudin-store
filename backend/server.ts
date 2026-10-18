@@ -130,7 +130,7 @@ app.use(
   '/api/uploads/sign',
   createRateLimiter({
     windowMs: 15 * 60 * 1000,
-    maxRequests: 20,
+    maxRequests: 40,
     message: 'Too many media upload signatures requested. Please try again later.',
   }),
 );
