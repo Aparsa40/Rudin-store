@@ -6,6 +6,8 @@ interface SignedUpload {
   apiKey: string;
   timestamp: number;
   folder: string;
+  publicId: string;
+  overwrite: false;
   signature: string;
   allowedFormats: string;
   resourceType: 'image' | 'video';
@@ -111,6 +113,8 @@ export function ProductMediaUploader({
         form.set('api_key', signed.apiKey);
         form.set('timestamp', String(signed.timestamp));
         form.set('folder', signed.folder);
+        form.set('public_id', signed.publicId);
+        form.set('overwrite', String(signed.overwrite));
         form.set('signature', signed.signature);
         form.set('allowed_formats', signed.allowedFormats);
 
@@ -136,8 +140,14 @@ export function ProductMediaUploader({
         } else {
           nextVideos.push({
             id: uploaded.public_id,
-            url: uploaded.secure_url,
-            format: (uploaded.format && VIDEO_FORMATS.includes(uploaded.format) ? uploaded.format : extensionOf(file.name)) as ProductVideo['format'],
+            url: uploaded.format?.toLowerCase() === 'mov'
+              ? uploaded.secure_url
+                  .replace('/video/upload/', '/video/upload/f_mp4/')
+                  .replace(/\\.mov(?=$|\\?)/i, '.mp4')
+              : uploaded.secure_url,
+            format: uploaded.format?.toLowerCase() === 'mov'
+              ? 'mp4'
+              : (uploaded.format && VIDEO_FORMATS.includes(uploaded.format) ? uploaded.format : extensionOf(file.name)) as ProductVideo['format'],
             bytes: uploaded.bytes ?? file.size,
             duration: uploaded.duration,
             displayOrder: nextVideos.length,
