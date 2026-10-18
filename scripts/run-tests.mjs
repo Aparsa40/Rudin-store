@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { spawn } from 'node:child_process';
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -31,6 +32,18 @@ for (const root of testRoots) {
   } catch {
     // Ignore missing folders
   }
+}
+
+// GitHub Actions must never report a green test job after silently skipping all
+// MongoDB integration suites because their opt-in environment was not configured.
+if (
+  process.env.CI === 'true' &&
+  (process.env.RUN_MONGODB_INTEGRATION !== 'true' || !process.env.MONGODB_URI)
+) {
+  console.error(
+    'CI requires RUN_MONGODB_INTEGRATION=true and MONGODB_URI; refusing to run a partial test suite.',
+  );
+  process.exit(1);
 }
 
 if (testFiles.length === 0) {
