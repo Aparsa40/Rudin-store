@@ -508,6 +508,31 @@ export const ProductDetail: React.FC = () => {
         </div>
       </div>
 
+      {product.videos && product.videos.length > 0 && (
+        <section className="mb-16 rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
+          <div className="mb-5">
+            <h2 className="text-xl font-black text-slate-900">Product videos</h2>
+            <p className="mt-1 text-sm text-slate-500">Watch product details and demonstrations.</p>
+          </div>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            {[...product.videos]
+              .sort((a, b) => a.displayOrder - b.displayOrder)
+              .map((video) => (
+                <video
+                  key={video.id}
+                  src={video.url}
+                  controls
+                  preload="metadata"
+                  playsInline
+                  className="aspect-video w-full rounded-2xl bg-slate-950 object-contain"
+                >
+                  Your browser does not support embedded video.
+                </video>
+              ))}
+          </div>
+        </section>
+      )}
+
       {/* Frequently Bought Together Bundle */}
       {frequentlyBought.length > 0 && (
         <section className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 mb-16 shadow-sm">
