@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, X, Clock, ArrowRight, Sparkles } from 'lucide-react';
 import { productsService } from '../../services/products/productsService';
+import { useTranslation } from '../../i18n';
+import { useClickOutside } from '../../hooks/useClickOutside';
 
 interface SearchBarProps {
   onSelect?: () => void;
@@ -20,6 +22,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSelect, className = '' }
 
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { t, formatPrice } = useTranslation();
+
+  useClickOutside(containerRef, () => setIsOpen(false), isOpen);
 
   // Load recent searches on mount
   useEffect(() => {
@@ -48,17 +53,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSelect, className = '' }
       clearTimeout(timer);
     };
   }, [query]);
-
-  // Click outside to close dropdown
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   const handleSearchSubmit = (searchWord: string) => {
     const term = searchWord.trim();
@@ -93,19 +87,21 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSelect, className = '' }
           handleSearchSubmit(query);
         }}
         className="relative"
+        role="search"
       >
         <div className="relative flex items-center">
-          <Search className="absolute left-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
+          <Search className="absolute start-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
           <input
             type="text"
-            placeholder="Search artisanal audio, raw denim, ceramics, makers..."
+            placeholder={t('search.placeholder')}
+            aria-label={t('search.submitLabel')}
             value={query}
             onFocus={() => setIsOpen(true)}
             onChange={(e) => {
               setQuery(e.target.value);
               setIsOpen(true);
             }}
-            className="w-full pl-10 pr-10 py-2.5 bg-slate-100 hover:bg-slate-100/80 focus:bg-white text-sm text-slate-900 placeholder-slate-400 rounded-full border border-transparent focus:border-slate-300 focus:ring-4 focus:ring-slate-900/5 outline-none transition-all duration-200"
+            className="w-full ps-10 pe-10 py-2.5 bg-slate-100 hover:bg-slate-100/80 focus:bg-white text-sm text-slate-900 placeholder-slate-400 rounded-full border border-transparent focus:border-slate-300 focus:ring-4 focus:ring-slate-900/5 outline-none transition-all duration-200"
           />
           {query && (
             <button
@@ -114,7 +110,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSelect, className = '' }
                 setQuery('');
                 setIsOpen(true);
               }}
-              className="absolute right-3.5 p-0.5 text-slate-400 hover:text-slate-600 rounded-full"
+              aria-label={t('search.clearAll')}
+              className="absolute end-3.5 p-0.5 text-slate-400 hover:text-slate-600 rounded-full"
             >
               <X className="w-4 h-4" />
             </button>
@@ -124,19 +121,19 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSelect, className = '' }
 
       {/* Autocomplete Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="absolute top-full inset-x-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 z-50 overflow-hidden">
           {/* Recent Searches */}
           {!query && recentSearches.length > 0 && (
             <div className="mb-4">
               <div className="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 px-1">
                 <span className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5" /> Recent Searches
+                  <Clock className="w-3.5 h-3.5" /> {t('search.recentTitle')}
                 </span>
                 <button
                   onClick={handleClearRecent}
                   className="text-slate-400 hover:text-slate-700 font-normal lowercase hover:underline"
                 >
-                  Clear all
+                  {t('search.clearAll')}
                 </button>
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -161,7 +158,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSelect, className = '' }
           {!query && (
             <div>
               <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 px-1">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Trending Topics
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" /> {t('search.trendingTitle')}
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {suggestions.popular.map((pop, idx) => (
@@ -185,9 +182,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSelect, className = '' }
           {query && (
             <div>
               <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 px-1 flex items-center justify-between">
-                <span>Matching Products</span>
+                <span>{t('search.matchingProducts')}</span>
                 {isLoading && (
-                  <span className="text-[11px] font-normal lowercase">Searching...</span>
+                  <span className="text-[11px] font-normal lowercase">
+                    {t('search.searching')}
+                  </span>
                 )}
               </div>
 
@@ -202,7 +201,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSelect, className = '' }
                         if (onSelect) onSelect();
                         navigate(`/product/${p.slug}`);
                       }}
-                      className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 text-left transition-colors group"
+                      className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 text-start transition-colors group"
                     >
                       <img
                         src={p.image}
@@ -214,10 +213,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSelect, className = '' }
                           {p.title}
                         </div>
                         <div className="text-xs font-semibold text-slate-700">
-                          ${p.price.toFixed(2)}
+                          {formatPrice(p.price)}
                         </div>
                       </div>
-                      <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-slate-600 transition-colors" />
+                      <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-slate-600 transition-colors rtl:rotate-180" />
                     </button>
                   ))}
 
@@ -226,13 +225,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSelect, className = '' }
                     onClick={() => handleSearchSubmit(query)}
                     className="w-full mt-2 pt-2 border-t border-slate-100 text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center justify-center gap-1.5 py-1.5"
                   >
-                    View all results for "{query}" <ArrowRight className="w-3.5 h-3.5" />
+                    {t('search.viewAllResults', { query })}
+                    <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
                   </button>
                 </div>
               ) : (
                 <div className="py-6 text-center text-sm text-slate-500">
-                  No direct products found for "{query}". Press enter to search all catalog tags and
-                  descriptions.
+                  {t('search.noResults', { query })}
                 </div>
               )}
             </div>
