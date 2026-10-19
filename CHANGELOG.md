@@ -10,7 +10,7 @@ The project follows Semantic Versioning as described in VERSIONING.md.
 
 Backend, test, and documentation work merged to the default branch after the v2.1.0 frontend candidate. Not yet assigned to a release version.
 
-### Added â Backend (Node.js/Express/MongoDB)
+### Added — Backend (Node.js/Express/MongoDB)
 
 - Cloudinary signed upload security: each signature is bound to a server-generated public ID with overwrite disabled; the signature quota supports the maximum 30-item product gallery; MOV delivery is converted to MP4 for broader browser playback.
 - Authentication API: registration (always CUSTOMER), login, `GET /api/auth/me`, scrypt password hashing, one-hour bearer tokens, token invalidation on password change and account status/authVersion changes.
@@ -20,20 +20,20 @@ Backend, test, and documentation work merged to the default branch after the v2.
 - Product catalog with pagination, search, price/rating/stock/sale, category/vendor/brand, featured/bestseller/new-arrival/flash-deal filters; product authoring with ownership and role enforcement; vendor-created products forced to DRAFT; publish/archive restricted to administrators; public catalog restricted to PUBLISHED products.
 - Cloudinary product-media uploads using authenticated, rate-limited signatures scoped to user-specific folders; direct browser-to-Cloudinary uploads for JPEG/PNG/WebP/GIF images and MP4/WebM/MOV videos; product video metadata persistence and product-detail playback. The API secret stays server-side; the legacy 4 MB image endpoint remains for backward compatibility.
 - Server-authoritative order API (provider-independent):
-  - `POST /api/orders` â authenticated order creation; prices, subtotals, and total computed exclusively from database product prices; client-supplied monetary fields ignored; only PUBLISHED products are orderable; stock decrements and order persistence run in one MongoDB transaction (any failure rolls back every decrement); variant stock matched with `$elemMatch`; optional `Idempotency-Key` header protected by a unique partial index on `(userId, idempotencyKey)` with duplicate-key races replaying the committed order; every order is created `status: PENDING` and `paymentStatus: PENDING`.
-  - `GET /api/orders` and `GET /api/orders/:id` â owner-scoped order history; other users' orders return 404.
+  - `POST /api/orders` — authenticated order creation; prices, subtotals, and total computed exclusively from database product prices; client-supplied monetary fields ignored; only PUBLISHED products are orderable; stock decrements and order persistence run in one MongoDB transaction (any failure rolls back every decrement); variant stock matched with `$elemMatch`; optional `Idempotency-Key` header protected by a unique partial index on `(userId, idempotencyKey)` with duplicate-key races replaying the committed order; every order is created `status: PENDING` and `paymentStatus: PENDING`.
+  - `GET /api/orders` and `GET /api/orders/:id` — owner-scoped order history; other users' orders return 404.
   - Rate limiting: 30 requests per 15 minutes per IP on `/api/orders`.
 - Health endpoint and per-endpoint rate limiting on sensitive auth/bootstrap/upload routes.
 - Role-specific login portals (`POST /api/auth/customer/login`, `/vendor/login`, `/admin/login`, `/manager/login`) sharing one credential-verification path: wrong-role accounts receive the same generic error as unknown accounts (no privileged-account enumeration), the vendor portal additionally requires an approved vendor application, and each portal path has its own rate-limit bucket.
 - Manager-owned role hierarchy: the `MANAGER` is the primary platform owner (bootstrap-only) and exclusively governs `ADMIN` accounts. The Manager Console lists admins and invitations, sends invitations through `POST /api/admin/invitations`, and handles final approval/rejection through `POST /api/admin/invitations/:id/approve` and `/reject`; invitees explicitly verify the one-time email token and choose their own password through `POST /api/admin-invitations/verify` and `/accept`. There is no direct admin-creation endpoint. The manager can update permissions and status through `PATCH /api/admin/admins/:id/permissions` and `/status`. Admins hold server-resolved granular permissions (`vendors:review`, `products:manage`, `coupons:manage`, `orders:manage`; presets `vendor-support`, `catalog-curator`, and `operations`; deny-wins resolution), cannot self-escalate, and cannot reach the governance area.
-- Role-hierarchy revision of the earlier least-privilege design (still unreleased): the manager was elevated to primary platform owner, admins became manager-appointed with granular permissions, `POST /api/auth/bootstrap-admin` and the `/api/admin/managers` endpoints were removed, and admin status changes no longer carry a last-active-admin guard because only the manager â who cannot be disabled through the API â governs admin accounts.
-- Coupon API (server-authoritative): `POST /api/coupons` (create; uppercase immutable codes, PERCENTAGE/FIXED/FREE_SHIPPING shape validation, duplicate code â 409 `COUPON_CODE_IN_USE`), `GET /api/coupons` (management listing), `PATCH /api/coupons/:id` (updates with the merged shape re-validated), `POST /api/coupons/validate` (unauthenticated preview), and `POST /api/coupons/redeem` (owner-scoped redemption against the database order subtotal; the per-order redemption claim and the usage-counter increment commit in one MongoDB transaction, repeated or concurrent redemptions for the same order are idempotent replays of the recorded claim, a different coupon on an already-redeemed order returns 409 `COUPON_ALREADY_REDEEMED`, and failed redemptions claim and consume nothing). Management routes require the manager or an admin holding the new `coupons:manage` permission; 30 requests per 15 minutes per IP on `/api/coupons`.
+- Role-hierarchy revision of the earlier least-privilege design (still unreleased): the manager was elevated to primary platform owner, admins became manager-appointed with granular permissions, `POST /api/auth/bootstrap-admin` and the `/api/admin/managers` endpoints were removed, and admin status changes no longer carry a last-active-admin guard because only the manager — who cannot be disabled through the API — governs admin accounts.
+- Coupon API (server-authoritative): `POST /api/coupons` (create; uppercase immutable codes, PERCENTAGE/FIXED/FREE_SHIPPING shape validation, duplicate code → 409 `COUPON_CODE_IN_USE`), `GET /api/coupons` (management listing), `PATCH /api/coupons/:id` (updates with the merged shape re-validated), `POST /api/coupons/validate` (unauthenticated preview), and `POST /api/coupons/redeem` (owner-scoped redemption against the database order subtotal; the per-order redemption claim and the usage-counter increment commit in one MongoDB transaction, repeated or concurrent redemptions for the same order are idempotent replays of the recorded claim, a different coupon on an already-redeemed order returns 409 `COUPON_ALREADY_REDEEMED`, and failed redemptions claim and consume nothing). Management routes require the manager or an admin holding the new `coupons:manage` permission; 30 requests per 15 minutes per IP on `/api/coupons`.
 - Read-only administrative order visibility: `GET /api/admin/orders` (paginated/filterable listing that omits shipping addresses and idempotency keys) and `GET /api/admin/orders/:id` (full detail), gated by the new `orders:manage` permission (the manager always passes); no order mutation endpoints were added. 60 requests per 15 minutes per IP on `/api/admin/orders`.
-- Effective `adminPermissions` exposure on authentication responses: login, portal login, and `GET /api/auth/me` payloads now include the server-resolved effective permission list for administrative accounts â the full permission catalog for the manager, the granted and sanitized list for an admin, and no field for every other role â so clients can render permission-aware interfaces without trusting local state; a backward-compatible field addition with no schema or token changes.
+- Effective `adminPermissions` exposure on authentication responses: login, portal login, and `GET /api/auth/me` payloads now include the server-resolved effective permission list for administrative accounts — the full permission catalog for the manager, the granted and sanitized list for an admin, and no field for every other role — so clients can render permission-aware interfaces without trusting local state; a backward-compatible field addition with no schema or token changes.
 - Permission vocabulary extended with `coupons:manage` and `orders:manage` plus the `operations` preset (`coupons:manage` + `orders:manage`), reusing the existing deny-wins server-side resolution and `User.adminPermissions` storage; no second permission system was introduced.
 - Database-level single-manager invariant: a partial unique index on `role: "MANAGER"` now backs the transactional bootstrap guard in `user.model.ts`.
 
-### Added â Frontend
+### Added — Frontend
 
 - Independent login portals `/login` (customer), `/vendor/login`, `/admin/login`, `/manager/login`, each with its own branding, copy, validation, and post-login destination, built on one shared accessible `LoginForm` component and a central portal configuration.
 - Role-aware `ProtectedRoute`: unauthenticated visitors are redirected to the correct portal with their destination preserved; authenticated users with the wrong role are routed to their own home area.
@@ -49,7 +49,7 @@ Backend, test, and documentation work merged to the default branch after the v2.
 - Global reduced-motion support and a Persian system-font fallback in `src/index.css`; RTL layouts use Tailwind logical utilities (`start-*`, `end-*`, `ms-*`, `me-*`, `ps-*`, `pe-*`, `text-start`) with direction-aware arrows, chevrons, and gradients.
 - Frontend unit tests for the localization core (English default, persisted-value validation with safe English fallback, direction/locale mapping, parameter interpolation, English fallback for missing keys, English/Persian key parity, non-empty values, dedicated storage key), locale formatting (prices, numbers, dates, countdown padding and expiry), homepage configuration (existing routes only, complete bilingual copy, unique slide ids, configurable rotation, no external image URLs), and hero carousel logic (index wrap-around, reduced-motion/pause-aware autoplay, safe index normalization).
 
-### Added â Tests and CI
+### Added — Tests and CI
 
 - `npm test` (`scripts/run-tests.mjs`) discovering every `*.test.ts` under `backend/` and `src/`; the runner loads local `.env` via `dotenv/config` and fails fast in CI if MongoDB integration-test configuration is missing, preventing a green run with silently skipped integration suites.
 - Backend unit tests: product validation, rate limiter behavior, image upload decoding.
@@ -94,18 +94,18 @@ Verified through GitHub Actions CI on pull requests to the main branch (TypeScri
 
 ---
 
-## [2.1.0] â Release Candidate
+## [2.1.0] — Release Candidate
 
 Version 2.1.0 is the hardening upgrade currently under review in release/v2.1.0.
 
-### Added â v2.1.0
+### Added — v2.1.0
 
 - ProtectedRoute for account, seller, and admin route UX protection.
 - Explicit demo-role support for CUSTOMER, VENDOR, and ADMIN.
 - products.service.ts service barrel.
 - Coupon validity-window support through validFrom and validUntil.
 
-### Improved â v2.1.0
+### Improved — v2.1.0
 
 - Authentication starts unauthenticated instead of with a fake pre-authenticated customer.
 - Auth store, login flow, and header use the same v2.1 API.
@@ -116,16 +116,16 @@ Version 2.1.0 is the hardening upgrade currently under review in release/v2.1.0.
 - TypeScript strict and filename-casing checks are enabled.
 - The conflicting Tailwind flex + block utility combination in Header was removed.
 
-### Documentation â v2.1.0
+### Documentation — v2.1.0
 
 - Updated all repository documentation from the v2.0.0 baseline to the v2.1.0 candidate.
 - Documented the boundary between demo/local behavior and trusted backend behavior.
 - Documented planned authentication, cart/checkout, Contact Us, and PostgreSQL integration.
 - Documented favicon/logo integration as a pending branding step.
 
-### Validation â v2.1.0
+### Validation — v2.1.0
 
-    npm ci       PASS â 0 vulnerabilities reported
+    npm ci       PASS — 0 vulnerabilities reported
     npm run lint PASS
     npm run build PASS
 
@@ -137,9 +137,9 @@ v2.1.0 still uses mock/demo authentication, browser persistence, and frontend ro
 
 ---
 
-## [2.0.0] â 2026-10-06
+## [2.0.0] — 2026-10-06
 
-### Added â v2.0.0
+### Added — v2.0.0
 
 - Multi-vendor marketplace frontend architecture.
 - Domain-oriented service layer.
@@ -147,7 +147,7 @@ v2.1.0 still uses mock/demo authentication, browser persistence, and frontend ro
 - Global UI state management.
 - Reusable UI primitives and technical documentation.
 
-### Improved â v2.0.0
+### Improved — v2.0.0
 
 - Product browsing and filtering.
 - Product detail experience.
