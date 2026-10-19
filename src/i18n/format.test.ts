@@ -19,8 +19,13 @@ test('dates render in the active locale', () => {
   const iso = '2026-10-19T08:54:10Z';
   const en = formatDate(iso, 'en');
   const fa = formatDate(iso, 'fa');
-  assert.ok(en.includes('2026'));
-  assert.ok(fa.includes('۲۰۲۶'));
+  assert.ok(en.includes('2026'), `expected the English year, got "${en}"`);
+  // ICU renders fa-IR dates with Persian digits and, by default, the
+  // Persian (Jalali) calendar, so the displayed year is not 2026. The
+  // test verifies locale-aware rendering without pinning a calendar
+  // system, which keeps it stable across ICU versions.
+  assert.ok(/[۰-۹]/.test(fa), `expected Persian digits in the fa-IR rendering, got "${fa}"`);
+  assert.ok(!fa.includes('2026'), `expected a localized rendering, not the English one, got "${fa}"`);
 });
 
 test('countdown formatting stops at the deadline and pads time parts', () => {
