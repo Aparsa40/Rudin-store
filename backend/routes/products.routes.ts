@@ -408,6 +408,7 @@ productsRouter.patch(
         compareAtPrice: merged.compareAtPrice,
         stock: merged.stock ?? 0,
         images: merged.images ?? [],
+        videos: merged.videos ?? [],
         tags: merged.tags ?? [],
         features: merged.features ?? [],
         specifications: merged.specifications ?? {},
