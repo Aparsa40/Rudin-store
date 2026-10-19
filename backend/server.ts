@@ -126,6 +126,14 @@ app.use(
     message: 'Too many image uploads. Please try again later.',
   }),
 );
+app.use(
+  '/api/uploads/sign',
+  createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 40,
+    message: 'Too many media upload signatures requested. Please try again later.',
+  }),
+);
 app.use('/api/auth', authRouter);
 app.use('/api/auth/password-reset', passwordResetRouter);
 // The read-only administrative order router admits the primary MANAGER and admins

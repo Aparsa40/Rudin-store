@@ -11,9 +11,10 @@
 - Passwords are hashed with Node.js scrypt and random per-password salts; plaintext passwords are never stored.
 - Send protected API requests with `Authorization: Bearer <accessToken>`.
 - The token secret must be at least 32 characters. Generate one in PowerShell:
-  ```powershell
-  [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
-  ```
+
+```ts  [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
+```
+
   Put it in the ignored local `.env` as `AUTH_TOKEN_SECRET`. Do not commit or share it.
 
 ## First manager bootstrap
@@ -38,16 +39,25 @@ All routes under `/api/admin` require the active primary `MANAGER` bearer token.
 
 The `MANAGER` role is the single primary platform owner and is not an alias for `ADMIN`. The manager appoints admin accounts, exclusively controls their permissions, and passes every permission check. Admin accounts hold only the granular permissions the manager explicitly granted; they cannot grant themselves permissions, cannot appoint other admins, and cannot touch the manager's authority. The permission set is currently `vendors:review` (list and decide vendor applications), `products:manage` (whole-catalog product authoring, publishing/archiving, and image uploads), `coupons:manage` (coupon creation, management listing, and updates), and `orders:manage` (read-only administrative order listing and detail). Permission matrix, enforced server-side on every request:
 
-| Capability                                                     | MANAGER      | ADMIN                       | VENDOR                     | CUSTOMER              |
-| -------------------------------------------------------------- | ------------ | --------------------------- | -------------------------- | --------------------- |
-| Govern admin invitations and existing admins (`/api/admin/invitations`, `/api/admin/admins`)            | Yes          | No (403)                    | No (403)                   | No (403)              |
-| Review vendor applications (`/api/admin/vendors/applications`) | Yes          | Only with `vendors:review`  | No (403)                   | No (403)              |
-| Create/publish/archive any product; upload images              | Yes          | Only with `products:manage` | Own products only (drafts) | No (403)              |
-| Manage coupons (`/api/coupons` management routes)              | Yes          | Only with `coupons:manage`  | No (403)                   | No (403)              |
-| View all orders (`/api/admin/orders`, read-only)               | Yes          | Only with `orders:manage`   | No (403)                   | No (403)              |
-| Create an ADMIN or MANAGER through public registration         | Not possible | Not possible                | Via approved application   | Yes (always CUSTOMER) |
+| Capability                                                                                   | MANAGER      | ADMIN                       | VENDOR                     | CUSTOMER              |
+| -------------------------------------------------------------------------------------------- | ------------ | --------------------------- | -------------------------- | --------------------- |
+| Govern admin invitations and existing admins (`/api/admin/invitations`, `/api/admin/admins`) | Yes          | No (403)                    | No (403)                   | No (403)              |
+| Review vendor applications (`/api/admin/vendors/applications`)                               | Yes          | Only with `vendors:review`  | No (403)                   | No (403)              |
+| Create/publish/archive any product; upload images                                            | Yes          | Only with `products:manage` | Own products only (drafts) | No (403)              |
+| Manage coupons (`/api/coupons` management routes)                                            | Yes          | Only with `coupons:manage`  | No (403)                   | No (403)              |
+| View all orders (`/api/admin/orders`, read-only)                                             | Yes          | Only with `orders:manage`   | No (403)                   | No (403)              |
+| Create an ADMIN or MANAGER through public registration                                       | Not possible | Not possible                | Via approved application   | Yes (always CUSTOMER) |
 
 Server-defined presets give the manager a safe shorthand: `vendor-support` (`vendors:review`), `catalog-curator` (`vendors:review` + `products:manage`), and `operations` (`coupons:manage` + `orders:manage`). The resolved list is stored on the account, so future preset redefinitions never silently re-grant permissions to existing admins. Manager and admin accounts can never be created through public registration; the manager exists only via the controlled bootstrap.
+
+## Product media uploads
+
+- `POST /api/uploads/sign` requires an authenticated vendor, the manager, or an admin with `products:manage`; its JSON body is `{ "resourceType": "image" | "video" }`.
+- The API returns a short-lived upload signature, the Cloudinary cloud name/API key, a timestamp, a server-selected user-specific folder, a server-generated public ID, `overwrite: false`, and a signed allow-list of formats. Each signature is bound to one asset ID; replaying it cannot create additional assets under new random IDs. The API secret is never returned.
+- Upload directly to Cloudinary using `https://api.cloudinary.com/v1_1/<cloud-name>/<resource-type>/upload`, passing the returned signature fields plus the file. Do not send the Cloudinary API secret or place it in any `VITE_*` variable.
+- Supported image formats: JPEG, PNG, WebP, GIF. Supported video formats: MP4, WebM, MOV. The seller UI enforces 10 MiB/image and 100 MiB/video client-side limits; configure provider-side upload/security controls for production enforcement.
+- The legacy `POST /api/uploads/images` endpoint remains available for backward compatibility and accepts PNG/JPEG/WebP data URLs up to 4 MB.
+- The signature endpoint is authenticated, permission-gated, and rate-limited to 40 signature requests per 15 minutes per IP, enough for the product maximum of 20 images and 10 videos. MOV uploads are delivered through Cloudinary's MP4 format transformation for wider browser playback. Product payload validation allows up to 20 images and 10 videos; MongoDB stores metadata and URLs only.
 
 ## Product catalog and authoring
 
@@ -58,7 +68,7 @@ Server-defined presets give the manager a safe shorthand: `vendor-support` (`ven
 - `PATCH /api/products/:id`: updates a product with validation and owner checks. Only the manager or an admin holding `products:manage` can publish/archive products or change featured status.
 - `DELETE /api/products/:id`: archives a product after an ownership or catalog-management authorization check.
 
-Product CRUD/archive, vendor onboarding/ownership checks, Cloudinary image upload, rate limiting, and password-reset API are implemented. The frontend login and registration forms and the seller/admin product-management flows call the API. The public storefront catalog service reads published products from the API, including search, price/rating/stock/sale filters, vendor/category filters, featured/bestseller/new-arrival/flash-deal lists, and product details. Within the dashboards, product management, vendor-application review, and the manager console's administrator governance are API-backed, and the admin dashboard is fully wired: its orders tab uses the read-only administrative order listing/detail API with pagination and server-supported filters, its coupons tab creates and toggles coupons through the coupon API (server-validated; codes are immutable), and every section renders only when the authenticated administrator holds the matching permission (`vendors:review`, `products:manage`, `orders:manage`, `coupons:manage`), with a fail-closed behavior for missing or malformed permission data and a retryable failed-verification state when `GET /api/auth/me` cannot be reached or returns a malformed response. The seller order-fulfillment, payouts, and settings tabs remain presentation-only.
+Product CRUD/archive, vendor onboarding/ownership checks, signed Cloudinary image/GIF/video uploads, rate limiting, and password-reset API are implemented. The frontend login and registration forms and the seller/admin product-management flows call the API. The public storefront catalog service reads published products from the API, including search, price/rating/stock/sale filters, vendor/category filters, featured/bestseller/new-arrival/flash-deal lists, and product details. Within the dashboards, product management, vendor-application review, and the manager console's administrator governance are API-backed, and the admin dashboard is fully wired: its orders tab uses the read-only administrative order listing/detail API with pagination and server-supported filters, its coupons tab creates and toggles coupons through the coupon API (server-validated; codes are immutable), and every section renders only when the authenticated administrator holds the matching permission (`vendors:review`, `products:manage`, `orders:manage`, `coupons:manage`), with a fail-closed behavior for missing or malformed permission data and a retryable failed-verification state when `GET /api/auth/me` cannot be reached or returns a malformed response. The seller order-fulfillment, payouts, and settings tabs remain presentation-only.
 
 ## Orders (server-authoritative)
 
@@ -129,4 +139,3 @@ Every integration suite asserts that its URI targets only the isolated integrati
 ## Manager bootstrap concurrency safety
 
 The manager bootstrap's existence checks ("a manager already exists" and "email already in use") and the account insert run inside a shared transactional singleton guard. This serializes competing bootstrap transactions and guarantees that exactly one manager account can ever be created, even under concurrent requests. This mechanism requires MongoDB transactions, so use MongoDB Atlas or another replica-set/sharded deployment; a standalone MongoDB server does not support these transactions. Integration tests against the configured MongoDB deployment are still required before production use.
-

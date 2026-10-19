@@ -12,12 +12,13 @@ Backend, test, and documentation work merged to the default branch after the v2.
 
 ### Added — Backend (Node.js/Express/MongoDB)
 
+- Cloudinary signed upload security: each signature is bound to a server-generated public ID with overwrite disabled; the signature quota supports the maximum 30-item product gallery; MOV delivery is converted to MP4 for broader browser playback.
 - Authentication API: registration (always CUSTOMER), login, `GET /api/auth/me`, scrypt password hashing, one-hour bearer tokens, token invalidation on password change and account status/authVersion changes.
 - One-time manager bootstrap (`POST /api/auth/bootstrap-manager`, `X-Manager-Bootstrap-Secret` header, `MANAGER_BOOTSTRAP_SECRET`) creating the single primary platform owner, with a transactional singleton guard so concurrent attempts cannot create a second manager.
 - Password reset request/confirm with single-use hashed expiring tokens (delivery via Resend).
 - Vendor applications and administrator approval with role escalation to VENDOR.
 - Product catalog with pagination, search, price/rating/stock/sale, category/vendor/brand, featured/bestseller/new-arrival/flash-deal filters; product authoring with ownership and role enforcement; vendor-created products forced to DRAFT; publish/archive restricted to administrators; public catalog restricted to PUBLISHED products.
-- Cloudinary image uploads with server-side format/signature validation.
+- Cloudinary product-media uploads using authenticated, rate-limited signatures scoped to user-specific folders; direct browser-to-Cloudinary uploads for JPEG/PNG/WebP/GIF images and MP4/WebM/MOV videos; product video metadata persistence and product-detail playback. The API secret stays server-side; the legacy 4 MB image endpoint remains for backward compatibility.
 - Server-authoritative order API (provider-independent):
   - `POST /api/orders` — authenticated order creation; prices, subtotals, and total computed exclusively from database product prices; client-supplied monetary fields ignored; only PUBLISHED products are orderable; stock decrements and order persistence run in one MongoDB transaction (any failure rolls back every decrement); variant stock matched with `$elemMatch`; optional `Idempotency-Key` header protected by a unique partial index on `(userId, idempotencyKey)` with duplicate-key races replaying the committed order; every order is created `status: PENDING` and `paymentStatus: PENDING`.
   - `GET /api/orders` and `GET /api/orders/:id` — owner-scoped order history; other users' orders return 404.
@@ -41,7 +42,7 @@ Backend, test, and documentation work merged to the default branch after the v2.
 
 ### Added — Tests and CI
 
-- `npm test` (`scripts/run-tests.mjs`) discovering every `*.test.ts` under `backend/` and `src/`.
+- `npm test` (`scripts/run-tests.mjs`) discovering every `*.test.ts` under `backend/` and `src/`; the runner loads local `.env` via `dotenv/config` and fails fast in CI if MongoDB integration-test configuration is missing, preventing a green run with silently skipped integration suites.
 - Backend unit tests: product validation, rate limiter behavior, image upload decoding.
 - Frontend unit test for the browser-local `ordersService` (honest PENDING/payment states, no fabricated tracking, empty history by default).
 - MongoDB integration suites, skipped unless `RUN_MONGODB_INTEGRATION=true`:
@@ -49,7 +50,7 @@ Backend, test, and documentation work merged to the default branch after the v2.
   - orders suite (dedicated `rudin_store_integration_test_orders` database, port 4318): unauthenticated/invalid payload rejection, server-computed totals with client totals ignored, DRAFT rejection, out-of-stock rollback, variant mismatch (`$elemMatch`), sequential and concurrent idempotent replay, persistence-failure rollback, cross-user isolation.
   - login-portals suite (dedicated `rudin_store_integration_test_portals` database, port 4319): per-portal role matching with generic errors, pending/rejected vendor applicants on the vendor portal, public-registration role-escalation prevention, manager-owned governance with admin permission-preset enforcement (including self-escalation denial), disabled-admin and expired-token rejection, password-reset credential rotation.
   - coupons-orders suite (dedicated `rudin_store_integration_test_coupons` database, port 4320): `coupons:manage`/`orders:manage` permission boundaries with cross-permission denial, coupon code immutability and duplicate rejection, inactive/expired/below-minimum rejection, atomic usage-limit consumption, ownership-scoped redemption, one-coupon-per-order redemption with idempotent replays, read-only admin order listing/detail with invalid-filter rejection, and cross-customer order isolation.
-  - coupon-redemption suite (dedicated `rudin_store_integration_test_redemption` database, port 4321): concurrent duplicate redemption idempotency for a single order, single-consumption enforcement of a `usageLimit` of one across concurrent attempts on different orders, percentage rounding, FIXED-capped-at-subtotal math, FREE_SHIPPING zero-discount semantics, and not-yet-valid rejection without consumption.
+  - coupon-redemption suite (dedicated `rudin_store_integration_test_redeem` database, port 4321): concurrent duplicate redemption idempotency for a single order, single-consumption enforcement of a `usageLimit` of one across concurrent attempts on different orders, percentage rounding, FIXED-capped-at-subtotal math, FREE_SHIPPING zero-discount semantics, and not-yet-valid rejection without consumption.
 - Frontend unit test for the role-specific portal configuration (`src/config/authPortals.test.ts`).
 - Frontend unit tests for the admin dashboard permission model (`src/config/adminPermissions.test.ts`): section-to-permission mapping, manager full access, granted-permission presets, fail-closed sanitization of missing or malformed permission data, non-admin rejection, and the verification lifecycle (malformed payloads fail closed, failed re-verification drops stale grants, and successful retry restores sections).
 - Frontend unit tests for the admin API client (`src/services/admin/adminApi.test.ts`): order query building, strict payload parsing that rejects malformed responses while preserving valid empty results, error propagation (401/403/400/409) without fake success, coupon creation body normalization (uppercase codes, FREE_SHIPPING without a value, maxDiscount only for PERCENTAGE), and isActive toggling through the supported PATCH mutation with state derived from the server response.
@@ -88,14 +89,14 @@ Verified through GitHub Actions CI on pull requests to the main branch (TypeScri
 
 Version 2.1.0 is the hardening upgrade currently under review in release/v2.1.0.
 
-### Added
+### Added — v2.1.0
 
 - ProtectedRoute for account, seller, and admin route UX protection.
 - Explicit demo-role support for CUSTOMER, VENDOR, and ADMIN.
 - products.service.ts service barrel.
 - Coupon validity-window support through validFrom and validUntil.
 
-### Improved
+### Improved — v2.1.0
 
 - Authentication starts unauthenticated instead of with a fake pre-authenticated customer.
 - Auth store, login flow, and header use the same v2.1 API.
@@ -106,14 +107,14 @@ Version 2.1.0 is the hardening upgrade currently under review in release/v2.1.0.
 - TypeScript strict and filename-casing checks are enabled.
 - The conflicting Tailwind flex + block utility combination in Header was removed.
 
-### Documentation
+### Documentation — v2.1.0
 
 - Updated all repository documentation from the v2.0.0 baseline to the v2.1.0 candidate.
 - Documented the boundary between demo/local behavior and trusted backend behavior.
 - Documented planned authentication, cart/checkout, Contact Us, and PostgreSQL integration.
 - Documented favicon/logo integration as a pending branding step.
 
-### Validation
+### Validation — v2.1.0
 
     npm ci       PASS — 0 vulnerabilities reported
     npm run lint PASS
@@ -129,7 +130,7 @@ v2.1.0 still uses mock/demo authentication, browser persistence, and frontend ro
 
 ## [2.0.0] — 2026-10-06
 
-### Added
+### Added — v2.0.0
 
 - Multi-vendor marketplace frontend architecture.
 - Domain-oriented service layer.
@@ -137,7 +138,7 @@ v2.1.0 still uses mock/demo authentication, browser persistence, and frontend ro
 - Global UI state management.
 - Reusable UI primitives and technical documentation.
 
-### Improved
+### Improved — v2.0.0
 
 - Product browsing and filtering.
 - Product detail experience.
@@ -151,4 +152,3 @@ v2.1.0 still uses mock/demo authentication, browser persistence, and frontend ro
 ## [1.0.0]
 
 Initial documented frontend baseline.
-

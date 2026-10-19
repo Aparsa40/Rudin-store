@@ -88,6 +88,42 @@ export function validateProductInput(body: ProductInput): string | null {
     }
   }
 
+  const videos = body.videos;
+  if (videos !== undefined) {
+    if (!Array.isArray(videos) || videos.length > 10) {
+      return 'videos must be an array containing at most 10 video objects.';
+    }
+    for (const [index, video] of videos.entries()) {
+      if (
+        !isPlainObject(video) ||
+        typeof video.id !== 'string' ||
+        !video.id.trim() ||
+        typeof video.url !== 'string' ||
+        !/^https:\/\//i.test(video.url.trim())
+      ) {
+        return `videos[${index}] must include a non-empty id and an absolute HTTPS url.`;
+      }
+      if (!['mp4', 'webm', 'mov'].includes(String(video.format))) {
+        return `videos[${index}].format must be mp4, webm, or mov.`;
+      }
+      if (typeof video.bytes !== 'number' || !Number.isInteger(video.bytes) || video.bytes < 0) {
+        return `videos[${index}].bytes must be a non-negative integer.`;
+      }
+      if (
+        video.duration !== undefined &&
+        (typeof video.duration !== 'number' || !Number.isFinite(video.duration) || video.duration < 0)
+      ) {
+        return `videos[${index}].duration must be a non-negative number.`;
+      }
+      if (
+        video.displayOrder !== undefined &&
+        (!Number.isInteger(video.displayOrder) || (video.displayOrder as number) < 0)
+      ) {
+        return `videos[${index}].displayOrder must be a non-negative integer.`;
+      }
+    }
+  }
+
   for (const key of ['tags', 'features'] as const) {
     const value = body[key];
     if (value !== undefined) {

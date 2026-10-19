@@ -15,7 +15,8 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { mockOrders, mockVendors } from '../data/mockData';
-import { Product, Order } from '../types';
+import { Product, Order, ProductImage, ProductVideo } from '../types';
+import { ProductMediaUploader } from '../components/products/ProductMediaUploader';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
@@ -34,7 +35,8 @@ export const SellerDashboard: React.FC = () => {
   const [newTitle, setNewTitle] = useState('');
   const [newPrice, setNewPrice] = useState('199.00');
   const [newStock, setNewStock] = useState('25');
-  const [newImageFile, setNewImageFile] = useState<File | null>(null);
+  const [newImages, setNewImages] = useState<ProductImage[]>([]);
+  const [newVideos, setNewVideos] = useState<ProductVideo[]>([]);
   const [newDesc, setNewDesc] = useState('');
 
   // Seller Orders
@@ -94,28 +96,6 @@ export const SellerDashboard: React.FC = () => {
       return;
     }
     try {
-      let uploadedImageUrl = '';
-      if (newImageFile) {
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () =>
-            typeof reader.result === 'string'
-              ? resolve(reader.result)
-              : reject(new Error('Could not read the selected image.'));
-          reader.onerror = () => reject(new Error('Could not read the selected image.'));
-          reader.readAsDataURL(newImageFile);
-        });
-        const uploadResponse = await fetch(`${apiBaseUrl}/api/uploads/images`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-          body: JSON.stringify({ dataUrl }),
-        });
-        const uploadPayload = await uploadResponse.json().catch(() => ({}));
-        if (!uploadResponse.ok)
-          throw new Error(uploadPayload?.error?.message || 'Image upload failed.');
-        uploadedImageUrl = uploadPayload.image.url as string;
-      }
-
       const response = await fetch(`${apiBaseUrl}/api/products`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
@@ -126,9 +106,8 @@ export const SellerDashboard: React.FC = () => {
           shortDescription: newDesc.trim().slice(0, 500),
           price,
           stock,
-          images: uploadedImageUrl
-            ? [{ id: `img_${Date.now()}`, url: uploadedImageUrl, isPrimary: true, displayOrder: 0 }]
-            : [],
+          images: newImages,
+          videos: newVideos,
         }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -138,7 +117,8 @@ export const SellerDashboard: React.FC = () => {
       setIsAddModalOpen(false);
       setNewTitle('');
       setNewDesc('');
-      setNewImageFile(null);
+      setNewImages([]);
+      setNewVideos([]);
       addToast('Product saved as a draft. An administrator must approve publication.', 'success');
     } catch (error) {
       addToast(error instanceof Error ? error.message : 'Unable to create product.', 'error');
@@ -708,18 +688,17 @@ export const SellerDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div>
-            <label className="block font-bold text-slate-900 mb-1">Product Image</label>
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={(e) => setNewImageFile(e.target.files?.[0] ?? null)}
-              className="w-full p-2.5 border border-slate-300 rounded-xl outline-none text-slate-600 text-[11px]"
-            />
-            <p className="mt-1 text-[10px] text-slate-500">
-              PNG, JPEG, or WebP; maximum 4 MB. Cloudinary storage must be configured on the API.
-            </p>
-          </div>
+          <ProductMediaUploader
+            accessToken={accessToken}
+            apiBaseUrl={apiBaseUrl}
+            images={newImages}
+            videos={newVideos}
+            onChange={(images, videos) => {
+              setNewImages(images);
+              setNewVideos(videos);
+            }}
+            onError={(message) => addToast(message, 'error')}
+          />
 
           <div>
             <label className="block font-bold text-slate-900 mb-1">Brief Description</label>

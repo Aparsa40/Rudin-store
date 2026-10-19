@@ -59,7 +59,7 @@ test(
             WEB_URL: 'http://localhost:3000',
             NODE_ENV: 'test',
           },
-          stdio: 'ignore',
+          stdio: 'inherit',
         },
       );
 
@@ -595,10 +595,25 @@ test(
           const updated = await request(`/api/products/${encodeURIComponent(productId)}`, {
             method: 'PATCH',
             headers: { authorization: `Bearer ${adminToken}` },
-            body: JSON.stringify({ price: 24.99 }),
+            body: JSON.stringify({
+              price: 24.99,
+              videos: [{
+                id: 'test-video',
+                url: 'https://cdn.example.test/test.mp4',
+                format: 'mp4',
+                bytes: 1024,
+                duration: 12,
+                displayOrder: 0,
+              }],
+            }),
           });
           assert.equal(updated.response.status, 200);
           assert.equal(updated.body.product.price, 24.99);
+          assert.equal(
+            (updated.body.product.videos as Array<{ id: string }>)[0]?.id,
+            'test-video',
+            'PATCH must persist validated product video metadata',
+          );
 
           const archived = await request(`/api/products/${encodeURIComponent(productId)}`, {
             method: 'DELETE',

@@ -11,6 +11,18 @@ const productImageSchema = new Schema(
   { _id: false },
 );
 
+const productVideoSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    url: { type: String, required: true, trim: true },
+    format: { type: String, required: true, enum: ['mp4', 'webm', 'mov'] },
+    bytes: { type: Number, required: true, min: 0 },
+    duration: { type: Number, min: 0 },
+    displayOrder: { type: Number, min: 0, default: 0 },
+  },
+  { _id: false },
+);
+
 const productVariantSchema = new Schema(
   {
     id: { type: String, required: true },
@@ -40,6 +52,7 @@ const productSchema = new Schema(
     price: { type: Number, required: true, min: 0 },
     compareAtPrice: { type: Number, min: 0 },
     images: { type: [productImageSchema], default: [] },
+    videos: { type: [productVideoSchema], default: [] },
     variants: { type: [productVariantSchema], default: [] },
     rating: { type: Number, min: 0, max: 5, default: 0 },
     reviewCount: { type: Number, min: 0, default: 0 },
