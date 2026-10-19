@@ -84,3 +84,28 @@
     scrollbar-width: none;
   }
 }
+
+
+/* Global reduced-motion support: visitors who prefer reduced motion
+   get an interface without non-essential animation. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Persian typography: rely on locally available system font fallbacks
+   so the storefront performs no external font fetch in RTL mode. */
+[dir='rtl'] body {
+  font-family:
+    'Vazirmatn',
+    'Segoe UI',
+    Tahoma,
+    'Noto Naskh Arabic',
+    sans-serif;
+}
