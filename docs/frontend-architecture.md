@@ -1,17 +1,17 @@
-# Frontend Architecture â Rudin Multi-Vendor Store
+# Frontend Architecture — Rudin Multi-Vendor Store
 
 ## Architectural Philosophy
 
 Rudin Store v2.1.0 is an API-ready frontend architecture.
 
     UI
-     â
+     ↓
     Zustand Store
-     â
+     ↓
     Domain Service
-     â
+     ↓
     Mock / Local Persistence
-     â
+     ↓
     Future API Client
 
 The goal is to replace service implementations rather than rewrite the UI when the backend becomes available.
@@ -102,21 +102,21 @@ The production backend must calculate authoritative prices, discounts, inventory
 ## Future Backend Boundary
 
     React
-      â
+      ↓
     Zustand
-      â
+      ↓
     Domain Service
-      â
+      ↓
     API Client
-      â HTTPS
+      ↓ HTTPS
     Backend
-      âââ Auth/session
-      âââ Products/vendors
-      âââ Cart/inventory
-      âââ Orders/payments
-      âââ Reviews/coupons
-      âââ Contact
-      âââ PostgreSQL
+      ├── Auth/session
+      ├── Products/vendors
+      ├── Cart/inventory
+      ├── Orders/payments
+      ├── Reviews/coupons
+      ├── Contact
+      └── PostgreSQL
 
 This boundary keeps backend technology replaceable without coupling it to React components.
 
