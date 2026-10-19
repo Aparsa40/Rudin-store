@@ -1,17 +1,17 @@
-# Frontend Architecture — Rudin Multi-Vendor Store
+# Frontend Architecture â Rudin Multi-Vendor Store
 
 ## Architectural Philosophy
 
 Rudin Store v2.1.0 is an API-ready frontend architecture.
 
     UI
-     ↓
+     â
     Zustand Store
-     ↓
+     â
     Domain Service
-     ↓
+     â
     Mock / Local Persistence
-     ↓
+     â
     Future API Client
 
 The goal is to replace service implementations rather than rewrite the UI when the backend becomes available.
@@ -22,15 +22,29 @@ The goal is to replace service implementations rather than rewrite the UI when t
     ├── components/
     │   ├── auth/
     │   ├── cart/
+    │   ├── home/          # homepage section components (Phase 1)
     │   ├── layout/
     │   ├── product/
     │   ├── search/
     │   └── ui/
+    ├── config/            # homeContent.ts: configuration-driven homepage content
     ├── data/
+    ├── hooks/            # useClickOutside and future shared hooks
+    ├── i18n/             # bilingual localization (Phase 1); see docs/localization.md
     ├── pages/
     ├── services/
     ├── store/
     └── types/
+
+## Localization
+
+The storefront is bilingual (English default, Persian RTL). Localization lives in `src/i18n/`: a Zustand-persisted, validated language preference (`rudin-language-storage`), namespaced translation resources in `src/i18n/locales/`, `useTranslation()` for components, and `useDocumentLanguage()` to keep `<html lang>`/`<html dir>` in sync. Prices, numbers, and dates format through `Intl` for the active locale. Product IDs, API field names, URLs, and database values stay language-independent; database content is never auto-translated. See docs/localization.md.
+
+Phase 1 covers the layout chrome, homepage, search, and product cards; deeper pages remain English-only until later phases.
+
+## Homepage composition
+
+`pages/Home.tsx` composes focused, reusable section components in `components/home/` (hero carousel, trust strip, flash deals, category shortcuts, top sellers, mid-page banner, featured catalog tabs, vendor spotlight, newsletter). Each data section owns its loading, empty, and error states and pulls only from real services; the announcement bar, hero slides, and mid-page banner read the documented configuration module `config/homeContent.ts` because no campaign API exists yet.
 
 ## Authentication State
 
@@ -88,20 +102,21 @@ The production backend must calculate authoritative prices, discounts, inventory
 ## Future Backend Boundary
 
     React
-      ↓
+      â
     Zustand
-      ↓
+      â
     Domain Service
-      ↓
+      â
     API Client
-      ↓ HTTPS
+      â HTTPS
     Backend
-      ├── Auth/session
-      ├── Products/vendors
-      ├── Cart/inventory
-      ├── Orders/payments
-      ├── Reviews/coupons
-      ├── Contact
-      └── PostgreSQL
+      âââ Auth/session
+      âââ Products/vendors
+      âââ Cart/inventory
+      âââ Orders/payments
+      âââ Reviews/coupons
+      âââ Contact
+      âââ PostgreSQL
 
 This boundary keeps backend technology replaceable without coupling it to React components.
+
