@@ -94,7 +94,7 @@ vendorsRouter.post('/apply', requireAuth, requireRole('CUSTOMER'), async (req, r
           vendorApplicationStatus: 'PENDING',
         },
       },
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     ).select('_id email firstName lastName storeName storeDescription vendorApplicationStatus');
 
     if (!user) {

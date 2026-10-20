@@ -8,7 +8,7 @@ export const ToastContainer: React.FC = () => {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-[150] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+    <div className="fixed bottom-6 right-6 z-150 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
       {toasts.map((toast) => {
         const isSuccess = toast.type === 'success';
         const isError = toast.type === 'error';
@@ -27,7 +27,7 @@ export const ToastContainer: React.FC = () => {
                     : 'border-slate-200'
             }`}
           >
-            <div className="flex-shrink-0 mt-0.5">
+            <div className="shrink-0 mt-0.5">
               {isSuccess && <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
               {isError && <AlertCircle className="w-5 h-5 text-rose-600" />}
               {isWarning && <AlertCircle className="w-5 h-5 text-amber-600" />}

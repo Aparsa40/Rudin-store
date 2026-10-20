@@ -75,7 +75,7 @@ adminVendorsRouter.patch('/applications/:id', async (req, res, next) => {
         vendorApplicationStatus: 'PENDING',
       },
       update,
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     ).select('_id email firstName lastName storeName vendorApplicationStatus role')) as any;
 
     if (!application) {

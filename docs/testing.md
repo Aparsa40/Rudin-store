@@ -20,12 +20,21 @@ npm run build
 
 `npm test` runs `scripts/run-tests.mjs`, which discovers and executes every `*.test.ts` file under `backend/` and `src/`. The current inventory:
 
+### Command for running MongoDB backend tests, as an alternative to the `npm test` command
+
+```powershell
+node --env-file=.env --import tsx --test backend/integration/coupon-redemption.integration.test.ts
+```
+
 - Backend unit tests covering product validation (including video metadata), rate limiting, and the uploads routes. The seller media uploader's direct Cloudinary flow should also be smoke-tested with a configured Cloudinary account.
 - A frontend unit test for the browser-local `ordersService`.
 - A frontend unit test for the role-specific portal configuration (`src/config/authPortals.test.ts`): each portal's endpoint, required role, login route, and home route, plus protected-area portal resolution.
+- Frontend localization unit tests: `src/i18n/core.test.ts` (language validation with the documented English fallback, translation interpolation, en/fa key parity, and non-empty values) and `src/i18n/format.test.ts` (locale-aware `Intl` price, number, date, and countdown formatting; the fa-IR date assertions deliberately avoid pinning a calendar system because ICU renders `fa-IR` with the Persian calendar by default).
+- Homepage unit tests: `src/config/homeContent.test.ts` (bilingual copy completeness, links restricted to known routes, in-repo assets only) and `src/components/home/heroCarouselLogic.test.ts` (slide wrap-around, autoplay/reduced-motion/pause rules, and index normalization).
+- Admin-contract unit tests: `src/config/adminPermissions.test.ts` (dashboard section-to-permission mapping with fail-closed behavior) and `src/services/admin/adminApi.test.ts` (admin API request building and response parsing, including coupon and order operations).
 - Five MongoDB-backed integration suites: `backend/integration/security.integration.test.ts`, `backend/integration/orders.integration.test.ts`, `backend/integration/login-portals.integration.test.ts`, `backend/integration/coupons-orders.integration.test.ts`, and `backend/integration/coupon-redemption.integration.test.ts`.
 
-The test runner loads a local `.env` automatically through `dotenv/config`; set `RUN_MONGODB_INTEGRATION=true` and point `MONGODB_URI` at the dedicated `rudin_store_integration_test` database to run integration suites locally. If the opt-in flag or URI is absent outside CI, Node's test runner marks those suites skipped. In GitHub Actions, the runner fails fast if either integration setting is missing, preventing a green CI result with silently skipped MongoDB tests. CI starts an ephemeral MongoDB replica set, supplies both variables explicitly, and runs `npm test` before the production build.
+The test runner loads a local `.env` automatically through `dotenv/config`; set `RUN_MONGODB_INTEGRATION=true` and point `MONGODB_URI` at the dedicated `rudin_store_integration_test` database to run integration suites locally. If the opt-in flag or URI is absent outside CI, Node's test runner marks those suites skipped. In GitHub Actions, the runner fails fast if either integration setting is missing, preventing a green CI result with silently skipped MongoDB tests. CI starts an ephemeral MongoDB replica set, supplies both variables explicitly, and runs `npm test` in the TypeScript Check job while the Production Build job builds in parallel.
 
 ## Integration suite scope
 
@@ -57,7 +66,7 @@ For manual storefront testing, set the local `.env` `MONGODB_URI` to the Atlas c
 
 ## Known coverage gaps
 
-These areas currently have no automated tests and are documented rather than invented: cart stock validation, coupon validation, `ProtectedRoute` and the portal page components themselves (the portal routing configuration is unit-tested, but not the React components), frontend services other than `ordersService` and the portal configuration (including the browser-local session-restore/logout/profile/address operations), admin/seller/manager dashboard components, and end-to-end flows. The `ordersService` unit test intentionally validates the current browser-local (localStorage) behavior; it does not verify server integration because the frontend is not yet connected to `/api/orders`.
+These areas currently have no automated tests and are documented rather than invented: cart stock validation, coupon validation, `ProtectedRoute` and the portal page components themselves (the portal routing configuration is unit-tested, but not the React components), frontend services other than `ordersService`, the admin API client, and the portal configuration (including the browser-local session-restore/logout/profile/address operations), admin/seller/manager dashboard components, and end-to-end flows. The `ordersService` unit test intentionally validates the current browser-local (localStorage) behavior; it does not verify server integration because the frontend is not yet connected to `/api/orders`.
 
 ## Manual validation priorities
 

@@ -106,3 +106,9 @@ Server-authoritative order creation, transactional inventory decrement, and idem
 3. Add addresses, coupons/redemptions, reviews, and contact inquiries.
 4. Wire seller/admin order, coupon, payout and settings screens to their APIs.
 5. Add end-to-end tests for ownership, concurrency, failed payments, stock conflicts, and order state transitions.
+
+### Command for running MongoDB backend tests, as an alternative to the `npm test` command
+
+```powershell
+node --env-file=.env --import tsx --test backend/integration/coupon-redemption.integration.test.ts
+```

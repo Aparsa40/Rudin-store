@@ -531,7 +531,7 @@ couponsRouter.patch(
       const updated = await CouponModel.findByIdAndUpdate(
         req.params.id,
         { $set: updates },
-        { new: true, runValidators: true },
+        { returnDocument: 'after', runValidators: true },
       ).lean();
       if (!updated) {
         res.status(404).json({ error: { code: 'COUPON_NOT_FOUND', message: 'Coupon not found.' } });
@@ -706,7 +706,7 @@ couponsRouter.post('/redeem', requireAuth, async (req, res, next) => {
         const updated = await CouponModel.findOneAndUpdate(
           filter,
           { $inc: { usedCount: 1 } },
-          { new: true, session },
+          { returnDocument: 'after', session },
         ).lean();
         if (!updated) throw new CouponUnusableError();
         consumed = updated as unknown as Record<string, unknown>;

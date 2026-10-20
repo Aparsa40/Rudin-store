@@ -51,6 +51,16 @@ The frontend `ordersService` persists orders in `localStorage` only. The server-
 
 Authentication UI: the frontend has independent login portals — `/login` (customer), `/vendor/login`, `/admin/login`, and `/manager/login` — plus `/register` and `/reset-password`. Each portal submits only to its own backend endpoint, which rejects credentials whose account role does not match the portal, and routes success to its own destination (`/account`, `/seller/dashboard`, `/admin`, and `/manager` respectively). The backend role set is `CUSTOMER`, `VENDOR`, `ADMIN`, and `MANAGER`: the manager is the single primary platform owner, created only through the controlled bootstrap, and appoints admins with granular permissions (`vendors:review`, `products:manage`, `coupons:manage`, `orders:manage`; see backend/README.md for the permission matrix); the admin dashboard renders each section only when the authenticated administrator holds the matching permission, with the backend remaining the authoritative enforcer. The header account menu links to these real portal pages rather than switching simulated roles. The dev-only demo-role buttons (`VITE_ENABLE_DEMO_AUTH=true`, development builds only) create browser-local demo sessions that do not call the API and must never be treated as real authentication.
 
+## Bilingual storefront
+
+The customer-facing chrome and homepage are bilingual — English (default, LTR) and فارسی (Persian, RTL):
+
+- A language selector in the header switches languages; the validated preference persists in `localStorage` (`rudin-language-storage`) and survives visits, independent of cart and authentication state.
+- The document `lang`/`dir` attributes, layout direction, prices, numbers, and dates all follow the active locale (`en-US` / `fa-IR`); RTL layouts use logical CSS utilities and direction-aware icons.
+- Translation resources are namespaced by feature under `src/i18n/locales/`; no new runtime dependency was added.
+- The homepage is composed of focused sections (announcement bar, hero carousel, flash deals, category shortcuts, top sellers, mid-page banner, featured catalog tabs, vendor spotlight, newsletter). Product, category, and vendor data comes from the real services; the announcement bar, hero slides, and mid-page banner use the documented configuration module `src/config/homeContent.ts` because no campaign API exists yet. No prices, discounts, inventory, notification counts, or newsletter success are fabricated.
+- Scope limitation: pages beyond the layout, homepage, search, and product cards remain English-only until later phases. See docs/localization.md.
+
 ## Running locally
 
 Requirements: Node.js and npm.
@@ -124,6 +134,7 @@ See SECURITY.md, docs/security.md, docs/backend-integration.md, and backend/READ
 | Area                                                                                             | Status                                                                                                                                           |
 | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Frontend UI                                                                                      | Implemented                                                                                                                                      |
+| Bilingual storefront (English/Persian) and redesigned homepage                                   | Implemented for the layout chrome, homepage, search, and product cards; remaining pages English-only until later phases                          |
 | Demo/local persistence architecture                                                              | Implemented                                                                                                                                      |
 | Client route guards                                                                              | Implemented (UX only)                                                                                                                            |
 | Frontend auth session wiring (logout, profile, addresses, `/api/auth/me`)                        | Browser-local except the admin dashboard, which re-verifies the account and its permissions through `GET /api/auth/me` on load                   |
@@ -143,7 +154,7 @@ Rudin Store is a functional marketplace prototype with a partially integrated ba
 
 ## Documentation
 
-See CHANGELOG.md, CONTRIBUTING.md, SECURITY.md, VERSIONING.md, backend/README.md, and the docs/ directory (architecture.md, backend-integration.md, server-authoritative-checkout.md, testing.md, security.md, development.md, versioning.md, branding.md).
+See CHANGELOG.md, CONTRIBUTING.md, SECURITY.md, VERSIONING.md, backend/README.md, and the docs/ directory (architecture.md, backend-integration.md, server-authoritative-checkout.md, testing.md, security.md, development.md, versioning.md, branding.md, localization.md).
 
 ## License
 

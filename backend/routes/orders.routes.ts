@@ -136,7 +136,7 @@ async function decrementProductStock(
   const updated = await ProductModel.findOneAndUpdate(
     { _id: productId, status: 'PUBLISHED', stock: { $gte: quantity } },
     { $inc: { stock: -quantity } },
-    { new: true, session },
+    { returnDocument: 'after', session },
   ).select('_id');
   return Boolean(updated);
 }
@@ -160,7 +160,7 @@ async function decrementVariantStock(
       variants: { $elemMatch: { id: variantId, stockQuantity: { $gte: quantity } } },
     },
     { $inc: { 'variants.$.stockQuantity': -quantity } },
-    { new: true, session },
+    { returnDocument: 'after', session },
   ).select('_id');
   return Boolean(updated);
 }

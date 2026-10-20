@@ -238,7 +238,7 @@ export const Cart: React.FC = () => {
                       <div key={item.id} className="p-6 flex flex-col sm:flex-row gap-5">
                         <Link
                           to={`/product/${item.product.slug}`}
-                          className="w-24 h-24 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100 flex-shrink-0"
+                          className="w-24 h-24 rounded-2xl overflow-hidden bg-slate-100 border border-slate-100 shrink-0"
                         >
                           <img src={imgUrl} alt="" className="w-full h-full object-cover" />
                         </Link>

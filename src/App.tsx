@@ -21,28 +21,30 @@ import { ManagerDashboard } from './pages/ManagerDashboard';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { Button } from './components/ui/Button';
 import { AdminInvitationAccept } from './pages/AdminInvitationAccept';
+import { useTranslation } from './i18n';
 
-const NotFound: React.FC = () => (
-  <div className="container mx-auto px-4 py-24 text-center max-w-md">
-    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-black text-slate-400">
-      404
+const NotFound: React.FC = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="container mx-auto px-4 py-24 text-center max-w-md">
+      <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-black text-slate-400">
+        404
+      </div>
+      <h1 className="text-2xl font-black text-slate-900 mb-2">{t('common.notFoundTitle')}</h1>
+      <p className="text-xs text-slate-500 mb-6">{t('common.notFoundBody')}</p>
+      <div className="flex gap-3 justify-center">
+        <Link to="/">
+          <Button variant="outline" size="sm">
+            {t('common.notFoundHome')}
+          </Button>
+        </Link>
+        <Link to="/shop">
+          <Button size="sm">{t('common.notFoundCatalog')}</Button>
+        </Link>
+      </div>
     </div>
-    <h1 className="text-2xl font-black text-slate-900 mb-2">Page Not Found</h1>
-    <p className="text-xs text-slate-500 mb-6">
-      The page or artisan collection you were looking for could not be found or has moved.
-    </p>
-    <div className="flex gap-3 justify-center">
-      <Link to="/">
-        <Button variant="outline" size="sm">
-          Return Home
-        </Button>
-      </Link>
-      <Link to="/shop">
-        <Button size="sm">Browse Catalog</Button>
-      </Link>
-    </div>
-  </div>
-);
+  );
+};
 
 export const App: React.FC = () => {
   return (
@@ -105,3 +107,4 @@ export const App: React.FC = () => {
 };
 
 export default App;
+

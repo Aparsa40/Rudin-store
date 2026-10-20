@@ -58,7 +58,7 @@ router.post('/verify', async (req, res, next) => {
         status: 'INVITED',
       },
       { $set: { status: 'EMAIL_VERIFIED', verifiedAt: new Date() } },
-      { new: true },
+      { returnDocument: 'after' },
     );
 
     if (!updated) {
