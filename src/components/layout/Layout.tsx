@@ -28,7 +28,7 @@ export const Layout: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans antialiased">
       <Header />
-      <main className="flex-grow">
+      <main className='grow'>
         <Outlet />
       </main>
       <Footer />

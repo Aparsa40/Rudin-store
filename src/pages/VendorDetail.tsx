@@ -125,7 +125,7 @@ export const VendorDetail: React.FC = () => {
           alt={vendor.storeName}
           className="w-full h-full object-cover opacity-80"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-t from-slate-950/80 via-transparent to-transparent" />
       </div>
 
       <div className="container mx-auto px-4 max-w-7xl">
@@ -134,7 +134,7 @@ export const VendorDetail: React.FC = () => {
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="flex flex-col sm:flex-row items-center sm:items-end gap-6 text-center sm:text-left">
               {/* Logo */}
-              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl border-4 border-white shadow-xl overflow-hidden bg-white flex-shrink-0">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl border-4 border-white shadow-xl overflow-hidden bg-white shrink-0">
                 <img src={vendor.logoUrl} alt="" className="w-full h-full object-cover" />
               </div>
 

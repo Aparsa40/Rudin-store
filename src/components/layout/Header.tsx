@@ -181,7 +181,7 @@ export const Header: React.FC = () => {
           >
             <Heart className="w-5 h-5" />
             {wishlistCount > 0 && (
-              <span className="absolute top-1 end-1 bg-rose-500 text-white text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center shadow-sm">
+              <span className="absolute top-1 'end-1' bg-rose-500 text-white text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center shadow-sm">
                 {formatNumber(wishlistCount)}
               </span>
             )}
@@ -213,7 +213,7 @@ export const Header: React.FC = () => {
 
             {/* Account Dropdown */}
             {isAccountDropdownOpen && (
-              <div className="absolute end-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50">
+              <div className="absolute 'end-0' mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50">
                 <div className="px-4 py-2 border-b border-slate-100">
                   {user ? (
                     <>
@@ -385,7 +385,7 @@ export const Header: React.FC = () => {
             </button>
 
             {isCategoriesDropdownOpen && (
-              <div className="absolute start-0 mt-0 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50">
+              <div className="absolute 'start-0' mt-0 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50">
                 {categories.length === 0 ? (
                   <Link
                     to="/shop"
@@ -446,7 +446,7 @@ export const Header: React.FC = () => {
             className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm"
             onClick={() => setIsMobileMenuOpen(false)}
           />
-          <div className="fixed top-0 bottom-0 start-0 w-80 max-w-[85vw] bg-white shadow-2xl flex flex-col z-10">
+          <div className="fixed top-0 bottom-0 'start-0' w-80 max-w-[85vw] bg-white shadow-2xl flex flex-col z-10">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center">
                 <img

@@ -119,4 +119,3 @@ The production backend must calculate authoritative prices, discounts, inventory
       └── PostgreSQL
 
 This boundary keeps backend technology replaceable without coupling it to React components.
-

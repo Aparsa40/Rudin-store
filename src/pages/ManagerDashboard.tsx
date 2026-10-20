@@ -746,7 +746,7 @@ export const ManagerDashboard: React.FC = () => {
                           ))}
                         </select>
 
-                        <p className="mt-1 max-w-xs break-words text-[10px] text-slate-400">
+                        <p className="mt-1 max-w-xs wrap-break-word text-[10px] text-slate-400">
                           Effective:{' '}
                           {admin.permissions?.length ? admin.permissions.join(', ') : 'none'}
                         </p>

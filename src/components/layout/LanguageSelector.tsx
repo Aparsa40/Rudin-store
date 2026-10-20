@@ -39,7 +39,7 @@ export const LanguageSelector: React.FC = () => {
         <ul
           role="listbox"
           aria-label={t('header.languageLabel')}
-          className="absolute end-0 mt-2 w-44 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 z-50"
+          className="absolute inset-e-0 mt-2 w-44 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 z-50"
         >
           {SUPPORTED_LANGUAGES.map((option) => {
             const isActive = option === language;

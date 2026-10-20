@@ -159,4 +159,3 @@ See CHANGELOG.md, CONTRIBUTING.md, SECURITY.md, VERSIONING.md, backend/README.md
 ## License
 
 See LICENSE.
-

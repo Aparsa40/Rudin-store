@@ -30,7 +30,7 @@ export const NotificationsMenu: React.FC = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute end-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-100 p-6 z-50 text-center">
+        <div className="absolute 'end-0' mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-100 p-6 z-50 text-center">
           <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center mx-auto text-slate-400 mb-3">
             <BellOff className="w-5 h-5" />
           </div>

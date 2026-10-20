@@ -62,7 +62,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
   if (viewMode === 'list') {
     return (
       <div className="group relative bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row gap-5 hover:border-slate-300 hover:shadow-lg transition-all duration-300">
-        <div className="relative w-full sm:w-52 aspect-square rounded-xl overflow-hidden bg-slate-100 flex-shrink-0">
+        <div className="relative w-full sm:w-52 aspect-square rounded-xl overflow-hidden bg-slate-100 shrink-0">
           <Link to={`/product/${product.slug}`} aria-label={product.title}>
             <img
               src={primaryImage.url}
@@ -71,7 +71,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
             />
           </Link>
           {hasDiscount && (
-            <div className="absolute top-2 start-2">
+            <div className="absolute top-2 inset-s-2">
               <Badge variant="danger" size="sm">
                 -{formatNumber(discountPercent)}%
               </Badge>
@@ -152,7 +152,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
         </Link>
 
         {/* Top Badges */}
-        <div className="absolute top-2.5 start-2.5 z-10 flex flex-col gap-1 pointer-events-none">
+        <div className="absolute top-2.5 inset-s-2.5 z-10 flex flex-col gap-1 pointer-events-none">
           {hasDiscount && (
             <Badge variant="danger" size="sm">
               -{formatNumber(discountPercent)}%
@@ -168,7 +168,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode = 'g
         {/* Wishlist Button */}
         <button
           onClick={handleToggleWishlist}
-          className={`absolute top-2.5 end-2.5 z-10 p-2 rounded-full backdrop-blur transition-all duration-200 shadow-sm ${
+          className={`absolute top-2.5 inset-e-2.5 z-10 p-2 rounded-full backdrop-blur transition-all duration-200 shadow-sm ${
             isFavorited
               ? 'bg-rose-50 text-rose-600 opacity-100'
               : 'bg-white/80 text-slate-600 hover:bg-white hover:text-rose-600 opacity-0 group-hover:opacity-100'

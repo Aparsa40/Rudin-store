@@ -20,6 +20,12 @@ npm run build
 
 `npm test` runs `scripts/run-tests.mjs`, which discovers and executes every `*.test.ts` file under `backend/` and `src/`. The current inventory:
 
+### Command for running MongoDB backend tests, as an alternative to the `npm test` command
+
+```powershell
+node --env-file=.env --import tsx --test backend/integration/coupon-redemption.integration.test.ts
+```
+
 - Backend unit tests covering product validation (including video metadata), rate limiting, and the uploads routes. The seller media uploader's direct Cloudinary flow should also be smoke-tested with a configured Cloudinary account.
 - A frontend unit test for the browser-local `ordersService`.
 - A frontend unit test for the role-specific portal configuration (`src/config/authPortals.test.ts`): each portal's endpoint, required role, login route, and home route, plus protected-area portal resolution.

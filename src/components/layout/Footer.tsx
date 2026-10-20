@@ -21,7 +21,7 @@ export const Footer: React.FC = () => {
               <img
                 src="/branding/footer-logo.svg"
                 alt="Rudin Store"
-                className="h-12 w-auto max-w-[210px] object-contain"
+                className="h-12 w-auto 'max-w-[210px]' object-contain"
               />
             </Link>
 
