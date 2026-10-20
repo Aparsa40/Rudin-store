@@ -412,7 +412,7 @@ adminRouter.patch('/admins/:id/permissions', async (req, res, next) => {
     const user = await UserModel.findOneAndUpdate(
       { _id: req.params.id, role: 'ADMIN' },
       { $set: { adminPermissions: resolved.permissions } },
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     ).select('_id email firstName lastName status adminPermissions');
 
     if (!user) {
@@ -479,7 +479,7 @@ adminRouter.patch('/admins/:id/status', async (req, res, next) => {
         // Revoke all previously issued sessions even if the account is later re-enabled.
         $inc: { authVersion: 1 },
       },
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     ).select('_id email firstName lastName status authVersion');
 
     if (!user) {
@@ -675,7 +675,7 @@ adminRouter.post('/invitations/:id/reject', async (req, res, next) => {
           passwordHash: 1,
         },
       },
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     ).select('_id email status reviewedAt');
 
     if (!invitation) {

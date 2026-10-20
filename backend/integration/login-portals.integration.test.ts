@@ -5,6 +5,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import test from 'node:test';
 import mongoose from 'mongoose';
 import { UserModel } from '../models/user.model.js';
+import { ProductModel } from '../models/product.model.js';
 import { createIntegrationAdmin } from './admin-fixtures.js';
 import { createAccessToken } from '../middleware/auth.js';
 
@@ -50,6 +51,7 @@ test(
     await mongoose.connect(uri);
     await Promise.all([
       UserModel.deleteMany({}),
+      ProductModel.deleteMany({}),
       mongoose.connection.collection('adminstates').deleteMany({}),
     ]);
 
