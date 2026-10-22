@@ -7,6 +7,8 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 import { resolveAdminPermissions } from '../lib/admin-permissions.js';
 import { sendEmail } from '../lib/email.js';
 import { withAdminStateLock } from '../lib/admin-state.js';
+import { recordAudit, recordAuditDiagnostic, withAuditTransaction } from '../lib/audit.js';
+import { createRateLimiter } from '../middleware/rate-limit.js';
 
 const adminRouter = Router();
 
@@ -339,6 +341,18 @@ adminRouter.post('/invitations', async (req, res, next) => {
       return;
     }
 
+    // Diagnostic tier: the invitation document itself is the durable record of
+    // the invitation, so a best-effort audit entry with surfaced failures is
+    // appropriate here.
+    await recordAuditDiagnostic({
+      actorId: req.authUser!.id,
+      actorRole: req.authUser!.role,
+      action: 'admin.invitation.created',
+      targetType: 'invitation',
+      targetId: String(invitation._id),
+      metadata: { email, permissions: resolved.permissions },
+    });
+
     res.status(201).json({
       invitation: {
         id: invitation._id,
@@ -382,6 +396,8 @@ adminRouter.post('/invitations', async (req, res, next) => {
  * PATCH /api/admin/admins/:id/permissions
  *
  * Replaces the permission set using server-side permission resolution.
+ * The audit record is coupled to the same transaction as the change: a failed
+ * audit write rolls the permission change back.
  */
 adminRouter.patch('/admins/:id/permissions', async (req, res, next) => {
   try {
@@ -409,11 +425,29 @@ adminRouter.patch('/admins/:id/permissions', async (req, res, next) => {
       return;
     }
 
-    const user = await UserModel.findOneAndUpdate(
-      { _id: req.params.id, role: 'ADMIN' },
-      { $set: { adminPermissions: resolved.permissions } },
-      { returnDocument: 'after', runValidators: true },
-    ).select('_id email firstName lastName status adminPermissions');
+    const user = await withAuditTransaction(async (session) => {
+      const updated = await UserModel.findOneAndUpdate(
+        { _id: req.params.id, role: 'ADMIN' },
+        { $set: { adminPermissions: resolved.permissions } },
+        { returnDocument: 'after', runValidators: true, session },
+      ).select('_id email firstName lastName status adminPermissions');
+
+      if (!updated) return null;
+
+      await recordAudit(
+        {
+          actorId: req.authUser!.id,
+          actorRole: req.authUser!.role,
+          action: 'admin.permissions.updated',
+          targetType: 'user',
+          targetId: String(updated._id),
+          metadata: { email: updated.email, permissions: updated.adminPermissions ?? [] },
+        },
+        session,
+      );
+
+      return updated;
+    });
 
     if (!user) {
       res.status(404).json({
@@ -445,6 +479,8 @@ adminRouter.patch('/admins/:id/permissions', async (req, res, next) => {
  *
  * Enables or disables an existing administrator.
  * This route does not create accounts or approve pending invitations.
+ * The status change, the invitation-state sync, the session revocation, and
+ * the audit record all commit inside one transaction.
  */
 adminRouter.patch('/admins/:id/status', async (req, res, next) => {
   try {
@@ -472,15 +508,42 @@ adminRouter.patch('/admins/:id/status', async (req, res, next) => {
       return;
     }
 
-    const user = await UserModel.findOneAndUpdate(
-      { _id: req.params.id, role: 'ADMIN' },
-      {
-        $set: { status },
-        // Revoke all previously issued sessions even if the account is later re-enabled.
-        $inc: { authVersion: 1 },
-      },
-      { returnDocument: 'after', runValidators: true },
-    ).select('_id email firstName lastName status authVersion');
+    const user = await withAuditTransaction(async (session) => {
+      const updated = await UserModel.findOneAndUpdate(
+        { _id: req.params.id, role: 'ADMIN' },
+        {
+          $set: { status },
+          // Revoke all previously issued sessions even if the account is later re-enabled.
+          $inc: { authVersion: 1 },
+        },
+        { returnDocument: 'after', runValidators: true, session },
+      ).select('_id email firstName lastName status authVersion');
+
+      if (!updated) return null;
+
+      await AdminInvitationModel.updateOne(
+        {
+          email: updated.email,
+          status: { $in: ['ACTIVE', 'DISABLED'] },
+        },
+        { $set: { status } },
+        { session },
+      );
+
+      await recordAudit(
+        {
+          actorId: req.authUser!.id,
+          actorRole: req.authUser!.role,
+          action: 'admin.status.changed',
+          targetType: 'user',
+          targetId: String(updated._id),
+          metadata: { email: updated.email, to: status, authVersionBumped: true },
+        },
+        session,
+      );
+
+      return updated;
+    });
 
     if (!user) {
       res.status(404).json({
@@ -491,14 +554,6 @@ adminRouter.patch('/admins/:id/status', async (req, res, next) => {
       });
       return;
     }
-
-    await AdminInvitationModel.updateOne(
-      {
-        email: user.email,
-        status: { $in: ['ACTIVE', 'DISABLED'] },
-      },
-      { $set: { status } },
-    );
 
     res.status(200).json({
       admin: {
@@ -519,6 +574,7 @@ adminRouter.patch('/admins/:id/status', async (req, res, next) => {
  *
  * Creates an ACTIVE ADMIN account only after the invitee has verified
  * the email, accepted the invitation, and selected a password.
+ * The audit record is written inside the same serialized transaction.
  */
 adminRouter.post('/invitations/:id/approve', async (req, res, next) => {
   try {
@@ -584,6 +640,22 @@ adminRouter.post('/invitations/:id/approve', async (req, res, next) => {
         throw new Error('INVITATION_APPROVAL_CONFLICT');
       }
 
+      await recordAudit(
+        {
+          actorId: req.authUser!.id,
+          actorRole: req.authUser!.role,
+          action: 'admin.invitation.approved',
+          targetType: 'user',
+          targetId: String(user._id),
+          metadata: {
+            email: user.email,
+            invitationId: String(invitation._id),
+            permissions: user.adminPermissions ?? [],
+          },
+        },
+        session,
+      );
+
       return { kind: 'approved', user } as const;
     });
 
@@ -627,6 +699,7 @@ adminRouter.post('/invitations/:id/approve', async (req, res, next) => {
  * POST /api/admin/invitations/:id/reject
  *
  * Rejects an invitation that has not yet been approved.
+ * The rejection and its audit record commit inside one transaction.
  */
 adminRouter.post('/invitations/:id/reject', async (req, res, next) => {
   try {
@@ -656,27 +729,45 @@ adminRouter.post('/invitations/:id/reject', async (req, res, next) => {
 
     const reason = typeof rawReason === 'string' ? rawReason.trim().slice(0, 500) : '';
 
-    const invitation = await AdminInvitationModel.findOneAndUpdate(
-      {
-        _id: req.params.id,
-        status: { $in: [...INVITATION_PENDING_STATUSES] },
-      },
-      {
-        $set: {
-          status: 'REJECTED',
-          reviewedBy: req.authUser!.id,
-          reviewedAt: new Date(),
-          rejectedReason: reason,
+    const invitation = await withAuditTransaction(async (session) => {
+      const rejected = await AdminInvitationModel.findOneAndUpdate(
+        {
+          _id: req.params.id,
+          status: { $in: [...INVITATION_PENDING_STATUSES] },
         },
-        $unset: {
-          activeEmail: 1,
-          tokenHash: 1,
-          tokenExpiresAt: 1,
-          passwordHash: 1,
+        {
+          $set: {
+            status: 'REJECTED',
+            reviewedBy: req.authUser!.id,
+            reviewedAt: new Date(),
+            rejectedReason: reason,
+          },
+          $unset: {
+            activeEmail: 1,
+            tokenHash: 1,
+            tokenExpiresAt: 1,
+            passwordHash: 1,
+          },
         },
-      },
-      { returnDocument: 'after', runValidators: true },
-    ).select('_id email status reviewedAt');
+        { returnDocument: 'after', runValidators: true, session },
+      ).select('_id email status reviewedAt');
+
+      if (!rejected) return null;
+
+      await recordAudit(
+        {
+          actorId: req.authUser!.id,
+          actorRole: req.authUser!.role,
+          action: 'admin.invitation.rejected',
+          targetType: 'invitation',
+          targetId: String(rejected._id),
+          metadata: { email: rejected.email, reason },
+        },
+        session,
+      );
+
+      return rejected;
+    });
 
     if (!invitation) {
       res.status(409).json({
@@ -701,5 +792,167 @@ adminRouter.post('/invitations/:id/reject', async (req, res, next) => {
     next(error);
   }
 });
+
+/**
+ * POST /api/admin/invitations/:id/resend
+ *
+ * Reissues the one-time invitation token for an invitation that is still in
+ * the INVITED state and sends a fresh invitation email. Replacing tokenHash
+ * invalidates the previously issued link immediately and the expiry window
+ * restarts. Invitations that already advanced (EMAIL_VERIFIED or later) are
+ * never reset through this route; rejecting and re-inviting is the explicit
+ * path for those cases.
+ */
+adminRouter.post(
+  '/invitations/:id/resend',
+  createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 5,
+    message: 'Too many resend attempts. Please try again in 15 minutes.',
+  }),
+  async (req, res, next) => {
+    try {
+      const existing = await AdminInvitationModel.exists({ _id: req.params.id });
+
+      if (!existing) {
+        res.status(404).json({
+          error: {
+            code: 'INVITATION_NOT_FOUND',
+            message: 'Invitation not found.',
+          },
+        });
+        return;
+      }
+
+      if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
+        res.status(503).json({
+          error: {
+            code: 'EMAIL_NOT_CONFIGURED',
+            message: 'The invitation email service is not configured on the server.',
+          },
+        });
+        return;
+      }
+
+      const baseUrl = getInvitationBaseUrl();
+
+      if (!baseUrl) {
+        res.status(503).json({
+          error: {
+            code: 'WEB_URL_NOT_CONFIGURED',
+            message:
+              'Configure WEB_URL with the public frontend origin before sending invitations.',
+          },
+        });
+        return;
+      }
+
+      const rawToken = randomBytes(32).toString('base64url');
+      const tokenHash = hashInvitationToken(rawToken);
+      const expiresAt = new Date(Date.now() + INVITATION_LIFETIME_MS);
+
+      const result = await withAuditTransaction(async (session) => {
+        // Conditional update keeps the rotation race-free: only an invitation
+        // still in the INVITED state can have its token replaced.
+        const invitation = await AdminInvitationModel.findOneAndUpdate(
+          { _id: req.params.id, status: 'INVITED' },
+          { $set: { tokenHash, tokenExpiresAt: expiresAt } },
+          { returnDocument: 'after', session },
+        ).select('_id email firstName lastName status');
+
+        if (!invitation) {
+          return { kind: 'not-resendable' } as const;
+        }
+
+        await recordAudit(
+          {
+            actorId: req.authUser!.id,
+            actorRole: req.authUser!.role,
+            action: 'admin.invitation.resent',
+            targetType: 'invitation',
+            targetId: String(invitation._id),
+            metadata: { email: invitation.email, tokenRotated: true },
+          },
+          session,
+        );
+
+        return { kind: 'resendable', invitation } as const;
+      });
+
+      if (result.kind === 'not-resendable') {
+        res.status(409).json({
+          error: {
+            code: 'INVITATION_NOT_RESENDABLE',
+            message:
+              'Only invitations still awaiting email verification can be resent. Reject and re-invite instead.',
+          },
+        });
+        return;
+      }
+
+      const invitation = result.invitation;
+      const invitationUrl = new URL('/admin-invitation', baseUrl);
+      invitationUrl.searchParams.set('token', rawToken);
+
+      const safeFirstName = escapeHtml(invitation.firstName ?? '');
+      const safeInvitationUrl = escapeHtml(invitationUrl.toString());
+
+      try {
+        await sendEmail({
+          to: invitation.email,
+          subject: 'Rudin Store administrator invitation (renewed)',
+          text:
+            `Hello ${invitation.firstName ?? ''},\n\n` +
+            'Your Rudin Store administrator invitation link has been renewed.\n\n' +
+            `Open this link to verify your email and continue: ${invitationUrl.toString()}\n\n` +
+            'This invitation link expires in 48 hours and can only be used once. Any previously sent link is no longer valid.\n',
+          html:
+            `<p>Hello ${safeFirstName},</p>` +
+            '<p>Your Rudin Store administrator invitation link has been renewed.</p>' +
+            `<p><a href="${safeInvitationUrl}">Review your invitation</a></p>` +
+            '<p>This invitation link expires in 48 hours and can only be used once. Any previously sent link is no longer valid.</p>',
+        });
+      } catch (emailError) {
+        // The token rotation has already committed: the invitation stays in the
+        // INVITED state and remains resendable, while the previous link is now
+        // invalid. Surface the delivery failure instead of hiding it.
+        console.error('Administrator invitation resend email delivery failed.', {
+          invitationId: String(invitation._id),
+          error: emailError instanceof Error ? emailError.message : 'Unknown email provider error',
+        });
+
+        await recordAuditDiagnostic({
+          actorId: req.authUser!.id,
+          actorRole: req.authUser!.role,
+          action: 'admin.invitation.resent_email_failed',
+          targetType: 'invitation',
+          targetId: String(invitation._id),
+          metadata: { email: invitation.email, tokenRotated: true },
+        });
+
+        res.status(502).json({
+          error: {
+            code: 'EMAIL_DELIVERY_FAILED',
+            message:
+              'The invitation email could not be sent. The invitation link was renewed and can be resent again.',
+          },
+        });
+        return;
+      }
+
+      res.status(200).json({
+        invitation: {
+          id: invitation._id,
+          email: invitation.email,
+          status: invitation.status,
+          expiresAt,
+        },
+        message: 'Invitation email resent.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 export default adminRouter;
