@@ -149,8 +149,7 @@ test(
         }),
       });
       assert.equal(adminCatalogLogin.response.status, 200);
-      assert.equal(adminCatalogLogin.body.user.adminPermissions, undefined);
-      assert.deepEqual(adminCatalogLogin.body.user.adminPermissions ?? [], ['products:manage']);
+      assert.deepEqual(adminCatalogLogin.body.user.adminPermissions, ['products:manage']);
       const adminCatalogToken = adminCatalogLogin.body.accessToken as string;
 
       const customerTarget = await request('/api/auth/register', {
