@@ -797,11 +797,13 @@ adminRouter.post('/invitations/:id/reject', async (req, res, next) => {
  * POST /api/admin/invitations/:id/resend
  *
  * Reissues the one-time invitation token for an invitation that is still in
- * the INVITED state and sends a fresh invitation email. Replacing tokenHash
- * invalidates the previously issued link immediately and the expiry window
- * restarts. Invitations that already advanced (EMAIL_VERIFIED or later) are
- * never reset through this route; rejecting and re-inviting is the explicit
- * path for those cases.
+ * the INVITED state and sends a fresh invitation email. The workflow state is
+ * validated before the email-configuration checks, so an unresendable
+ * invitation reports INVITATION_NOT_RESENDABLE even on a server without email
+ * configured. Replacing tokenHash invalidates the previously issued link
+ * immediately and the expiry window restarts. Invitations that already
+ * advanced (EMAIL_VERIFIED or later) are never reset through this route;
+ * rejecting and re-inviting is the explicit path for those cases.
  */
 adminRouter.post(
   '/invitations/:id/resend',
@@ -812,13 +814,29 @@ adminRouter.post(
   }),
   async (req, res, next) => {
     try {
-      const existing = await AdminInvitationModel.exists({ _id: req.params.id });
+      const currentInvitation = await AdminInvitationModel.findOne({ _id: req.params.id }).select(
+        'status',
+      );
 
-      if (!existing) {
+      if (!currentInvitation) {
         res.status(404).json({
           error: {
             code: 'INVITATION_NOT_FOUND',
             message: 'Invitation not found.',
+          },
+        });
+        return;
+      }
+
+      // Validate the workflow state before touching email configuration, so
+      // the manager learns why a resend is impossible even when the email
+      // provider is not configured.
+      if (currentInvitation.status !== 'INVITED') {
+        res.status(409).json({
+          error: {
+            code: 'INVITATION_NOT_RESENDABLE',
+            message:
+              'Only invitations still awaiting email verification can be resent. Reject and re-invite instead.',
           },
         });
         return;
@@ -880,11 +898,12 @@ adminRouter.post(
       });
 
       if (result.kind === 'not-resendable') {
+        // Race fallback: the invitation advanced between the state check and
+        // the transactional token rotation.
         res.status(409).json({
           error: {
             code: 'INVITATION_NOT_RESENDABLE',
-            message:
-              'Only invitations still awaiting email verification can be resent. Reject and re-invite instead.',
+            message: 'This invitation changed state before the resend could complete.',
           },
         });
         return;
