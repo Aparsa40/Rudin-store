@@ -8,6 +8,7 @@ import {
 import type { SortOrder } from 'mongoose';
 import { ProductModel } from '../models/product.model.js';
 import { normalizeProductSlug, validateProductInput } from '../lib/product-validation.js';
+import { recordAuditDiagnostic } from '../lib/audit.js';
 
 const productsRouter = Router();
 const MAX_PAGE_SIZE = 100;
@@ -314,6 +315,8 @@ productsRouter.patch(
         return;
       }
 
+      const previousStatus = product.status;
+
       const editableFields = [
         'categoryId',
         'brandId',
@@ -422,6 +425,26 @@ productsRouter.patch(
         product.isFeatured = body.isFeatured;
       }
       await product.save();
+
+      if (product.status !== previousStatus) {
+        // Diagnostic tier: the product document itself records the resulting
+        // status and timestamps, so the audit entry adds accountability. A
+        // failed write is surfaced through console.error, not swallowed, but
+        // does not roll back the already committed save.
+        await recordAuditDiagnostic({
+          actorId: req.authUser!.id,
+          actorRole: req.authUser!.role,
+          action: 'product.status_changed',
+          targetType: 'product',
+          targetId: String(product._id),
+          metadata: {
+            from: previousStatus,
+            to: product.status,
+            vendorId: product.vendorId,
+          },
+        });
+      }
+
       res
         .status(200)
         .json({
@@ -457,8 +480,24 @@ productsRouter.delete(
           });
         return;
       }
+      const previousStatus = product.status;
       product.status = 'ARCHIVED';
       await product.save();
+
+      await recordAuditDiagnostic({
+        actorId: req.authUser!.id,
+        actorRole: req.authUser!.role,
+        action: 'product.status_changed',
+        targetType: 'product',
+        targetId: String(product._id),
+        metadata: {
+          from: previousStatus,
+          to: product.status,
+          vendorId: product.vendorId,
+          via: 'delete',
+        },
+      });
+
       res.status(200).json({ success: true, productId: product._id, status: product.status });
     } catch (error) {
       next(error);
