@@ -10,7 +10,11 @@ import { AuditLogModel } from '../models/audit-log.model.js';
 import { createIntegrationAdmin } from './admin-fixtures.js';
 
 const enabled = process.env.RUN_MONGODB_INTEGRATION === 'true' && Boolean(process.env.MONGODB_URI);
-const port = 4320;
+// Every MongoDB integration suite must own a unique API port: 4317 (security),
+// 4318 (orders), 4319 (login-portals), 4320 (coupons-orders), and 4321
+// (coupon-redemption) are taken. This suite uses 4322 to avoid colliding with
+// a server of another suite that is still shutting down.
+const port = 4322;
 const baseUrl = `http://127.0.0.1:${port}`;
 const tokenSecret = 'manager-console-integration-token-secret-at-least-32-characters';
 const bootstrapSecret = 'manager-console-integration-bootstrap-secret-32-chars';
