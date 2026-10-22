@@ -78,36 +78,75 @@ const forward = (stream, target) => {
 forward(child.stdout, process.stdout);
 forward(child.stderr, process.stderr);
 
-const FAILURE_LINE_PATTERN =
-  /(✖|not ok |AssertionError|ERR_ASSERTION|ERR_[A-Z_]+|Error: |Test API exited|exited early|exited with code)/;
+const TAP_RESULT_LINE = /^(ok |not ok |# Subtest|# tests|# suites|# pass|# fail|# cancelled|# skipped|# todo|# duration_ms|# code)/;
 
-// GitHub renders at most 50 annotations per step; keep the feed focused on the
-// clearest failure signals so the first lines identify the failing suite.
+// Extract the full multi-line detail block that follows a marker line. Server
+// error dumps (stack traces, MongoDB errInfo) and TAP failure details span many
+// lines, so single-line filtering loses the root cause.
+function collectBlock(lines, startIndex, maxLines) {
+  const block = [lines[startIndex].trim()];
+  let j = startIndex + 1;
+  while (j < lines.length && block.length < maxLines) {
+    const next = lines[j].trim();
+    if (TAP_RESULT_LINE.test(next)) break;
+    if (next) block.push(next);
+    j += 1;
+  }
+  return { text: block.join('\n'), endIndex: j };
+}
+
+// GitHub renders a limited number of annotations per step; prioritize the root
+// causes (server error dumps) over individual assertion blocks.
 function emitFailureAnnotations(output) {
   if (process.env.CI !== 'true') return;
 
-  const lines = [];
-  for (const rawLine of output.split('\n')) {
-    const line = rawLine.trim();
-    if (line && FAILURE_LINE_PATTERN.test(line) && !lines.includes(line)) {
-      lines.push(line);
+  const lines = output.split('\n');
+  const blocks = [];
+  const consumed = new Set();
+
+  // Server-side unhandled API errors first: they carry the underlying cause.
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes('Unhandled API error:')) {
+      const block = collectBlock(lines, i, 30);
+      blocks.push(block.text);
+      for (let k = i; k < block.endIndex; k++) consumed.add(k);
+      i = block.endIndex - 1;
     }
   }
 
-  const picked = lines.slice(0, 12);
-  if (picked.length === 0) {
-    picked.push(
-      output.trimEnd().split('\n').slice(-10).join(' | ') ||
-        'npm test failed without diagnostic output',
+  // Then every failing test with its assertion details.
+  for (let i = 0; i < lines.length; i++) {
+    if (consumed.has(i)) continue;
+    if (lines[i].trim().startsWith('not ok ')) {
+      const block = collectBlock(lines, i, 30);
+      blocks.push(block.text);
+      for (let k = i; k < block.endIndex; k++) consumed.add(k);
+      i = block.endIndex - 1;
+    }
+  }
+
+  // Split into annotation-sized chunks; GitHub truncates long messages.
+  const chunks = [];
+  for (const block of blocks) {
+    const clean = block.replace(/\u001b\[\d+m/g, '');
+    for (let offset = 0; offset < clean.length; offset += 900) {
+      chunks.push(clean.slice(offset, offset + 900));
+      if (chunks.length >= 10) break;
+    }
+    if (chunks.length >= 10) break;
+  }
+
+  if (chunks.length === 0) {
+    chunks.push(
+      (output.trimEnd().split('\n').slice(-10).join('\n') || 'npm test failed without diagnostic output').slice(0, 900),
     );
   }
 
-  for (const line of picked) {
-    const message = line
+  for (const chunk of chunks) {
+    const message = chunk
       .replace(/%/g, '%25')
       .replace(/\r/g, '%0D')
-      .replace(/\n/g, '%0A')
-      .slice(0, 950);
+      .replace(/\n/g, '%0A');
     console.log(`::error title=Test failure::${message}`);
   }
 
