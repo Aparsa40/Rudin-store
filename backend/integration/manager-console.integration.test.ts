@@ -165,7 +165,7 @@ test(
         }),
       });
       assert.equal(customerTarget.response.status, 201);
-      const customerToken = customerTarget.body.accessToken as string;
+      let customerToken = customerTarget.body.accessToken as string;
       const customerTargetId = customerTarget.body.user.id as string;
 
       const customerFiller = await request('/api/auth/register', {
@@ -362,7 +362,9 @@ test(
         const nonObject = await request(`/api/admin/customers/${customerTargetId}/status`, {
           method: 'PATCH',
           headers: { authorization: `Bearer ${managerToken}` },
-          body: JSON.stringify('not-an-object'),
+          // express.json strict mode rejects JSON primitives before the route
+        // handler runs, so a JSON array is sent to reach the route-level shape check.
+        body: JSON.stringify([1, 2, 3]),
         });
         assert.equal(nonObject.response.status, 400);
         assert.equal(nonObject.body.error.code, 'INVALID_STATUS');
@@ -460,7 +462,13 @@ test(
           }),
         });
         assert.equal(relogin.response.status, 200);
-        assert.equal(relogin.body.user.status, 'ACTIVE');
+        // The login response uses publicUser(), which does not expose status; the
+        // re-enable response above already verified status === 'ACTIVE'.
+        assert.equal(relogin.body.user.id, customerTargetId);
+        assert.equal(relogin.body.user.role, 'CUSTOMER');
+        // Later subtests expect 403 for this customer; the pre-disable token was
+        // revoked by the authVersion bump, so it must be refreshed here.
+        customerToken = relogin.body.accessToken as string;
 
         // Reliable tier: both status changes must have produced audit records
         // coupled to the same transaction.
