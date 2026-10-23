@@ -16,6 +16,10 @@ import ordersRouter from './routes/orders.routes.js';
 import couponsRouter from './routes/coupons.routes.js';
 import adminOrdersRouter from './routes/admin-orders.routes.js';
 import adminInvitationsRouter from './routes/admin-invitations.routes.js';
+import adminCustomersRouter from './routes/admin-customers.routes.js';
+import adminMetricsRouter from './routes/admin-metrics.routes.js';
+import adminProductsRouter from './routes/admin-products.routes.js';
+import adminAuditLogsRouter from './routes/admin-audit-logs.routes.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
@@ -153,6 +157,47 @@ app.use('/api/admin/orders', adminOrdersRouter);
 // /api/admin router; otherwise the admin router's requireRole("MANAGER") guard
 // rejects authorized admins on every /api/admin/vendors/* path.
 app.use('/api/admin/vendors', adminVendorsRouter);
+// The Manager-console support routers follow the same rule as the order and
+// vendor routers above: the MANAGER-only customer, metrics, and audit-log
+// routers and the products:manage-gated catalog oversight router must be
+// mounted before the MANAGER-only /api/admin router, whose requireRole guard
+// would otherwise reject authorized admins on /api/admin/products/*.
+app.use(
+  '/api/admin/customers',
+  createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 60,
+    message: 'Too many admin customer requests. Please try again later.',
+  }),
+);
+app.use('/api/admin/customers', adminCustomersRouter);
+app.use(
+  '/api/admin/metrics',
+  createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 60,
+    message: 'Too many metrics requests. Please try again later.',
+  }),
+);
+app.use('/api/admin/metrics', adminMetricsRouter);
+app.use(
+  '/api/admin/products',
+  createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 60,
+    message: 'Too many admin product requests. Please try again later.',
+  }),
+);
+app.use('/api/admin/products', adminProductsRouter);
+app.use(
+  '/api/admin/audit-logs',
+  createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 60,
+    message: 'Too many audit log requests. Please try again later.',
+  }),
+);
+app.use('/api/admin/audit-logs', adminAuditLogsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/uploads', uploadsRouter);
 app.use('/api/vendors', vendorsRouter);

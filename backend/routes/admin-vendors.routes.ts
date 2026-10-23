@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { UserModel } from '../models/user.model.js';
+import { recordAudit, withAuditTransaction } from '../lib/audit.js';
 
 const adminVendorsRouter = Router();
 // Vendor application review requires the vendors:review permission. The
@@ -51,6 +52,9 @@ adminVendorsRouter.get('/applications', async (req, res, next) => {
   }
 });
 
+// The decision promotes a CUSTOMER to VENDOR or demotes the applicant back to
+// CUSTOMER, so it is a security-critical role change: the update and its
+// audit record commit inside one transaction.
 adminVendorsRouter.patch('/applications/:id', async (req, res, next) => {
   try {
     const decision = req.body?.decision;
@@ -63,20 +67,43 @@ adminVendorsRouter.patch('/applications/:id', async (req, res, next) => {
       return;
     }
 
-    const update =
-      decision === 'APPROVED'
-        ? { $set: { role: 'VENDOR', vendorApplicationStatus: 'APPROVED' } }
-        : { $set: { role: 'CUSTOMER', vendorApplicationStatus: 'REJECTED' } };
-    const application = (await UserModel.findOneAndUpdate(
-      {
-        _id: req.params.id,
-        role: 'CUSTOMER',
-        status: 'ACTIVE',
-        vendorApplicationStatus: 'PENDING',
-      },
-      update,
-      { returnDocument: 'after', runValidators: true },
-    ).select('_id email firstName lastName storeName vendorApplicationStatus role')) as any;
+    const application = await withAuditTransaction(async (session) => {
+      const update =
+        decision === 'APPROVED'
+          ? { $set: { role: 'VENDOR', vendorApplicationStatus: 'APPROVED' } }
+          : { $set: { role: 'CUSTOMER', vendorApplicationStatus: 'REJECTED' } };
+      const updated = (await UserModel.findOneAndUpdate(
+        {
+          _id: req.params.id,
+          role: 'CUSTOMER',
+          status: 'ACTIVE',
+          vendorApplicationStatus: 'PENDING',
+        },
+        update,
+        { returnDocument: 'after', runValidators: true, session },
+      ).select('_id email firstName lastName storeName vendorApplicationStatus role')) as any;
+
+      if (!updated) return null;
+
+      await recordAudit(
+        {
+          actorId: req.authUser!.id,
+          actorRole: req.authUser!.role,
+          action: 'admin.vendor_application.decision',
+          targetType: 'user',
+          targetId: String(updated._id),
+          metadata: {
+            decision,
+            email: updated.email,
+            storeName: updated.storeName ?? '',
+            newRole: updated.role,
+          },
+        },
+        session,
+      );
+
+      return updated;
+    });
 
     if (!application) {
       res

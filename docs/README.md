@@ -20,6 +20,7 @@ This directory contains technical and operational documentation for the reposito
 
 - backend-integration.md — implemented API boundary and remaining integration work
 - server-authoritative-checkout.md — order API design, behavior, and open product decisions
+- manager-console.md — Phase 1 Manager console endpoints: metrics, customer management, catalog oversight, audit history, invitation resend
 - backend/README.md (repository root, `backend/README.md`) — API reference: authentication, administrators, products, orders
 
 ### Testing
@@ -55,6 +56,7 @@ Implemented on the backend (unreleased):
 - authentication, administrator bootstrap/management, vendor approval, and product catalog with server-side authorization
 - server-authoritative, transactional, idempotent order creation and owner-scoped order history
 - automated unit and MongoDB-backed integration tests plus GitHub Actions CI
+- Manager console Phase 1: platform metrics, customer directory with enable/disable, cross-vendor catalog oversight, audit history, and invitation resend
 
 Still not implemented:
 
@@ -72,7 +74,7 @@ Still not implemented:
     npm test
     npm run build
 
-`npm test` runs the backend unit tests, the frontend ordersService unit test, and (when `RUN_MONGODB_INTEGRATION=true` with a MongoDB replica set) both MongoDB integration suites. CI executes all of these on every pull request; see testing.md for the database-isolation rules and the latest verified results.
+`npm test` runs the backend unit tests, the frontend ordersService unit test, and (when `RUN_MONGODB_INTEGRATION=true` with a MongoDB replica set) all six MongoDB integration suites. CI executes all of these on every pull request; see testing.md for the database-isolation rules and the latest verified results.
 
 ## Documentation Rule
 

@@ -32,7 +32,7 @@ node --env-file=.env --import tsx --test backend/integration/coupon-redemption.i
 - Frontend localization unit tests: `src/i18n/core.test.ts` (language validation with the documented English fallback, translation interpolation, en/fa key parity, and non-empty values) and `src/i18n/format.test.ts` (locale-aware `Intl` price, number, date, and countdown formatting; the fa-IR date assertions deliberately avoid pinning a calendar system because ICU renders `fa-IR` with the Persian calendar by default).
 - Homepage unit tests: `src/config/homeContent.test.ts` (bilingual copy completeness, links restricted to known routes, in-repo assets only) and `src/components/home/heroCarouselLogic.test.ts` (slide wrap-around, autoplay/reduced-motion/pause rules, and index normalization).
 - Admin-contract unit tests: `src/config/adminPermissions.test.ts` (dashboard section-to-permission mapping with fail-closed behavior) and `src/services/admin/adminApi.test.ts` (admin API request building and response parsing, including coupon and order operations).
-- Five MongoDB-backed integration suites: `backend/integration/security.integration.test.ts`, `backend/integration/orders.integration.test.ts`, `backend/integration/login-portals.integration.test.ts`, `backend/integration/coupons-orders.integration.test.ts`, and `backend/integration/coupon-redemption.integration.test.ts`.
+- Six MongoDB-backed integration suites: `backend/integration/security.integration.test.ts`, `backend/integration/orders.integration.test.ts`, `backend/integration/login-portals.integration.test.ts`, `backend/integration/coupons-orders.integration.test.ts`, `backend/integration/coupon-redemption.integration.test.ts`, and `backend/integration/manager-console.integration.test.ts`.
 
 The test runner loads a local `.env` automatically through `dotenv/config`; set `RUN_MONGODB_INTEGRATION=true` and point `MONGODB_URI` at the dedicated `rudin_store_integration_test` database to run integration suites locally. If the opt-in flag or URI is absent outside CI, Node's test runner marks those suites skipped. In GitHub Actions, the runner fails fast if either integration setting is missing, preventing a green CI result with silently skipped MongoDB tests. CI starts an ephemeral MongoDB replica set, supplies both variables explicitly, and runs `npm test` in the TypeScript Check job while the Production Build job builds in parallel.
 
@@ -44,17 +44,20 @@ The orders suite covers server-authoritative pricing (client-supplied totals ign
 
 The login-portals suite covers per-portal role matching with generic non-enumerating errors, pending and rejected vendor applicants on the vendor portal, public-registration role-escalation prevention (no ADMIN or MANAGER), manager-owned governance (the manager manages the catalog while appointed admins stay inside their granted permissions and cannot self-escalate), disabled-admin and expired-token rejection, and password-reset credential rotation with session revocation.
 
+The manager-console suite covers MANAGER-only access boundaries for platform metrics, the customer directory, and audit history; `products:manage` scoping for read-only catalog oversight; server-side role validation for customer status changes (ADMIN and VENDOR targets are rejected and never modified); session revocation through `authVersion`; transactional audit coupling for sensitive actions; the invitation-resend state machine including its email-configuration gate without token rotation; and non-regression of the existing Manager invitation, admin governance, and vendor-review flows.
+
 All test files were audited for assertion quality: no tautological or unconditional-pass assertions (`|| true` patterns) exist in any test file.
 
 ## MongoDB integration-test safety
 
-The five integration suites use separate, derived databases and run sequentially (`--test-concurrency=1`) to avoid concurrent writes and API startup contention:
+The six integration suites use separate, derived databases and run sequentially (`--test-concurrency=1`) to avoid concurrent writes and API startup contention:
 
 - `rudin_store_integration_test` for the security suite.
 - `rudin_store_integration_test_orders` for the orders suite.
 - `rudin_store_integration_test_portals` for the login-portals suite.
 - `rudin_store_integration_test_coupons` for the coupons/orders permission and API suite.
 - `rudin_store_integration_test_redeem` for transactional coupon-redemption concurrency.
+- `rudin_store_integration_test_manager_console` for the manager-console suite.
 
 Each suite derives its database name from the configured test URI and runs serially, so suites cannot wipe each other's data.
 
